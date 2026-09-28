@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeamDrop</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="qrcode.min.js"></script>
+  <script src="peerjs.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="logo-box">
+        <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">BeamDrop</h1>
+        <p class="brand-sub">DIRECT P2P STREAM</p>
+      </div>
+    </div>
+    <div id="statusBadge" class="status-badge">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+  </header>
+
+  <!-- STAGE 1: File Staging & Upload -->
+  <main id="stageStaging" class="stage-container">
+    <div id="dropZone" class="drop-zone">
+      <input type="file" id="fileInput" class="hidden-input" accept="*/*" multiple />
+      <div class="drop-icon-circle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      </div>
+      <p class="drop-title">Drop ANY file, video, photo, or ZIP</p>
+      <p class="drop-sub">Direct RAM stream • No size limits • Zero cloud</p>
+    </div>
+
+    <!-- Staged File Preview Card -->
+    <div id="stagedCard" class="staged-card" style="display: none;">
+      <div class="thumb-wrapper">
+        <img id="thumbImg" class="thumb-img" alt="preview" style="display: none;" />
+        <div id="thumbIcon" class="thumb-icon">📦</div>
+      </div>
+      <div class="staged-info">
+        <p id="stagedFileName" class="staged-name">archive.zip</p>
+        <div class="staged-meta">
+          <span id="stagedFileSize">0 MB</span>
+          <span>•</span>
+          <span style="color: #38bdf8;">Ready to Beam</span>
+        </div>
+      </div>
+      <button id="btnRemoveFile" class="btn-trash" title="Remove File">✕</button>
+    </div>
+
+    <!-- Primary CTA Button -->
+    <button id="btnGenerateQr" class="btn-cta-generate" disabled>
+      <span>⚡ Generate QR Code</span>
+    </button>
+  </main>
+
+  <!-- STAGE 2: Portal Active & QR Code Display -->
+  <main id="stagePortal" class="stage-container" style="display: none;">
+    <div class="qr-card-container">
+      <div class="qr-box-200">
+        <canvas id="qrcodeCanvas" width="184" height="184"></canvas>
+      </div>
+
+      <div class="radar-row">
+        <span class="radar-ping"></span>
+        <span class="radar-text">Ready for scan... Open camera on phone</span>
+      </div>
+      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/?peer=...</p>
+
+      <div class="qr-actions-row">
+        <button id="btnCopyLink" class="btn-secondary">
+          <span id="copyLinkText">Copy Link</span>
+        </button>
+        <button id="btnCancelPortal" class="btn-secondary" style="color: #f87171;">
+          Cancel / New Upload
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- STAGE 3: High-Performance Streaming & Auto-Transfer -->
+  <main id="stageTransfer" class="stage-container" style="display: none;">
+    <div class="transfer-live-card">
+      <p id="transferFileTitle" class="transfer-file-title">Sending file...</p>
+      <div class="progress-track">
+        <div id="transferProgressFill" class="progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="transfer-metrics-row">
+        <span id="transferPercentText">0%</span>
+        <span id="transferSpeedText" class="speed-tag">0 MB/s</span>
+        <span id="transferEtaText">Streaming...</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- STAGE 4: Completion & Reset -->
+  <main id="stageComplete" class="stage-container" style="display: none;">
+    <div class="complete-card">
+      <div class="complete-icon">✓</div>
+      <h3 class="complete-title">Transfer Complete!</h3>
+      <p class="complete-sub">File streamed directly and saved to your device.</p>
+      <button id="btnSendAnother" class="btn-cta-generate">
+        <span>Send Another File</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="secure-dot"></span>
+      <span>P2P Encrypted</span>
+    </div>
+    <span>Zero Cloud Storage</span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "BeamDrop - P2P File & Text Transfer",
+  "description": "Lightning-fast direct Device-to-Device P2P file, photo, and text transfer via WebRTC with instant QR code pairing and Manifest V3 Chrome Extension.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
