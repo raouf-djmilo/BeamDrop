@@ -18,8 +18,13 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
 
   // Ensure receiver URL in popupJs matches cleanUrl
   const processedPopupJs = popupJsRaw.replace(
-    /const VERCEL_RECEIVER_URL = '[^']+';/,
-    `const VERCEL_RECEIVER_URL = '${cleanUrl}';`
+    /(?:let|const)\s+VERCEL_RECEIVER_URL\s*=\s*["'][^"']+["'];/,
+    `let VERCEL_RECEIVER_URL = "${cleanUrl}";`
+  );
+
+  const processedBackgroundJs = backgroundJsRaw.replace(
+    /(?:let|const)\s+DEFAULT_VERCEL_URL\s*=\s*["'][^"']+["'];/,
+    `const DEFAULT_VERCEL_URL = "${cleanUrl}";`
   );
 
   return [
@@ -56,7 +61,7 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
       path: 'background.js',
       language: 'javascript',
       description: 'Manifest V3 Service Worker for context menus & notifications',
-      content: backgroundJsRaw
+      content: processedBackgroundJs
     }
   ];
 };
@@ -82,16 +87,23 @@ export const generateExtensionZipBlob = async (receiverBaseUrl: string = 'https:
 
   // Include bundled offline libraries
   try {
-    const [qrResp, peerResp] = await Promise.all([
-      fetch('/extension/qrcode.min.js'),
-      fetch('/extension/peerjs.min.js')
+    const fetchFirstAvailable = async (paths: string[]) => {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p);
+          if (r.ok) return await r.text();
+        } catch (_) {}
+      }
+      return null;
+    };
+
+    const [qrText, peerText] = await Promise.all([
+      fetchFirstAvailable(['/libs/qrcode.min.js', '/extension/qrcode.min.js', '/extension/libs/qrcode.min.js']),
+      fetchFirstAvailable(['/libs/peerjs.min.js', '/extension/peerjs.min.js', '/extension/libs/peerjs.min.js'])
     ]);
-    if (qrResp.ok && peerResp.ok) {
-      const qrText = await qrResp.text();
-      const peerText = await peerResp.text();
-      zip.file('qrcode.min.js', qrText);
-      zip.file('peerjs.min.js', peerText);
-    }
+
+    if (qrText) zip.file('qrcode.min.js', qrText);
+    if (peerText) zip.file('peerjs.min.js', peerText);
   } catch (e) {
     console.warn('Could not fetch static extension libs:', e);
   }

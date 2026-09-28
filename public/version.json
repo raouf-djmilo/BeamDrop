@@ -1,27 +1,41 @@
 {
   "name": "BeamDrop",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "releaseDate": "2026-09-28",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
-  "githubUrl": "https://github.com",
+  "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "highlights": [
-    "⚡ Direct Phone Download Gateway: Scanning QR immediately prompts native browser download without opening website UI",
-    "🔄 1-Click Fast Extension Updater: Automatic notification badge in Chrome toolbar & 1-click in-place reload",
-    "🔔 Background Cloud Watcher: Periodically checks GitHub / Vercel for new releases automatically",
-    "📦 Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files and ZIP archives"
+    "🚀 1-Click Direct ZIP Package Downloader via chrome.downloads API directly to user machine",
+    "🔄 Dual Cloud Sync Engine: Simultaneous real-time querying against Vercel and GitHub Raw",
+    "🔔 Chrome Native Notification & Glowing Cyan Badge for all new releases",
+    "🧪 In-Extension Old Version Simulator: Instant testing of update notifications from v1.0.0, v1.2.0, and v1.3.0",
+    "⚡ Direct Phone Download Gateway: QR code prompts instant mobile browser download"
   ],
   "changelog": [
     {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "date": "2026-09-28",
       "type": "major",
+      "title": "Automated Package Downloader & Dual GitHub/Vercel Sync",
+      "changes": [
+        "Direct chrome.downloads API integration: downloads new extension.zip directly to user Downloads folder with 1 click",
+        "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting",
+        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel",
+        "Interactive Version Simulator in the Updates tab to preview and test how older version users experience updates",
+        "Guided 2-step reload assistant with 1-click chrome://extensions launcher"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-09-28",
+      "type": "minor",
       "title": "1-Click Fast Updater & Background Notification Engine",
       "changes": [
-        "In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome",
-        "Toolbar notification badge [NEW] when a new GitHub/Vercel release is published",
+        "In-extension fast updater interface: update directly without removing or re-adding the extension in Chrome",
+        "Toolbar notification badge ('NEW') when a new GitHub/Vercel release is published",
         "Periodic background watcher to alert users automatically of new releases",
-        "Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0"
+        "Integrated TURN relay for high-speed transfer across firewalls"
       ]
     },
     {

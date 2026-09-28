@@ -1,9 +1,10 @@
 /**
  * BeamDrop Background Service Worker (Manifest V3)
- * Handles context menus, OTA background update checks, and toolbar notification badges.
+ * Handles context menus, OTA background update checks, toolbar notification badges, and direct downloads.
  */
 
 const DEFAULT_VERCEL_URL = "https://beam-drop-mu.vercel.app";
+const GITHUB_RAW_URL = "https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/public/version.json";
 const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
 
 // Initialize on installed
@@ -32,7 +33,7 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["action"]
   });
 
-  // Setup periodic background check for updates (every 30 mins)
+  // Setup periodic background check for updates (every 30 mins, with immediate 1-min initial check)
   chrome.alarms.create(UPDATE_ALARM_NAME, {
     periodInMinutes: 30,
     delayInMinutes: 1
@@ -48,6 +49,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     checkCloudForUpdates();
   }
 });
+
+// Notification click listener
+if (chrome.notifications && chrome.notifications.onClicked) {
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId.startsWith('beamdrop_update_')) {
+      chrome.action.openPopup ? chrome.action.openPopup() : null;
+    }
+  });
+}
 
 // Context Menu actions
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -105,6 +115,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'clear_update_badge') {
     chrome.action.setBadgeText({ text: '' });
     sendResponse({ cleared: true });
+    return true;
   }
   if (message.action === 'trigger_runtime_reload') {
     setTimeout(() => {
@@ -113,6 +124,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     }, 100);
     sendResponse({ reloading: true });
+    return true;
+  }
+  if (message.action === 'download_update_package') {
+    const url = message.url || `${DEFAULT_VERCEL_URL}/extension.zip`;
+    const filename = message.filename || 'BeamDrop-Extension-Latest.zip';
+    if (chrome.downloads && chrome.downloads.download) {
+      chrome.downloads.download({
+        url: url,
+        filename: filename,
+        saveAs: false,
+        conflictAction: 'overwrite'
+      }, (downloadId) => {
+        sendResponse({ success: Boolean(downloadId), downloadId });
+      });
+      return true;
+    } else {
+      sendResponse({ success: false, reason: 'downloads API unavailable' });
+      return true;
+    }
   }
   if (message.action === 'request_store_update_check') {
     if (chrome.runtime.requestUpdateCheck) {
@@ -122,16 +152,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     } else {
       sendResponse({ status: 'unsupported' });
+      return true;
     }
   }
 });
 
-// Background Cloud Updater Check
+// Background Cloud Updater Check (Vercel + GitHub Raw Dual Polling)
 async function checkCloudForUpdates() {
   try {
-    const installedVer = chrome.runtime.getManifest().version || '1.2.0';
+    let installedVer = (chrome.runtime && chrome.runtime.getManifest)
+      ? (chrome.runtime.getManifest().version || '1.3.0')
+      : '1.3.0';
 
-    // Retrieve custom server or repo if set
+    // Support test simulation version override if set in storage
+    if (chrome.storage && chrome.storage.local) {
+      const storedSim = await chrome.storage.local.get(['simulated_installed_version', 'custom_update_server']);
+      if (storedSim && storedSim.simulated_installed_version) {
+        installedVer = storedSim.simulated_installed_version;
+      }
+    }
+
     let targetBaseUrl = DEFAULT_VERCEL_URL;
     if (chrome.storage && chrome.storage.local) {
       const stored = await chrome.storage.local.get(['custom_update_server']);
@@ -140,14 +180,29 @@ async function checkCloudForUpdates() {
       }
     }
 
-    const endpoint = `${targetBaseUrl}/version.json?_t=${Date.now()}`;
-    const resp = await fetch(endpoint, { cache: 'no-store' });
-    if (!resp.ok) return { hasUpdate: false };
+    const endpoints = [
+      `${targetBaseUrl}/version.json?_t=${Date.now()}`,
+      `${GITHUB_RAW_URL}?_t=${Date.now()}`
+    ];
 
-    const data = await resp.json();
-    const remoteVer = data.version || '1.3.0';
+    let data = null;
+    for (const url of endpoints) {
+      try {
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (resp.ok) {
+          data = await resp.json();
+          if (data && data.version) break;
+        }
+      } catch (e) {
+        console.debug('Failed fetching from:', url, e);
+      }
+    }
 
+    if (!data || !data.version) return { hasUpdate: false };
+
+    const remoteVer = data.version;
     const isNewer = compareSemver(remoteVer, installedVer) > 0;
+
     if (isNewer) {
       // Set badge on toolbar icon
       chrome.action.setBadgeText({ text: 'NEW' });
@@ -158,15 +213,27 @@ async function checkCloudForUpdates() {
         await chrome.storage.local.set({
           updateAvailable: true,
           latestVersion: remoteVer,
+          updateDownloadUrl: data.downloadUrl || `${targetBaseUrl}/extension.zip`,
           updateHighlights: data.highlights || [],
           updateChangelog: data.changelog || [],
           lastCheckedTimestamp: Date.now()
         });
       }
-      return { hasUpdate: true, version: remoteVer };
+
+      // Native OS notification (alert user even when popup is closed)
+      if (chrome.notifications && chrome.notifications.create) {
+        chrome.notifications.create(`beamdrop_update_${remoteVer}`, {
+          type: "basic",
+          iconUrl: "icons/icon48.png",
+          title: `⚡ BeamDrop Update v${remoteVer} Available!`,
+          message: `A new version of BeamDrop was published on GitHub/Vercel. Click toolbar icon to download and update.`
+        });
+      }
+
+      return { hasUpdate: true, version: remoteVer, data };
     } else {
       chrome.action.setBadgeText({ text: '' });
-      return { hasUpdate: false, version: remoteVer };
+      return { hasUpdate: false, version: remoteVer, data };
     }
   } catch (err) {
     console.debug('Background update check skipped/failed:', err);

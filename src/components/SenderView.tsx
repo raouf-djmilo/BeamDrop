@@ -55,10 +55,10 @@ export const SenderView: React.FC<SenderViewProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Default to Vercel production URL or current preview URL
-  const targetBaseUrl = receiverBaseUrl.includes('vercel.app')
-    ? receiverBaseUrl
-    : 'https://beam-drop-mu.vercel.app';
+  // Default to provided receiver base URL or current origin
+  const targetBaseUrl = receiverBaseUrl || (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}`
+    : 'https://beam-drop-mu.vercel.app');
 
   const firstFile = stagedFiles[0];
   const fileParams = firstFile

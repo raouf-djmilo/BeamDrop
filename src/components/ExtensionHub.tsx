@@ -249,7 +249,7 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
 
           <div className="flex items-center space-x-3 shrink-0">
             <div className="px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-              Latest: <span className="text-cyan-400 font-bold">v1.3.0</span>
+              Latest: <span className="text-cyan-400 font-bold">v1.4.0</span>
             </div>
             <a
               href="/version.json"
@@ -263,20 +263,35 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-slate-950/90 border border-cyan-500/40 rounded-2xl p-4 space-y-2 shadow-lg shadow-cyan-950/20">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50">
-                v1.3.0 (LATEST)
+                v1.4.0 (LATEST)
               </span>
               <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
             </div>
-            <h4 className="text-xs font-bold text-white">1-Click Fast Updater & Background Alert</h4>
+            <h4 className="text-xs font-bold text-white">Direct Package Downloader & Dual Sync</h4>
             <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
-              <li>1-click in-place update & reload without deleting extension.</li>
-              <li>Toolbar notification badge ('NEW') when update is found.</li>
-              <li>Simulation mode for testing old v1.2.0 vs v1.3.0.</li>
-              <li>Cloud & GitHub repository source configuration.</li>
+              <li>Direct auto-download of update ZIP via chrome.downloads.</li>
+              <li>Dual cloud polling: Vercel + raw.githubusercontent.com.</li>
+              <li>Native desktop notification for new releases.</li>
+              <li>Interactive test switcher to simulate older versions.</li>
+            </ul>
+          </div>
+
+          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                v1.3.0
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
+            </div>
+            <h4 className="text-xs font-bold text-slate-200">1-Click Fast Updater</h4>
+            <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
+              <li>In-extension 2-state update view.</li>
+              <li>Toolbar notification badge ('NEW').</li>
+              <li>Background alarm periodic check.</li>
             </ul>
           </div>
 

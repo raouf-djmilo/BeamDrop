@@ -233,7 +233,7 @@
         </svg>
       </div>
       <h3 class="uptodate-headline">BeamDrop is up to date</h3>
-      <div id="uptodateVersionBadge" class="uptodate-ver-pill">v1.3.0</div>
+      <div id="uptodateVersionBadge" class="uptodate-ver-pill">v1.4.0</div>
       <p class="uptodate-sub">You have the latest version installed with all security and performance features.</p>
 
       <div class="uptodate-bottom-bar">
@@ -245,13 +245,26 @@
         </button>
         <span id="lastCheckedText" class="uptodate-time">Last checked: Just now</span>
       </div>
+
+      <!-- Developer Test / Simulation Sandbox -->
+      <div class="sim-tester-box">
+        <span class="sim-tester-label">🧪 Test Older Version Alert:</span>
+        <div class="sim-tester-buttons">
+          <button id="btnSimulateV120" type="button" class="btn-sim-ver" title="Simulate how v1.2.0 user receives update">Simulate v1.2.0</button>
+          <button id="btnSimulateV130" type="button" class="btn-sim-ver" title="Simulate how v1.3.0 user receives update">Simulate v1.3.0</button>
+          <button id="btnSimulateReal" type="button" class="btn-sim-ver active-sim" title="Reset to real manifest version">Real (v1.4.0)</button>
+        </div>
+      </div>
     </div>
 
     <!-- STATE B: NEW UPDATE AVAILABLE (currentVersion < latestVersion) -->
     <div id="stateUpdateAvailable" class="update-clean-card available-theme" style="display: none;">
       <div class="available-top-row">
         <span class="available-pulse-tag">⚡ New Version Available</span>
-        <span id="availableVerPill" class="available-ver-badge">v1.4.0</span>
+        <div class="flex items-center gap-1">
+          <span id="currentVerPill" class="text-[10px] text-slate-400 font-mono">v1.3.0 ➔</span>
+          <span id="availableVerPill" class="available-ver-badge">v1.4.0</span>
+        </div>
       </div>
 
       <div class="available-notes-box">
@@ -264,7 +277,7 @@
       <!-- Live Update Progress Animation (hidden until updating) -->
       <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
         <div class="update-progress-header">
-          <span id="updateProgressLabel">⚡ Updating & Reloading...</span>
+          <span id="updateProgressLabel">⚡ Downloading update package...</span>
           <span id="updateProgressPercent" class="font-mono">0%</span>
         </div>
         <div class="update-progress-bar">
@@ -272,13 +285,35 @@
         </div>
       </div>
 
+      <!-- Step 2: Post-Download Replacement Assistant -->
+      <div id="updatePostDownloadBox" class="update-post-download-box" style="display: none;">
+        <div class="post-download-title">
+          <span class="text-emerald-400 font-bold">✓ Package Downloaded!</span>
+        </div>
+        <p class="post-download-desc">
+          1. Extract the downloaded <code id="downloadedFilename">BeamDrop-v1.4.0.zip</code> into your extension folder.<br/>
+          2. Open Chrome Extensions and click <strong>Reload</strong>.
+        </p>
+        <div class="post-download-actions">
+          <button id="btnOpenExtensionsPage" type="button" class="btn-clean-check">
+            <span>Open Extensions Manager</span>
+          </button>
+          <button id="btnReloadExtension" type="button" class="btn-clean-check" style="border-color: #06b6d4; color: #38bdf8;">
+            <span>🔄 Reload Extension</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Primary 1-Click Update Button -->
       <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
-        <span id="btnTriggerUpdateText">⚡ 1-Click Update & Reload</span>
+        <span id="btnTriggerUpdateText">⚡ Download & Apply Update (.ZIP)</span>
       </button>
 
-      <div class="available-footer-info">
-        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked automatically from cloud repository</span>
+      <div class="available-footer-info flex items-center justify-between mt-2">
+        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked from GitHub & Vercel</span>
+        <button id="btnResetSimulation" type="button" class="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors" style="display: none; background: none; border: none; cursor: pointer;">
+          Reset Simulation
+        </button>
       </div>
     </div>
 

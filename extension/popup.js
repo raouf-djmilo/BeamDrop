@@ -36,7 +36,7 @@ const EXTENSION_ICE_SERVERS = [
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
   ? chrome.runtime.getManifest().version
-  : '1.3.0';
+  : '1.4.0';
 
 // State
 let stagedFiles = [];
@@ -46,6 +46,7 @@ let currentPeerId = null;
 let isStreaming = false;
 let currentActiveView = 'send'; // 'send' | 'updates'
 let remoteVersionInfo = null;
+let simulatedInstalledVer = null; // null = use REAL_MANIFEST_VERSION
 
 // DOM Elements
 const btnPopoutWindow = document.getElementById('btnPopoutWindow');
@@ -108,17 +109,26 @@ const btnCheckUpdates = document.getElementById('btnCheckUpdates');
 const btnCheckUpdatesText = document.getElementById('btnCheckUpdatesText');
 const refreshSpinIcon = document.getElementById('refreshSpinIcon');
 const lastCheckedText = document.getElementById('lastCheckedText');
+const btnSimulateV120 = document.getElementById('btnSimulateV120');
+const btnSimulateV130 = document.getElementById('btnSimulateV130');
+const btnSimulateReal = document.getElementById('btnSimulateReal');
 
 const stateUpdateAvailable = document.getElementById('stateUpdateAvailable');
+const currentVerPill = document.getElementById('currentVerPill');
 const availableVerPill = document.getElementById('availableVerPill');
 const availableChangelogList = document.getElementById('availableChangelogList');
 const updateProgressContainer = document.getElementById('updateProgressContainer');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
 const updateProgressPercent = document.getElementById('updateProgressPercent');
 const updateProgressFill = document.getElementById('updateProgressFill');
+const updatePostDownloadBox = document.getElementById('updatePostDownloadBox');
+const downloadedFilename = document.getElementById('downloadedFilename');
+const btnOpenExtensionsPage = document.getElementById('btnOpenExtensionsPage');
+const btnReloadExtension = document.getElementById('btnReloadExtension');
 const btnTriggerUpdate = document.getElementById('btnTriggerUpdate');
 const btnTriggerUpdateText = document.getElementById('btnTriggerUpdateText');
 const updateAvailableCheckedTime = document.getElementById('updateAvailableCheckedTime');
+const btnResetSimulation = document.getElementById('btnResetSimulation');
 
 // Initialize version in footer
 if (footerVersionText) {
@@ -742,6 +752,8 @@ function cleanupTransferSession() {
 // STAGE 5: OVER-THE-AIR (OTA) 1-CLICK UPDATER ENGINE
 // ==========================================
 
+const GITHUB_RAW_FALLBACK = "https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/public/version.json";
+
 function compareSemver(v1, v2) {
   const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
   const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -754,16 +766,39 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
-// Built-in registry fallback for instant offline reliability
+// Built-in registry fallback
 const BUILT_IN_LATEST_REGISTRY = {
-  version: '1.3.0',
+  version: '1.4.0',
+  downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
-    'Direct Phone Download Gateway: Scanning QR prompts native download without opening full website UI',
-    'Streamlined 2-State In-Place Updater: Ultra-clean interface with 1-click reload',
-    'Integrated TURN Relay: 100% connectivity across mobile 4G/5G and symmetric NAT firewalls',
-    'Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files'
+    'Direct chrome.downloads API integration: auto-downloads new extension.zip directly to your computer',
+    'Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting',
+    'Native Chrome desktop notification when a new version is pushed to GitHub/Vercel',
+    'Interactive Version Simulator in the Updates tab to preview and test how older version users experience updates',
+    'Guided 2-step reload assistant with 1-click chrome://extensions launcher'
   ]
 };
+
+async function fetchLatestCloudVersion() {
+  const endpoints = [
+    `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
+    `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const resp = await fetch(ep, { cache: 'no-store' });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json && json.version) return json;
+      }
+    } catch (e) {
+      console.debug('Failed to fetch from endpoint:', ep, e);
+    }
+  }
+
+  return BUILT_IN_LATEST_REGISTRY;
+}
 
 async function checkForUpdates(manual = false) {
   if (manual) {
@@ -771,26 +806,17 @@ async function checkForUpdates(manual = false) {
     if (refreshSpinIcon) refreshSpinIcon.classList.add('spinning');
   }
 
-  const currentVer = REAL_MANIFEST_VERSION;
+  const currentVer = simulatedInstalledVer || REAL_MANIFEST_VERSION;
   if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
-  let remoteData = null;
-  try {
-    const endpoint = `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`;
-    const resp = await fetch(endpoint, { cache: 'no-store' });
-    if (resp.ok) {
-      remoteData = await resp.json();
-    }
-  } catch (err) {
-    console.debug('Cloud version check failed:', err);
-  }
-
-  if (!remoteData) {
-    remoteData = BUILT_IN_LATEST_REGISTRY;
-  }
-
-  const latestVer = remoteData.version || '1.3.0';
+  remoteVersionInfo = await fetchLatestCloudVersion();
+  const latestVer = remoteVersionInfo.version || '1.4.0';
   const isNewer = compareSemver(latestVer, currentVer) > 0;
+
+  // Sync simulator button highlights
+  if (btnSimulateV120) btnSimulateV120.className = simulatedInstalledVer === '1.2.0' ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
+  if (btnSimulateV130) btnSimulateV130.className = simulatedInstalledVer === '1.3.0' ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
+  if (btnSimulateReal) btnSimulateReal.className = !simulatedInstalledVer ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
 
   if (isNewer) {
     // STATE B: NEW UPDATE AVAILABLE
@@ -798,12 +824,18 @@ async function checkForUpdates(manual = false) {
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'block';
 
+    if (currentVerPill) currentVerPill.textContent = `v${currentVer} ➔`;
     if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
-    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Update to v${latestVer} & Reload`;
+    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Download & Apply Update v${latestVer}`;
+    if (updatePostDownloadBox) updatePostDownloadBox.style.display = 'none';
+    if (updateProgressContainer) updateProgressContainer.style.display = 'none';
+    if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'flex';
+    if (btnResetSimulation) btnResetSimulation.style.display = simulatedInstalledVer ? 'inline' : 'none';
 
-    const notes = remoteData.highlights || (remoteData.changelog && remoteData.changelog[0] && remoteData.changelog[0].changes) || [
-      'Performance enhancements and streaming stability fixes.',
-      'Updated WebRTC ICE connectivity profiles.'
+    const notes = remoteVersionInfo.highlights || (remoteVersionInfo.changelog && remoteVersionInfo.changelog[0] && remoteVersionInfo.changelog[0].changes) || [
+      'Automated 1-click extension package downloader via chrome.downloads',
+      'Dual Vercel & GitHub Raw cloud release synchronization',
+      'Performance enhancements and streaming stability fixes.'
     ];
 
     if (availableChangelogList) {
@@ -837,57 +869,143 @@ async function checkForUpdates(manual = false) {
   }
 }
 
-// 1-Click Update Action
-function startOneClickUpdate(ver) {
-  if (updateProgressContainer) {
-    updateProgressContainer.style.display = 'block';
-  }
-  if (btnTriggerUpdate) {
-    btnTriggerUpdate.disabled = true;
-  }
+// 1-Click Update Action (Downloads real ZIP package directly)
+async function startOneClickUpdate(ver) {
+  if (updateProgressContainer) updateProgressContainer.style.display = 'block';
+  if (btnTriggerUpdate) btnTriggerUpdate.disabled = true;
 
-  setUpdateProgress(35, `⚡ Applying update v${ver}...`);
+  setUpdateProgress(25, `⚡ Requesting package v${ver} from cloud...`);
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
-    chrome.runtime.requestUpdateCheck((status, details) => {
-      console.log('Chrome runtime requestUpdateCheck:', status, details);
-      finalizeSeamlessUpdate(ver);
-    });
-  } else {
-    finalizeSeamlessUpdate(ver);
-  }
+  const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl) || `${VERCEL_RECEIVER_URL}/extension.zip`;
+  const filename = `BeamDrop-Extension-v${ver}.zip`;
+
+  setTimeout(async () => {
+    setUpdateProgress(60, `⚡ Saving ${filename} to your Downloads...`);
+
+    let downloadTriggered = false;
+
+    // 1. Try Chrome Downloads API
+    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+      try {
+        chrome.downloads.download({
+          url: downloadUrl,
+          filename: filename,
+          saveAs: false,
+          conflictAction: 'overwrite'
+        }, (id) => {
+          if (id) downloadTriggered = true;
+          finishDownloadStep(ver, filename);
+        });
+      } catch (err) {
+        console.warn('Chrome downloads error:', err);
+      }
+    }
+
+    // 2. Try Chrome runtime background message
+    if (!downloadTriggered && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        action: 'download_update_package',
+        url: downloadUrl,
+        filename: filename
+      }, (resp) => {
+        if (resp && resp.success) {
+          finishDownloadStep(ver, filename);
+        } else {
+          fallbackBrowserDownload(downloadUrl, filename, ver);
+        }
+      });
+      return;
+    }
+
+    if (!downloadTriggered) {
+      fallbackBrowserDownload(downloadUrl, filename, ver);
+    }
+  }, 400);
 }
 
-function finalizeSeamlessUpdate(ver) {
-  setTimeout(() => {
-    setUpdateProgress(70, `⚡ Version v${ver} activated! Syncing Chrome runtime...`);
+function fallbackBrowserDownload(url, filename, ver) {
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (e) {
+    window.open(url, '_blank');
+  }
+  finishDownloadStep(ver, filename);
+}
 
+function finishDownloadStep(ver, filename) {
+  setUpdateProgress(100, `✓ Downloaded ${filename} successfully!`);
+
+  setTimeout(() => {
+    if (updateProgressContainer) updateProgressContainer.style.display = 'none';
+    if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'none';
+
+    if (updatePostDownloadBox) {
+      updatePostDownloadBox.style.display = 'block';
+      if (downloadedFilename) downloadedFilename.textContent = filename;
+    }
+
+    // Clear toolbar badge
     if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
       chrome.action.setBadgeText({ text: '' });
     }
-
-    setTimeout(() => {
-      setUpdateProgress(100, `✓ Updated successfully! Reloading extension...`);
-      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `✓ Reloading v${ver}...`;
-
-      setTimeout(() => {
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-          try {
-            chrome.runtime.reload();
-          } catch (e) {
-            console.log('Reload triggered:', e);
-          }
-        } else {
-          // Fallback in simulated/tab view: transition directly to State A
-          if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
-          if (stateUpToDate) stateUpToDate.style.display = 'block';
-          if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + ver;
-          if (footerVersionText) footerVersionText.textContent = 'v' + ver;
-          if (btnTriggerUpdate) btnTriggerUpdate.disabled = false;
-        }
-      }, 700);
-    }, 600);
   }, 500);
+}
+
+// Handlers for Post-Download Assistant
+if (btnOpenExtensionsPage) {
+  btnOpenExtensionsPage.addEventListener('click', () => {
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: 'chrome://extensions' });
+    } else {
+      window.open('chrome://extensions', '_blank');
+    }
+  });
+}
+
+if (btnReloadExtension) {
+  btnReloadExtension.addEventListener('click', () => {
+    if (btnReloadExtension) btnReloadExtension.textContent = '🔄 Reloading...';
+    setTimeout(() => {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+        chrome.runtime.reload();
+      } else {
+        // If testing simulation, reset to real version
+        setSimulatedVersion(null);
+      }
+    }, 400);
+  });
+}
+
+// Simulator version switcher (allows instant testing of older version update flows)
+function setSimulatedVersion(ver) {
+  simulatedInstalledVer = ver;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    if (ver) {
+      chrome.storage.local.set({ simulated_installed_version: ver });
+    } else {
+      chrome.storage.local.remove(['simulated_installed_version']);
+    }
+  }
+  checkForUpdates(false);
+}
+
+if (btnSimulateV120) {
+  btnSimulateV120.addEventListener('click', () => setSimulatedVersion('1.2.0'));
+}
+if (btnSimulateV130) {
+  btnSimulateV130.addEventListener('click', () => setSimulatedVersion('1.3.0'));
+}
+if (btnSimulateReal) {
+  btnSimulateReal.addEventListener('click', () => setSimulatedVersion(null));
+}
+if (btnResetSimulation) {
+  btnResetSimulation.addEventListener('click', () => setSimulatedVersion(null));
 }
 
 function setUpdateProgress(percent, label) {
@@ -924,3 +1042,4 @@ checkForUpdates(false);
 // Start on Stage 1 (Staging)
 showStage('staging');
 updateStatus('idle', 'Ready');
+

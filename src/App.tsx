@@ -56,9 +56,7 @@ export default function App() {
   }, [transferManager, isDirectDownloadMode]);
 
   const receiverBaseUrl = typeof window !== 'undefined'
-    ? (window.location.hostname.includes('vercel.app') || window.location.hostname === 'localhost'
-        ? `${window.location.protocol}//${window.location.host}`
-        : 'https://beam-drop-mu.vercel.app')
+    ? `${window.location.protocol}//${window.location.host}`
     : 'https://beam-drop-mu.vercel.app';
 
   // DIRECT DOWNLOAD GATEWAY:
