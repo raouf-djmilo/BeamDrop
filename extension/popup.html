@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="qrcode.min.js"></script>
   <script src="peerjs.min.js"></script>
+  <script src="libs/jszip.min.js"></script>
 </head>
 <body>
   <!-- Header with Brand & Live Status -->
@@ -19,11 +20,11 @@
       </div>
       <div>
         <h1 class="brand-title">BeamDrop</h1>
-        <p class="brand-sub">Direct Device-to-Device</p>
+        <p class="brand-sub">Universal Device Bridge</p>
       </div>
     </div>
     <div class="header-actions">
-      <button id="btnPopoutWindow" class="btn-popout-icon" title="Detach into persistent floating window (won't close on click outside)">
+      <button id="btnPopoutWindow" class="btn-popout-icon" title="Detach into persistent window or Side Panel (never closes on click outside)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
           <polyline points="15 3 21 3 21 9"></polyline>
@@ -37,14 +38,14 @@
     </div>
   </header>
 
-  <!-- Sub-Navigation Bar: Send vs Updates -->
+  <!-- Sub-Navigation Bar: Beam Bridge vs OTA Updates -->
   <nav class="app-nav">
     <button id="navTabSend" class="nav-tab active">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"></line>
         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
       </svg>
-      <span>Beam Files</span>
+      <span>Beam Objects</span>
     </button>
     <button id="navTabUpdates" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -55,62 +56,102 @@
     </button>
   </nav>
 
-  <!-- STAGE 1: File Staging Area -->
+  <!-- STAGE 1: Object Staging Area -->
   <main id="stageStaging" class="stage-container">
-    <!-- Quick format pills -->
-    <div class="quick-types-pills">
-      <span class="q-pill q-pill-excel">📊 Excel</span>
-      <span class="q-pill q-pill-ppt">📽️ PowerPoint</span>
-      <span class="q-pill q-pill-pdf">📑 PDF</span>
-      <span class="q-pill q-pill-zip">📦 ZIP</span>
-      <span class="q-pill q-pill-media">🎬 Media</span>
-    </div>
-
-    <!-- Drag & Drop Zone -->
-    <div id="dropZone" class="drop-zone">
-      <input type="file" id="fileInput" multiple style="display: none;">
-      <div class="drop-icon-wrapper">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-      </div>
-      <p class="drop-primary">Choose files or drop here</p>
-      <p class="drop-secondary">Excel, PowerPoint, PDF, Photos, 4K Video, ZIP</p>
-    </div>
-
-    <!-- Staged File Card -->
-    <div id="stagedCard" class="staged-card" style="display: none;">
-      <div class="staged-preview">
-        <img id="thumbImg" class="thumb-img" alt="Preview" style="display: none;">
-        <span id="thumbIcon" class="thumb-icon">📄</span>
-      </div>
-      <div class="staged-info">
-        <div class="staged-name-row">
-          <p id="stagedFileName" class="staged-name">filename.ext</p>
-          <span id="stagedTypeTag" class="staged-type-tag">FILE</span>
-        </div>
-        <p id="stagedFileSize" class="staged-size">0 KB</p>
-      </div>
-      <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
+    <!-- Object Mode Switcher: Files vs Text vs Clipboard -->
+    <div class="bridge-mode-pills">
+      <button id="modeBtnFiles" class="bridge-mode-btn active" type="button">
+        <span>📁 Files & Media</span>
+      </button>
+      <button id="modeBtnText" class="bridge-mode-btn" type="button">
+        <span>📝 Text & Link</span>
+      </button>
+      <button id="modeBtnClipboard" class="bridge-mode-btn" type="button" title="Quick beam current system clipboard">
+        <span>📋 Clipboard</span>
       </button>
     </div>
 
-    <!-- Primary CTA Button -->
-    <button id="btnGenerateQr" class="btn-cta-generate" disabled>
-      <span>⚡ Generate Direct Download QR</span>
-    </button>
+    <!-- SUB-VIEW 1: FILES & MEDIA -->
+    <div id="viewFilesMode" style="display: flex; flex-direction: column; gap: 10px;">
+      <!-- Quick format pills -->
+      <div class="quick-types-pills">
+        <span class="q-pill q-pill-excel">📊 Excel</span>
+        <span class="q-pill q-pill-ppt">📽️ PowerPoint</span>
+        <span class="q-pill q-pill-pdf">📑 PDF</span>
+        <span class="q-pill q-pill-zip">📦 ZIP</span>
+        <span class="q-pill q-pill-media">🎬 Media</span>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="dropZone" class="drop-zone">
+        <input type="file" id="fileInput" multiple style="display: none;">
+        <div class="drop-icon-wrapper">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <p class="drop-primary">Choose files or drop here</p>
+        <p class="drop-secondary">Documents, Photos, Videos, Multi-files (Auto-ZIP)</p>
+      </div>
+
+      <!-- Staged File Card -->
+      <div id="stagedCard" class="staged-card" style="display: none;">
+        <div class="staged-preview">
+          <img id="thumbImg" class="thumb-img" alt="Preview" style="display: none;">
+          <span id="thumbIcon" class="thumb-icon">📄</span>
+        </div>
+        <div class="staged-info">
+          <div class="staged-name-row">
+            <p id="stagedFileName" class="staged-name">filename.ext</p>
+            <span id="stagedTypeTag" class="staged-type-tag">FILE</span>
+          </div>
+          <p id="stagedFileSize" class="staged-size">0 KB</p>
+          <div id="multiFileSummary" class="multi-file-summary" style="display: none;">
+            <span>📦 Bundling into single ZIP archive in RAM</span>
+          </div>
+        </div>
+        <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Primary CTA Button -->
+      <button id="btnGenerateQr" class="btn-cta-generate" disabled>
+        <span>⚡ Generate Direct Download QR</span>
+      </button>
+    </div>
+
+    <!-- SUB-VIEW 2: TEXT & LINK COMPOSER -->
+    <div id="viewTextMode" style="display: none; flex-direction: column; gap: 10px;">
+      <div class="text-composer-card">
+        <textarea id="textPayloadInput" class="text-composer-area" placeholder="Type or paste any text, notes, code snippet, or website URL link to beam to your phone..."></textarea>
+        <div class="text-composer-toolbar">
+          <button id="btnQuickPaste" class="btn-clipboard-paste" type="button">
+            <span>📋 Paste from Clipboard</span>
+          </button>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="textCharCount" style="color: #64748b; font-family: ui-monospace, monospace; font-size: 10px;">0 chars</span>
+            <span id="textTypeBadge" class="text-type-badge">TEXT</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary CTA for Text -->
+      <button id="btnGenerateTextQr" class="btn-cta-generate" disabled>
+        <span>⚡ Beam Text to Phone (Instant QR)</span>
+      </button>
+    </div>
   </main>
 
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
-      <!-- Staged File Info Badge on top of QR -->
+      <!-- Staged Object Info Badge on top of QR -->
       <div id="portalFileBadge" class="portal-file-badge">
         <span id="portalBadgeIcon" class="portal-badge-icon">📦</span>
         <span id="portalFileNameBadge" class="portal-badge-name">file.ext</span>
@@ -120,7 +161,7 @@
       <div class="qr-box-200">
         <canvas id="qrcodeCanvas"></canvas>
       </div>
-      <p class="qr-scan-instruction">Scan with your phone to download directly</p>
+      <p id="qrScanInstruction" class="qr-scan-instruction">Scan with phone camera to transfer directly</p>
       <div class="portal-pill">
         <span class="radar-dot"></span>
         <span>Awaiting phone connection...</span>
@@ -161,7 +202,7 @@
       <!-- Watermark Guarantee Notice -->
       <div class="portal-watermark-notice">
         <span class="watermark-dot"></span>
-        <span>BeamDrop Watermark Engine • Zero Cloud Storage</span>
+        <span>BeamDrop Bridge Engine • Zero Cloud Storage</span>
       </div>
     </div>
 
@@ -176,7 +217,7 @@
         <line x1="12" y1="16" x2="12" y2="12"></line>
         <line x1="12" y1="8" x2="12.01" y2="8"></line>
       </svg>
-      <span>Tip: Click 🗗 in header to detach into a floating window so transfer won't close if you click outside.</span>
+      <span>Tip: Click 🗗 in header to detach into floating window or Side Panel so the connection stays open.</span>
     </div>
   </main>
 
@@ -185,7 +226,7 @@
     <div class="transfer-card">
       <div class="transfer-header-row">
         <span class="pulsing-radar"></span>
-        <h3 id="transferFileTitle" class="transfer-title">Streaming file...</h3>
+        <h3 id="transferFileTitle" class="transfer-title">Streaming object...</h3>
       </div>
 
       <div class="progress-container">
@@ -204,7 +245,7 @@
           <line x1="12" y1="16" x2="12" y2="12"></line>
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
-        <span>Streaming live P2P. Keep this window open until transfer reaches 100%.</span>
+        <span>Streaming live RAM-to-RAM. Keep this window open until transfer reaches 100%.</span>
       </div>
     </div>
   </main>
@@ -214,14 +255,14 @@
     <div class="complete-card">
       <div class="complete-icon">✓</div>
       <h3 class="complete-title">Transfer Complete!</h3>
-      <p class="complete-sub">Direct P2P transmission finished without servers.</p>
+      <p id="completeSubText" class="complete-sub">Direct transmission finished with zero cloud storage.</p>
       <button id="btnSendAnother" class="btn-cta-generate">
-        <span>Send Another File</span>
+        <span>Beam Another Object</span>
       </button>
     </div>
   </main>
 
-  <!-- STAGE 5: Clean 2-State Updates Engine -->
+  <!-- STAGE 5: Apple/Android Style OTA Updates Engine -->
   <main id="stageUpdates" class="stage-container" style="display: none;">
     
     <!-- STATE A: USER IS UP-TO-DATE (currentVersion >= latestVersion) -->
@@ -246,15 +287,7 @@
         <span id="lastCheckedText" class="uptodate-time">Last checked: Just now</span>
       </div>
 
-      <!-- Developer Test / Simulation Sandbox -->
-      <div class="sim-tester-box">
-        <span class="sim-tester-label">🧪 Test Older Version Alert:</span>
-        <div class="sim-tester-buttons">
-          <button id="btnSimulateV120" type="button" class="btn-sim-ver" title="Simulate how v1.2.0 user receives update">Simulate v1.2.0</button>
-          <button id="btnSimulateV130" type="button" class="btn-sim-ver" title="Simulate how v1.3.0 user receives update">Simulate v1.3.0</button>
-          <button id="btnSimulateReal" type="button" class="btn-sim-ver active-sim" title="Reset to real manifest version">Real (v1.4.0)</button>
-        </div>
-      </div>
+
     </div>
 
     <!-- STATE B: NEW UPDATE AVAILABLE (currentVersion < latestVersion) -->
@@ -274,7 +307,7 @@
         </ul>
       </div>
 
-      <!-- Live Update Progress Animation (hidden until updating) -->
+      <!-- Live Update Progress Animation -->
       <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
         <div class="update-progress-header">
           <span id="updateProgressLabel">⚡ Downloading update package...</span>
@@ -285,7 +318,7 @@
         </div>
       </div>
 
-      <!-- Step 2: Post-Download Replacement Assistant -->
+      <!-- Post-Download Replacement Assistant -->
       <div id="updatePostDownloadBox" class="update-post-download-box" style="display: none;">
         <div class="post-download-title">
           <span class="text-emerald-400 font-bold">✓ Update Package Downloaded!</span>
@@ -293,7 +326,7 @@
         <p class="post-download-desc">
           <strong>How to apply in Chrome:</strong><br/>
           1. Extract the downloaded <code id="downloadedFilename">BeamDrop-v1.4.0.zip</code> and replace the files inside your BeamDrop folder (or double-click <code class="text-amber-400">update.bat</code> in the folder).<br/>
-          2. Go to Chrome Extensions and click <strong>🔄 Reload</strong>.
+          2. Click <strong>🔄 Reload Extension</strong> below.
         </p>
         <div class="post-download-actions">
           <button id="btnOpenExtensionsPage" type="button" class="btn-clean-check">
@@ -311,10 +344,7 @@
       </button>
 
       <div class="available-footer-info flex items-center justify-between mt-2">
-        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked from GitHub & Vercel</span>
-        <button id="btnResetSimulation" type="button" class="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors" style="display: none; background: none; border: none; cursor: pointer;">
-          Reset Simulation
-        </button>
+        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked from GitHub &amp; Vercel</span>
       </div>
     </div>
 
@@ -324,9 +354,9 @@
   <footer class="app-footer">
     <div class="footer-left">
       <span class="secure-dot"></span>
-      <span id="footerVersionText">v1.2.0</span>
+      <span id="footerVersionText">v1.4.0</span>
       <span>•</span>
-      <span>Direct P2P Encrypted</span>
+      <span>Direct P2P Bridge</span>
     </div>
     <span>Zero Cloud Storage</span>
   </footer>

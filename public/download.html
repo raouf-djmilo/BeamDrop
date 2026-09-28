@@ -3,283 +3,556 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Download File</title>
+  <title>BeamDrop - Universal Device Bridge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="/libs/peerjs.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:       #030712;
+      --bg-card:       rgba(11, 17, 30, 0.96);
+      --bg-surface:    rgba(15, 23, 42, 0.9);
+      --bg-elevated:   rgba(22, 33, 56, 0.85);
+      --border:        rgba(55, 65, 81, 0.7);
+      --border-cyan:   rgba(6, 182, 212, 0.35);
+      --cyan:          #38bdf8;
+      --cyan-dim:      #0ea5e9;
+      --green:         #34d399;
+      --amber:         #fbbf24;
+      --purple:        #a78bfa;
+      --pink:          #f472b6;
+      --text-primary:  #f9fafb;
+      --text-secondary:#94a3b8;
+      --text-muted:    #475569;
+      --shadow-glow:   0 0 40px rgba(56,189,248,0.08);
     }
+
     body {
       min-height: 100vh;
-      background: radial-gradient(circle at 50% 20%, #111827 0%, #030712 100%);
-      color: #f9fafb;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(6,182,212,0.07) 0%, transparent 60%),
+        radial-gradient(circle at 80% 80%, rgba(167,139,250,0.04) 0%, transparent 50%),
+        radial-gradient(circle at 50% 20%, #0d1525 0%, #030712 100%);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 20px;
-      line-height: 1.4;
+      justify-content: flex-start;
+      padding: 20px 16px 40px;
+      line-height: 1.5;
       overflow-x: hidden;
     }
 
-    /* Isolated Download Box */
+    /* ─── Brand Header ─── */
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .brand-icon-wrap {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284c7, #0ea5e9);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(2,132,199,0.45);
+    }
+    .brand-header h1 {
+      font-size: 17px; font-weight: 800; letter-spacing: -0.3px;
+    }
+    .brand-header span { color: var(--cyan); }
+
+    /* ─── Main Card ─── */
     .download-card {
       width: 100%;
-      max-width: 420px;
-      background: rgba(17, 24, 39, 0.95);
-      border: 1px solid rgba(55, 65, 81, 0.8);
+      max-width: 460px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 28px;
-      padding: 28px 24px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.1);
+      padding: 28px 22px;
+      box-shadow: 0 25px 60px -12px rgba(0,0,0,0.8), var(--shadow-glow);
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
       position: relative;
+      overflow: hidden;
     }
-
-    /* File Icon Representation */
-    .file-icon-wrap {
-      width: 80px;
-      height: 80px;
-      border-radius: 22px;
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
-      border: 1.5px solid rgba(56, 189, 248, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 38px;
-      margin-bottom: 18px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-      position: relative;
-    }
-
-    .file-pulse-ring {
+    .download-card::before {
+      content: '';
       position: absolute;
-      inset: -4px;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(6,182,212,0.5) 50%, transparent 100%);
+    }
+
+    /* ─── File Icon ─── */
+    .file-icon-wrap {
+      width: 76px; height: 76px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.9));
+      border: 1.5px solid var(--border-cyan);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      position: relative;
+      transition: transform 0.3s ease;
+    }
+    .file-pulse-ring {
+      position: absolute; inset: -4px;
       border-radius: 26px;
-      border: 2px solid #38bdf8;
+      border: 2px solid var(--cyan);
       opacity: 0;
       animation: pulseBorder 2s infinite ease-out;
     }
-
     @keyframes pulseBorder {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      100% { transform: scale(1.15); opacity: 0; }
+      0%   { transform: scale(0.95); opacity: 0.8; }
+      100% { transform: scale(1.16); opacity: 0; }
     }
 
     .file-badge-tag {
       font-size: 10px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      color: #38bdf8;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      color: var(--cyan);
       text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
       margin-bottom: 4px;
+      padding: 3px 10px;
+      background: rgba(6,182,212,0.1);
+      border-radius: 100px;
+      border: 1px solid rgba(6,182,212,0.2);
     }
 
     .file-name {
-      font-size: 18px;
-      font-weight: 700;
-      color: #ffffff;
+      font-size: 17px; font-weight: 700;
+      color: var(--text-primary);
       word-break: break-word;
       max-width: 100%;
-      margin-bottom: 6px;
+      margin: 8px 0 4px;
       line-height: 1.3;
     }
-
     .file-info {
       font-size: 12px;
-      color: #94a3b8;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      margin-bottom: 22px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 20px;
     }
 
-    /* Real-Time Stream Box */
+    /* ─── Stream Progress ─── */
     .stream-container {
       width: 100%;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(51, 65, 85, 0.7);
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(51, 65, 85, 0.6);
       border-radius: 18px;
-      padding: 14px 16px;
+      padding: 16px;
       margin-bottom: 18px;
     }
-
     .stream-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: 600; color: #cbd5e1;
+      margin-bottom: 10px;
     }
-
-    .stream-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: #38bdf8;
-    }
-
+    .stream-status { display: flex; align-items: center; gap: 6px; }
     .status-dot {
-      width: 7px;
-      height: 7px;
+      width: 7px; height: 7px;
       border-radius: 50%;
-      background-color: #38bdf8;
-      animation: blink 1.2s infinite ease-in-out;
+      background: var(--cyan);
+      animation: blink 1.4s infinite ease-in-out;
     }
-
-    @keyframes blink {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
-    }
-
-    .stream-speed {
-      font-family: ui-monospace, monospace;
-      color: #34d399;
-      font-size: 11px;
-    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .stream-speed { font-family:'JetBrains Mono',monospace; color: var(--cyan); }
 
     .progress-bar-bg {
-      width: 100%;
-      height: 10px;
-      background: #0b0f19;
-      border-radius: 9999px;
-      overflow: hidden;
-      margin-bottom: 6px;
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      width: 100%; height: 7px;
+      background: rgba(15,23,42,0.8);
+      border-radius: 9999px; overflow: hidden;
+      margin-bottom: 10px;
     }
-
     .progress-bar-fill {
-      height: 100%;
+      height: 100%; width: 0%;
       background: linear-gradient(90deg, #0284c7, #38bdf8);
-      width: 0%;
-      transition: width 0.15s ease;
       border-radius: 9999px;
+      transition: width 0.15s ease-out;
+      box-shadow: 0 0 12px rgba(56,189,248,0.6);
     }
-
     .stream-bytes {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10.5px;
-      color: #64748b;
-      font-family: ui-monospace, monospace;
+      display: flex; justify-content: space-between;
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
     }
 
-    /* Giant Direct Download Action Button */
+    /* ─── Action Buttons ─── */
     .btn-download-action {
       width: 100%;
-      padding: 16px 20px;
-      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-      color: #ffffff;
-      border: none;
-      border-radius: 18px;
-      font-size: 15px;
-      font-weight: 700;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #fff;
+      border: none; border-radius: 16px;
+      padding: 15px 20px;
+      font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.4);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
       transition: all 0.2s ease;
-      text-decoration: none;
+      box-shadow: 0 10px 24px -5px rgba(2,132,199,0.5);
     }
+    .btn-download-action:active { transform: scale(0.98); }
+    .btn-download-action:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
-    .btn-download-action:active {
-      transform: scale(0.98);
-    }
-
-    .btn-download-action:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    .btn-icon-svg {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-    }
-
-    /* Success Alert */
+    /* ─── Success Box ─── */
     .success-box {
       display: none;
       width: 100%;
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.35);
       color: #34d399;
-      padding: 12px 14px;
+      padding: 11px 14px;
       border-radius: 14px;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 12px; font-weight: 600;
       margin-bottom: 16px;
-      align-items: center;
-      gap: 8px;
+      align-items: center; gap: 8px;
       text-align: left;
     }
 
-    /* Media Preview Container */
+    /* ─── Media Preview ─── */
     .preview-box {
-      display: none;
-      width: 100%;
-      border-radius: 16px;
-      overflow: hidden;
+      display: none; width: 100%;
+      border-radius: 16px; overflow: hidden;
       margin-top: 14px;
       border: 1px solid #334155;
-      background: #000000;
-      max-height: 240px;
+      background: #000; max-height: 240px;
     }
-
     .preview-box img, .preview-box video {
-      width: 100%;
-      height: 100%;
-      max-height: 240px;
-      object-fit: contain;
-      display: block;
+      width: 100%; height: 100%;
+      max-height: 240px; object-fit: contain; display: block;
     }
 
     .privacy-tag {
-      font-size: 10px;
-      color: #475569;
-      font-family: ui-monospace, monospace;
+      font-size: 10px; color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
       margin-top: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       NOTEBOOK ENGINE - Full Content Display
+    ═══════════════════════════════════════════ */
+    .notebook-container {
+      display: none;
+      width: 100%;
+      text-align: left;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      animation: fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─ TYPE HEADER BAR ─ */
+    .nb-type-bar {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .nb-type-pill {
+      font-size: 10px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 4px 10px;
+      border-radius: 100px;
+    }
+    .nb-type-pill.code   { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+    .nb-type-pill.url    { background: rgba(6,182,212,0.15);   color: #38bdf8; border: 1px solid rgba(6,182,212,0.3); }
+    .nb-type-pill.note   { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .nb-char-count {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    /* ─ CODE VIEW ─ */
+    .nb-code-card {
+      width: 100%;
+      background: #0b0f1a;
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .nb-code-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: rgba(167,139,250,0.08);
+      border-bottom: 1px solid rgba(167,139,250,0.2);
+    }
+    .nb-code-header-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .d1{background:#ff5f57;} .d2{background:#ffbd2e;} .d3{background:#28c840;}
+    .nb-code-label {
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      color: rgba(167,139,250,0.7); margin-left: 4px;
+    }
+
+    .nb-code-body {
+      display: flex;
+      max-height: 320px;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+    .nb-code-body::-webkit-scrollbar { width: 5px; height: 5px; }
+    .nb-code-body::-webkit-scrollbar-track { background: transparent; }
+    .nb-code-body::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.3); border-radius: 4px; }
+
+    .nb-line-numbers {
+      flex-shrink: 0;
+      padding: 14px 0;
+      background: rgba(0,0,0,0.3);
+      border-right: 1px solid rgba(51,65,85,0.5);
+      user-select: none;
+      min-width: 42px;
+    }
+    .nb-line-num {
+      display: block;
+      padding: 0 10px 0 8px;
+      font-size: 12px; line-height: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      color: rgba(100,116,139,0.6);
+      text-align: right;
+    }
+
+    .nb-code-content {
+      flex: 1;
+      padding: 14px 14px 14px 12px;
+      font-size: 12.5px; line-height: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #e2e8f0;
+      white-space: pre;
+      word-break: normal;
+      overflow-x: visible;
+      min-width: 0;
+    }
+
+    /* ─ URL CARD VIEW ─ */
+    .nb-url-card {
+      width: 100%;
+      background: rgba(6,182,212,0.06);
+      border: 1px solid rgba(6,182,212,0.25);
+      border-radius: 16px;
+      padding: 18px 16px;
+    }
+    .nb-url-display {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .nb-url-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      border-radius: 10px;
+      background: rgba(6,182,212,0.15);
+      border: 1px solid rgba(6,182,212,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .nb-url-text {
+      flex: 1; min-width: 0;
+    }
+    .nb-url-title {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-secondary); letter-spacing: 0.5px;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .nb-url-value {
+      font-size: 13px; font-family: 'JetBrains Mono', monospace;
+      color: var(--cyan); word-break: break-all; line-height: 1.5;
+    }
+    .nb-url-open-btn {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #fff; font-size: 14px; font-weight: 700;
+      border-radius: 12px; border: none; cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 8px 20px rgba(2,132,199,0.4);
+      transition: all 0.2s ease;
+    }
+    .nb-url-open-btn:active { transform: scale(0.98); }
+
+    /* ─ NOTE/TEXT VIEW ─ */
+    .nb-note-card {
+      width: 100%;
+      background: rgba(251,191,36,0.04);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .nb-note-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: rgba(251,191,36,0.07);
+      border-bottom: 1px solid rgba(251,191,36,0.15);
+    }
+    .nb-note-header-icon { font-size: 14px; }
+    .nb-note-header-title {
+      font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      color: rgba(251,191,36,0.7); letter-spacing: 0.5px;
+    }
+    .nb-note-body {
+      padding: 14px 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 14px; line-height: 1.7;
+      color: #f1f5f9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+    .nb-note-body::-webkit-scrollbar { width: 4px; }
+    .nb-note-body::-webkit-scrollbar-thumb { background: rgba(251,191,36,0.3); border-radius: 4px; }
+
+    /* ─ ACTION TOOLBAR ─ */
+    .nb-actions {
+      display: flex; gap: 8px;
+      margin-top: 12px; flex-wrap: wrap;
+    }
+    .nb-btn {
+      flex: 1; min-width: 100px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 12.5px; font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+    }
+    .nb-btn:hover, .nb-btn:active { border-color: var(--cyan); color: var(--cyan); background: rgba(6,182,212,0.08); }
+    .nb-btn.primary {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border: none; color: #fff;
+      box-shadow: 0 4px 14px rgba(2,132,199,0.35);
+    }
+    .nb-btn.primary:hover, .nb-btn.primary:active { box-shadow: 0 4px 20px rgba(2,132,199,0.5); }
+    .nb-btn.success { border-color: var(--green); color: var(--green); }
+
+    /* ─ DIVIDER ─ */
+    .nb-divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(55,65,81,0.6), transparent);
+      margin: 16px 0;
     }
   </style>
 </head>
 <body>
 
-  <!-- Dedicated Isolated Direct Download Card -->
+  <div class="brand-header">
+    <div class="brand-icon-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    </div>
+    <h1>Beam<span>Drop</span></h1>
+  </div>
+
   <div class="download-card">
     <div class="file-icon-wrap">
       <div id="pulseRing" class="file-pulse-ring"></div>
-      <span id="fileEmoji">📦</span>
+      <span id="fileEmoji">⚡</span>
     </div>
 
-    <span class="file-badge-tag">DIRECT FILE DOWNLOAD</span>
-    <h1 id="fileNameHeading" class="file-name">Preparing Download...</h1>
-    <p id="fileSizeLabel" class="file-info">Direct P2P Stream • RAM-to-RAM</p>
+    <span id="portalBadgeTag" class="file-badge-tag">DIRECT P2P BRIDGE</span>
+    <h2 id="fileNameHeading" class="file-name">Connecting to Device...</h2>
+    <p id="fileSizeLabel" class="file-info">RAM-to-RAM Stream • Zero Storage</p>
 
     <!-- Real-Time Transfer Indicator -->
-    <div class="stream-container">
+    <div id="streamContainer" class="stream-container">
       <div class="stream-header">
         <div class="stream-status">
           <span class="status-dot"></span>
-          <span id="transferStatusText">Connecting directly to device...</span>
+          <span id="transferStatusText">Establishing direct WebRTC link...</span>
         </div>
         <span id="transferSpeedText" class="stream-speed">-- MB/s</span>
       </div>
-
       <div class="progress-bar-bg">
         <div id="progressBarFill" class="progress-bar-fill"></div>
       </div>
-
       <div class="stream-bytes">
         <span id="progressPctLabel">0%</span>
-        <span id="bytesTransferredLabel">0 MB / 0 MB</span>
+        <span id="bytesTransferredLabel">Connecting...</span>
+      </div>
+    </div>
+
+    <!-- ═══ NOTEBOOK ENGINE: Smart Content Display ═══ -->
+    <div id="notebookContainer" class="notebook-container">
+
+      <!-- Type Header -->
+      <div class="nb-type-bar">
+        <span id="nbTypePill" class="nb-type-pill note">NOTE</span>
+        <span id="nbCharCount" class="nb-char-count">0 chars</span>
+      </div>
+
+      <!-- CODE VIEW (shown for code content) -->
+      <div id="nbCodeCard" class="nb-code-card" style="display:none;">
+        <div class="nb-code-header">
+          <span class="nb-code-header-dot d1"></span>
+          <span class="nb-code-header-dot d2"></span>
+          <span class="nb-code-header-dot d3"></span>
+          <span class="nb-code-label" id="nbCodeLang">SNIPPET</span>
+        </div>
+        <div class="nb-code-body">
+          <div id="nbLineNumbers" class="nb-line-numbers"></div>
+          <pre id="nbCodeContent" class="nb-code-content"></pre>
+        </div>
+      </div>
+
+      <!-- URL CARD VIEW (shown for links) -->
+      <div id="nbUrlCard" class="nb-url-card" style="display:none;">
+        <div class="nb-url-display">
+          <div class="nb-url-icon">🔗</div>
+          <div class="nb-url-text">
+            <div class="nb-url-title">Beamed Link</div>
+            <div id="nbUrlValue" class="nb-url-value">https://...</div>
+          </div>
+        </div>
+        <a id="nbUrlOpenBtn" class="nb-url-open-btn" href="#" target="_blank" rel="noopener noreferrer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          Open in Browser
+        </a>
+      </div>
+
+      <!-- NOTE / TEXT VIEW (shown for plain text) -->
+      <div id="nbNoteCard" class="nb-note-card" style="display:none;">
+        <div class="nb-note-header">
+          <span class="nb-note-header-icon">📄</span>
+          <span class="nb-note-header-title">BEAMED NOTE</span>
+        </div>
+        <div id="nbNoteBody" class="nb-note-body"></div>
+      </div>
+
+      <div class="nb-divider"></div>
+
+      <!-- Action Toolbar -->
+      <div class="nb-actions">
+        <button id="nbBtnCopy" class="nb-btn primary" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+          </svg>
+          <span id="nbBtnCopyText">Copy to Clipboard</span>
+        </button>
+        <button id="nbBtnExport" class="nb-btn" type="button" title="Save as .txt file">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span>Export .txt</span>
+        </button>
       </div>
     </div>
 
@@ -287,81 +560,260 @@
     <div id="successBox" class="success-box">
       <span>✓</span>
       <div>
-        <strong>File Saved to Downloads!</strong>
-        <p style="font-weight: 400; opacity: 0.9; font-size: 11px;">The file was streamed directly and saved to your device.</p>
+        <strong id="successTitle">Transfer Complete!</strong>
+        <p id="successSub" style="font-weight:400;opacity:0.85;font-size:11px;margin-top:2px;">The object was streamed directly into your device.</p>
       </div>
     </div>
 
-    <!-- Prominent Direct Download Button -->
+    <!-- File Download CTA -->
     <button id="btnDownload" class="btn-download-action" disabled>
-      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
       </svg>
       <span id="btnDownloadText">Connecting...</span>
     </button>
 
-    <!-- Image / Video Preview Box -->
+    <!-- In-Line Media Preview -->
     <div id="previewBox" class="preview-box"></div>
 
-    <p class="privacy-tag">🔒 Direct Encrypted Stream • Zero Storage</p>
+    <p class="privacy-tag">🔒 Encrypted RAM-to-RAM Bridge • No Server Storage</p>
   </div>
 
   <script>
     (function() {
-      // 1. Parse URL Query Parameters
       const urlParams = new URLSearchParams(window.location.search);
       const peerId = urlParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
-      const expectedName = decodeURIComponent(urlParams.get('name') || urlParams.get('file') || 'Shared File');
+      const expectedType = urlParams.get('type') || 'file';
+      const expectedName = decodeURIComponent(urlParams.get('name') || urlParams.get('file') || (expectedType === 'text' ? 'Beamed Text' : 'Shared Object'));
       const expectedSize = parseInt(urlParams.get('size') || '0', 10);
       const expectedMime = decodeURIComponent(urlParams.get('mime') || '');
 
-      // DOM Elements
-      const fileNameHeading = document.getElementById('fileNameHeading');
-      const fileSizeLabel = document.getElementById('fileSizeLabel');
-      const fileEmoji = document.getElementById('fileEmoji');
-      const transferStatusText = document.getElementById('transferStatusText');
-      const transferSpeedText = document.getElementById('transferSpeedText');
-      const progressBarFill = document.getElementById('progressBarFill');
-      const progressPctLabel = document.getElementById('progressPctLabel');
+      // DOM References
+      const fileNameHeading     = document.getElementById('fileNameHeading');
+      const fileSizeLabel       = document.getElementById('fileSizeLabel');
+      const fileEmoji           = document.getElementById('fileEmoji');
+      const portalBadgeTag      = document.getElementById('portalBadgeTag');
+      const streamContainer     = document.getElementById('streamContainer');
+      const transferStatusText  = document.getElementById('transferStatusText');
+      const transferSpeedText   = document.getElementById('transferSpeedText');
+      const progressBarFill     = document.getElementById('progressBarFill');
+      const progressPctLabel    = document.getElementById('progressPctLabel');
       const bytesTransferredLabel = document.getElementById('bytesTransferredLabel');
-      const successBox = document.getElementById('successBox');
-      const btnDownload = document.getElementById('btnDownload');
-      const btnDownloadText = document.getElementById('btnDownloadText');
-      const previewBox = document.getElementById('previewBox');
-      const pulseRing = document.getElementById('pulseRing');
+      const notebookContainer   = document.getElementById('notebookContainer');
+      const successBox          = document.getElementById('successBox');
+      const successTitle        = document.getElementById('successTitle');
+      const successSub          = document.getElementById('successSub');
+      const btnDownload         = document.getElementById('btnDownload');
+      const btnDownloadText     = document.getElementById('btnDownloadText');
+      const previewBox          = document.getElementById('previewBox');
+      const pulseRing           = document.getElementById('pulseRing');
 
-      // Populate file details immediately from URL
+      // Notebook Engine DOM
+      const nbTypePill    = document.getElementById('nbTypePill');
+      const nbCharCount   = document.getElementById('nbCharCount');
+      const nbCodeCard    = document.getElementById('nbCodeCard');
+      const nbCodeLang    = document.getElementById('nbCodeLang');
+      const nbLineNumbers = document.getElementById('nbLineNumbers');
+      const nbCodeContent = document.getElementById('nbCodeContent');
+      const nbUrlCard     = document.getElementById('nbUrlCard');
+      const nbUrlValue    = document.getElementById('nbUrlValue');
+      const nbUrlOpenBtn  = document.getElementById('nbUrlOpenBtn');
+      const nbNoteCard    = document.getElementById('nbNoteCard');
+      const nbNoteBody    = document.getElementById('nbNoteBody');
+      const nbBtnCopy     = document.getElementById('nbBtnCopy');
+      const nbBtnCopyText = document.getElementById('nbBtnCopyText');
+      const nbBtnExport   = document.getElementById('nbBtnExport');
+
       fileNameHeading.textContent = expectedName;
-      document.title = "Download " + expectedName;
+      document.title = 'BeamDrop — ' + expectedName;
 
-      if (expectedSize > 0) {
-        fileSizeLabel.textContent = formatBytes(expectedSize) + " • Direct Download Link";
-        btnDownloadText.textContent = "Download (" + formatBytes(expectedSize) + ")";
+      // Full ICE (STUN + TURN) Matrix
+      const ICE_SERVERS = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        { urls: 'turn:standard.relay.metered.ca:80',     username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:standard.relay.metered.ca:443',    username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ];
+
+      if (expectedType === 'text' || expectedType === 'link') {
+        portalBadgeTag.textContent = 'INSTANT TEXT BRIDGE';
+        fileEmoji.textContent = expectedType === 'link' ? '🔗' : '📝';
+        fileSizeLabel.textContent = 'Direct Text Transmission';
+        btnDownloadText.textContent = 'Awaiting Content...';
+      } else if (expectedSize > 0) {
+        fileSizeLabel.textContent = formatBytes(expectedSize) + ' • Direct Download Link';
+        btnDownloadText.textContent = 'Download (' + formatBytes(expectedSize) + ')';
       } else {
-        fileSizeLabel.textContent = "Direct Download Link";
-        btnDownloadText.textContent = "Downloading...";
+        fileSizeLabel.textContent = 'Direct Download Link';
+        btnDownloadText.textContent = 'Connecting to sender...';
       }
 
-      // Assign Icon
-      if (expectedName.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) || expectedMime.startsWith('image/')) {
-        fileEmoji.textContent = '🖼️';
-      } else if (expectedName.match(/\.(mp4|webm|mov|mkv|avi)$/i) || expectedMime.startsWith('video/')) {
-        fileEmoji.textContent = '🎬';
-      } else if (expectedName.match(/\.(zip|rar|7z|tar|gz)$/i)) {
-        fileEmoji.textContent = '📦';
-      } else if (expectedName.match(/\.(mp3|wav|flac|m4a|aac)$/i) || expectedMime.startsWith('audio/')) {
-        fileEmoji.textContent = '🎵';
-      } else {
-        fileEmoji.textContent = '📄';
-      }
+      // File type icons
+      const n = expectedName.toLowerCase(), m = expectedMime.toLowerCase();
+      if (n.match(/\.(xlsx?|csv|ods|tsv)$/) || m.includes('spreadsheet') || m.includes('excel')) fileEmoji.textContent = '📊';
+      else if (n.match(/\.(pptx?|ppsx?|odp)$/) || m.includes('presentation'))  fileEmoji.textContent = '📽️';
+      else if (n.match(/\.pdf$/) || m === 'application/pdf')                    fileEmoji.textContent = '📑';
+      else if (n.match(/\.(docx?|rtf|odt)$/) || m.includes('word'))             fileEmoji.textContent = '📄';
+      else if (n.match(/\.(jpg|jpeg|png|webp|gif|svg)$/) || m.startsWith('image/')) fileEmoji.textContent = '🖼️';
+      else if (n.match(/\.(mp4|webm|mov|mkv|avi)$/) || m.startsWith('video/')) fileEmoji.textContent = '🎬';
+      else if (n.match(/\.(zip|rar|7z|tar|gz)$/))                               fileEmoji.textContent = '📦';
+      else if (n.match(/\.(mp3|wav|flac|m4a|aac)$/) || m.startsWith('audio/')) fileEmoji.textContent = '🎵';
 
       if (!peerId) {
-        transferStatusText.textContent = "No active peer ID provided in URL";
-        btnDownloadText.textContent = "Invalid Download Link";
+        transferStatusText.textContent = 'No active peer ID provided in URL';
+        btnDownloadText.textContent    = 'Invalid Download Link';
         return;
       }
 
-      // WebRTC Peer Connection
+      // ════════════════════════════════════════
+      // NOTEBOOK ENGINE - Smart Content Renderer
+      // ════════════════════════════════════════
+      function detectContentType(text) {
+        if (text.startsWith('http://') || text.startsWith('https://') || text.startsWith('ftp://')) {
+          return 'url';
+        }
+        // Code detection heuristics
+        const codePatterns = [
+          /^(import|export|const|let|var|function|class|def|return|if\s*\(|for\s*\(|while\s*\(|async\s|await\s)/m,
+          /[{};]\s*$/m,
+          /=>\s*[{(]/,
+          /\([\w,\s]*\)\s*[{:]/,
+          /(console\.|document\.|window\.|require\(|import\s+)/,
+          /^\s*(#include|#define|using namespace|public class|private void|def |print\(|println\()/m,
+          /```[\w\s]/,
+          /^\s{4,}[\w"]/m
+        ];
+        const codeScore = codePatterns.filter(p => p.test(text)).length;
+        return codeScore >= 2 ? 'code' : 'note';
+      }
+
+      function detectCodeLang(text) {
+        if (/import\s+React|useState\(|JSX\.|\.tsx?$|const\s+\w+\s*=\s*\(/.test(text)) return 'JAVASCRIPT / TSX';
+        if (/def\s+\w+\s*\(|print\(|import\s+\w+\s*$|:\s*$/.test(text))                return 'PYTHON';
+        if (/#include|using namespace|int main\(|cout <<|cin >>/.test(text))             return 'C / C++';
+        if (/public\s+class|System\.out|@Override|void\s+main/.test(text))              return 'JAVA';
+        if (/func\s+\w+|var\s+\w+\s*=|let\s+\w+\s*=.*?swift|guard let/.test(text))    return 'SWIFT';
+        if (/SELECT\s|FROM\s|WHERE\s|JOIN\s|INSERT\s/i.test(text))                      return 'SQL';
+        if (/^\s*<[\w]/m.test(text) && /<\/[\w]+>/.test(text))                          return 'HTML / XML';
+        if (/^\s*[\w-]+:\s/m.test(text) && /^\s*-\s/m.test(text))                      return 'YAML';
+        if (/^\s*\{[\s\S]*"[\w]+"\s*:/m.test(text))                                     return 'JSON';
+        if (/^\$|\bbash\b|#!/.test(text))                                                return 'SHELL';
+        return 'CODE';
+      }
+
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function renderNotebook(rawText) {
+        const contentType = detectContentType(rawText);
+        const charCount   = rawText.length;
+
+        // Update header
+        nbCharCount.textContent = charCount.toLocaleString() + ' chars';
+
+        // Show notebook container, hide file UI
+        streamContainer.style.display = 'none';
+        btnDownload.style.display = 'none';
+        if (pulseRing) pulseRing.style.animation = 'none';
+        notebookContainer.style.display = 'block';
+
+        // Hide all sub-views first
+        nbCodeCard.style.display = 'none';
+        nbUrlCard.style.display  = 'none';
+        nbNoteCard.style.display = 'none';
+
+        if (contentType === 'url') {
+          // ─ URL VIEW ─
+          nbTypePill.textContent  = 'URL LINK';
+          nbTypePill.className    = 'nb-type-pill url';
+          fileEmoji.textContent   = '🔗';
+          fileNameHeading.textContent = 'Link Received';
+          fileSizeLabel.textContent   = new URL(rawText).hostname;
+
+          nbUrlValue.textContent = rawText;
+          nbUrlOpenBtn.href = rawText;
+          nbUrlCard.style.display = 'block';
+
+        } else if (contentType === 'code') {
+          // ─ CODE VIEW ─
+          const lang = detectCodeLang(rawText);
+          nbTypePill.textContent  = 'CODE';
+          nbTypePill.className    = 'nb-type-pill code';
+          nbCodeLang.textContent  = lang;
+          fileEmoji.textContent   = '💻';
+          fileNameHeading.textContent = 'Code Snippet';
+          fileSizeLabel.textContent   = lang + ' • ' + charCount.toLocaleString() + ' chars';
+
+          const lines = rawText.split('\n');
+          // Line numbers
+          nbLineNumbers.innerHTML = lines.map((_, i) =>
+            '<span class="nb-line-num">' + (i + 1) + '</span>'
+          ).join('');
+          // Code content (escaped)
+          nbCodeContent.innerHTML = escapeHtml(rawText);
+          nbCodeCard.style.display = 'block';
+
+        } else {
+          // ─ NOTE VIEW ─
+          nbTypePill.textContent  = 'NOTE';
+          nbTypePill.className    = 'nb-type-pill note';
+          fileEmoji.textContent   = '📄';
+          fileNameHeading.textContent = 'Note Received';
+          fileSizeLabel.textContent   = charCount.toLocaleString() + ' characters';
+
+          nbNoteBody.textContent = rawText;
+          nbNoteCard.style.display = 'block';
+        }
+
+        // ── Action handlers ──
+        nbBtnCopy.onclick = function() {
+          navigator.clipboard.writeText(rawText).then(function() {
+            nbBtnCopyText.textContent = '✓ Copied!';
+            nbBtnCopy.classList.add('success');
+            setTimeout(function() {
+              nbBtnCopyText.textContent = 'Copy to Clipboard';
+              nbBtnCopy.classList.remove('success');
+            }, 2500);
+          }).catch(function() {
+            // Legacy fallback
+            const ta = document.createElement('textarea');
+            ta.value = rawText;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch(e){}
+            document.body.removeChild(ta);
+            nbBtnCopyText.textContent = '✓ Copied!';
+            setTimeout(function() { nbBtnCopyText.textContent = 'Copy to Clipboard'; }, 2500);
+          });
+        };
+
+        nbBtnExport.onclick = function() {
+          const blob = new Blob([rawText], { type: 'text/plain;charset=utf-8' });
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href = url;
+          a.download = (contentType === 'url' ? 'beamed-link.txt' :
+                        contentType === 'code' ? 'beamed-code.txt' :
+                                                 'beamed-note.txt');
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+      }
+
+      // ════════════════════════════════════════
+      // P2P WebRTC Session
+      // ════════════════════════════════════════
       let peer = null;
       let connection = null;
       let currentDownloadUrl = null;
@@ -371,47 +823,38 @@
 
       function initP2P() {
         const receiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
-        peer = new Peer(receiverId, {
-          debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-          }
-        });
+        peer = new Peer(receiverId, { debug: 1, config: { iceServers: ICE_SERVERS } });
 
         peer.on('open', function() {
-          transferStatusText.textContent = "Connecting to sender...";
+          transferStatusText.textContent = 'Connecting to sender...';
           connection = peer.connect(peerId, { reliable: true });
           setupConnection(connection);
         });
 
         peer.on('error', function(err) {
-          console.error("Peer error:", err);
-          transferStatusText.textContent = "Connection error. Rescan QR.";
-          btnDownloadText.textContent = "Connection Failed";
+          console.error('Peer error:', err);
+          transferStatusText.textContent = 'Connection error. Please rescan QR.';
+          btnDownloadText.textContent    = 'Connection Failed';
         });
       }
 
       function setupConnection(conn) {
         conn.on('open', function() {
-          transferStatusText.textContent = "Connected! Starting stream...";
+          transferStatusText.textContent = 'Connected! Awaiting data stream...';
           btnDownload.disabled = false;
           btnDownload.onclick = function() {
             if (isCompleted && currentDownloadUrl) {
               triggerBrowserSave(currentDownloadUrl, activeFileName);
             }
           };
+          conn.send({ type: 'DEVICE_INFO', device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver' });
         });
 
-        conn.on('data', function(msg) {
-          handleIncomingData(msg);
-        });
+        conn.on('data', function(msg) { handleIncomingData(msg); });
 
         conn.on('close', function() {
           if (!isCompleted) {
-            transferStatusText.textContent = "Sender disconnected";
+            transferStatusText.textContent = 'Sender disconnected';
           }
         });
       }
@@ -419,12 +862,26 @@
       function handleIncomingData(msg) {
         if (!msg || !msg.type) return;
 
+        // ─ TEXT / LINK PAYLOAD → Notebook Engine ─
+        if (msg.type === 'TEXT_PAYLOAD' || msg.type === 'TEXT_MSG') {
+          const rawText = msg.text || '';
+          isCompleted = true;
+          portalBadgeTag.textContent = 'BEAMED CONTENT';
+          renderNotebook(rawText);
+
+          successTitle.textContent = 'Content Received!';
+          successSub.textContent   = 'Transferred in-flight • Zero cloud storage.';
+          successBox.style.display = 'flex';
+          return;
+        }
+
+        // ─ Binary File Chunks ─
         if (msg.type === 'FILE_START') {
           activeFileName = msg.fileName;
           fileNameHeading.textContent = msg.fileName;
-          fileSizeLabel.textContent = formatBytes(msg.fileSize) + " • Streaming to RAM";
-          transferStatusText.textContent = "Streaming file chunks...";
-          btnDownloadText.textContent = "Downloading " + formatBytes(msg.fileSize) + "...";
+          fileSizeLabel.textContent   = formatBytes(msg.fileSize) + ' • Streaming to RAM';
+          transferStatusText.textContent = 'Streaming file chunks...';
+          btnDownloadText.textContent    = 'Downloading ' + formatBytes(msg.fileSize) + '...';
 
           chunksMap.set(msg.fileId, {
             name: msg.fileName,
@@ -435,6 +892,7 @@
             lastTime: Date.now(),
             lastBytes: 0
           });
+
         } else if (msg.type === 'FILE_CHUNK') {
           const entry = chunksMap.get(msg.fileId);
           if (!entry) return;
@@ -452,10 +910,11 @@
           if (elapsed >= 0.25) {
             const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
             transferSpeedText.textContent = formatBytes(speed) + '/s';
-            entry.lastTime = now;
+            entry.lastTime  = now;
             entry.lastBytes = entry.receivedBytes;
           }
-        } else if (msg.type === 'FILE_END') {
+
+        } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
           const entry = chunksMap.get(msg.fileId);
           if (!entry) return;
 
@@ -464,24 +923,19 @@
           currentDownloadUrl = URL.createObjectURL(blob);
           activeFileName = entry.name;
 
-          // 1. AUTOMATIC INSTANT NATIVE DOWNLOAD
           triggerBrowserSave(currentDownloadUrl, activeFileName);
 
-          // 2. UI Update
           progressBarFill.style.width = '100%';
           progressPctLabel.textContent = '100%';
-          transferStatusText.textContent = "✓ File downloaded!";
-          transferSpeedText.textContent = "Finished";
+          transferStatusText.textContent = '✓ File downloaded!';
+          transferSpeedText.textContent  = 'Finished';
           successBox.style.display = 'flex';
-          pulseRing.style.display = 'none';
+          pulseRing.style.animation = 'none';
 
           btnDownload.disabled = false;
-          btnDownloadText.textContent = "📥 Save Again (" + formatBytes(entry.size) + ")";
-          btnDownload.onclick = function() {
-            triggerBrowserSave(currentDownloadUrl, activeFileName);
-          };
+          btnDownloadText.textContent = '📥 Save Again (' + formatBytes(entry.size) + ')';
+          btnDownload.onclick = function() { triggerBrowserSave(currentDownloadUrl, activeFileName); };
 
-          // 3. Media Preview if Image or Video
           if (entry.mime.startsWith('image/')) {
             previewBox.innerHTML = '<img src="' + currentDownloadUrl + '" alt="' + activeFileName + '" />';
             previewBox.style.display = 'block';
@@ -496,8 +950,7 @@
 
       function triggerBrowserSave(url, filename) {
         const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
+        a.href = url; a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -505,8 +958,7 @@
 
       function formatBytes(bytes) {
         if (!bytes || bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
       }

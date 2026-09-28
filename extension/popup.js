@@ -1,24 +1,21 @@
 /**
- * BeamDrop Chrome Extension - Popup Controller (Manifest V3)
- * Dynamic Staging -> Direct Download QR -> Backpressure Stream -> OTA 1-Click Updater Engine
+ * BeamDrop Chrome Extension - Universal Device Bridge (Manifest V3)
+ * High-Speed RAM-to-RAM Bridge: Files, Text, Links, System Clipboard, and Apple/Android-Style OTA Updater
  */
 
 let VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
-// Automatic protection: Always force public production Vercel URL for phones so QR codes never point to dev containers
 if (!VERCEL_RECEIVER_URL || VERCEL_RECEIVER_URL.includes('.run.app') || VERCEL_RECEIVER_URL.includes('localhost') || VERCEL_RECEIVER_URL.includes('127.0.0.1')) {
   VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 }
-const CHUNK_SIZE = 64 * 1024; // 64KB slices
 
-// Comprehensive STUN & TURN Relay servers (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
+const CHUNK_SIZE = 64 * 1024; // 64KB slices for backpressure streaming
+
+// Comprehensive High-Speed STUN + TURN Relay matrix (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
 const EXTENSION_ICE_SERVERS = [
-  // Primary High-Speed Google STUN
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  // Twilio Global STUN
   { urls: 'stun:global.stun.twilio.com:3478' },
-  // OpenRelay Public TURN Relay (Encrypted peer-to-peer data pipe when direct STUN is blocked)
   { urls: 'stun:stun.relay.metered.ca:80' },
   {
     urls: 'turn:standard.relay.metered.ca:80',
@@ -39,26 +36,31 @@ const EXTENSION_ICE_SERVERS = [
 
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-  ? chrome.runtime.getManifest().version
+  ? (chrome.runtime.getManifest().version || '1.4.0')
   : '1.4.0';
 
-// State
+// Global App State
+let activeBridgeMode = 'files'; // 'files' | 'text'
 let stagedFiles = [];
+let stagedTextContent = '';
+let currentObjectType = 'file'; // 'file' | 'text' | 'link' | 'bundle'
+let activePreparedFile = null; // Single file or generated ZIP bundle
 let peer = null;
 let activeConnection = null;
 let currentPeerId = null;
 let isStreaming = false;
-let currentActiveView = 'send'; // 'send' | 'updates'
+let currentActiveTab = 'send'; // 'send' | 'updates'
 let remoteVersionInfo = null;
-let simulatedInstalledVer = null; // null = use REAL_MANIFEST_VERSION
 
-// DOM Elements
+// ==========================================
+// DOM Elements Selection
+// ==========================================
 const btnPopoutWindow = document.getElementById('btnPopoutWindow');
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
 const footerVersionText = document.getElementById('footerVersionText');
 
-// Navigation Elements
+// Navigation Tabs
 const navTabSend = document.getElementById('navTabSend');
 const navTabUpdates = document.getElementById('navTabUpdates');
 const navUpdateDot = document.getElementById('navUpdateDot');
@@ -70,7 +72,14 @@ const stageTransfer = document.getElementById('stageTransfer');
 const stageComplete = document.getElementById('stageComplete');
 const stageUpdates = document.getElementById('stageUpdates');
 
-// Stage 1 Elements
+// Bridge Mode Buttons & Sub-views
+const modeBtnFiles = document.getElementById('modeBtnFiles');
+const modeBtnText = document.getElementById('modeBtnText');
+const modeBtnClipboard = document.getElementById('modeBtnClipboard');
+const viewFilesMode = document.getElementById('viewFilesMode');
+const viewTextMode = document.getElementById('viewTextMode');
+
+// Files View Elements
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const stagedCard = document.getElementById('stagedCard');
@@ -79,14 +88,23 @@ const thumbIcon = document.getElementById('thumbIcon');
 const stagedFileName = document.getElementById('stagedFileName');
 const stagedTypeTag = document.getElementById('stagedTypeTag');
 const stagedFileSize = document.getElementById('stagedFileSize');
+const multiFileSummary = document.getElementById('multiFileSummary');
 const btnRemoveFile = document.getElementById('btnRemoveFile');
 const btnGenerateQr = document.getElementById('btnGenerateQr');
 
-// Stage 2 Elements
+// Text View Elements
+const textPayloadInput = document.getElementById('textPayloadInput');
+const btnQuickPaste = document.getElementById('btnQuickPaste');
+const textCharCount = document.getElementById('textCharCount');
+const textTypeBadge = document.getElementById('textTypeBadge');
+const btnGenerateTextQr = document.getElementById('btnGenerateTextQr');
+
+// Portal Elements
 const portalBadgeIcon = document.getElementById('portalBadgeIcon');
 const portalFileNameBadge = document.getElementById('portalFileNameBadge');
 const portalFileSizeBadge = document.getElementById('portalFileSizeBadge');
 const qrcodeCanvas = document.getElementById('qrcodeCanvas');
+const qrScanInstruction = document.getElementById('qrScanInstruction');
 const portalUrlText = document.getElementById('portalUrlText');
 const btnSaveQrWatermark = document.getElementById('btnSaveQrWatermark');
 const btnSaveQrWatermarkText = document.getElementById('btnSaveQrWatermarkText');
@@ -96,26 +114,24 @@ const btnCopyLink = document.getElementById('btnCopyLink');
 const copyLinkText = document.getElementById('copyLinkText');
 const btnCancelPortal = document.getElementById('btnCancelPortal');
 
-// Stage 3 Elements
+// Transfer Stage Elements
 const transferFileTitle = document.getElementById('transferFileTitle');
 const transferProgressFill = document.getElementById('transferProgressFill');
 const transferPercentText = document.getElementById('transferPercentText');
 const transferSpeedText = document.getElementById('transferSpeedText');
 const transferEtaText = document.getElementById('transferEtaText');
 
-// Stage 4 Elements
+// Complete Stage Elements
+const completeSubText = document.getElementById('completeSubText');
 const btnSendAnother = document.getElementById('btnSendAnother');
 
-// Stage 5 (Clean 2-State Updates Engine) Elements
+// Updates Stage Elements
 const stateUpToDate = document.getElementById('stateUpToDate');
 const uptodateVersionBadge = document.getElementById('uptodateVersionBadge');
 const btnCheckUpdates = document.getElementById('btnCheckUpdates');
 const btnCheckUpdatesText = document.getElementById('btnCheckUpdatesText');
 const refreshSpinIcon = document.getElementById('refreshSpinIcon');
 const lastCheckedText = document.getElementById('lastCheckedText');
-const btnSimulateV120 = document.getElementById('btnSimulateV120');
-const btnSimulateV130 = document.getElementById('btnSimulateV130');
-const btnSimulateReal = document.getElementById('btnSimulateReal');
 
 const stateUpdateAvailable = document.getElementById('stateUpdateAvailable');
 const currentVerPill = document.getElementById('currentVerPill');
@@ -132,13 +148,15 @@ const btnReloadExtension = document.getElementById('btnReloadExtension');
 const btnTriggerUpdate = document.getElementById('btnTriggerUpdate');
 const btnTriggerUpdateText = document.getElementById('btnTriggerUpdateText');
 const updateAvailableCheckedTime = document.getElementById('updateAvailableCheckedTime');
-const btnResetSimulation = document.getElementById('btnResetSimulation');
 
 // Initialize version in footer
 if (footerVersionText) {
   footerVersionText.textContent = 'v' + REAL_MANIFEST_VERSION;
 }
 
+// ==========================================
+// UI Helpers
+// ==========================================
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
   stagePortal.style.display = stageName === 'portal' ? 'flex' : 'none';
@@ -159,34 +177,60 @@ function updateStatus(state, text) {
   }
 }
 
-// Detach to floating window / side panel controller
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ==========================================
+// DETACH TO FLOATING WINDOW OR SIDE PANEL
+// ==========================================
 if (btnPopoutWindow) {
   btnPopoutWindow.addEventListener('click', () => {
-    if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.create) {
-      chrome.windows.create({
-        url: chrome.runtime.getURL('popup.html?detached=true'),
-        type: 'popup',
-        width: 400,
-        height: 640
-      });
-      window.close();
-    } else if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
+    if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0] && tabs[0].id) {
-          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {
+            openFloatingWindowFallback();
+          });
+        } else {
+          openFloatingWindowFallback();
         }
       });
     } else {
-      window.open(window.location.href, '_blank', 'width=400,height=640');
+      openFloatingWindowFallback();
     }
   });
+}
+
+function openFloatingWindowFallback() {
+  if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.create) {
+    chrome.windows.create({
+      url: chrome.runtime.getURL('popup.html?detached=true'),
+      type: 'popup',
+      width: 410,
+      height: 640
+    });
+    window.close();
+  } else {
+    window.open(window.location.href, '_blank', 'width=410,height=640');
+  }
 }
 
 // ==========================================
 // NAVIGATION CONTROLLER
 // ==========================================
 navTabSend.addEventListener('click', () => {
-  currentActiveView = 'send';
+  currentActiveTab = 'send';
   navTabSend.classList.add('active');
   navTabUpdates.classList.remove('active');
 
@@ -194,15 +238,13 @@ navTabSend.addEventListener('click', () => {
     showStage('transfer');
   } else if (currentPeerId && activeConnection) {
     showStage('portal');
-  } else if (stagedFiles.length > 0) {
-    showStage('staging');
   } else {
     showStage('staging');
   }
 });
 
 navTabUpdates.addEventListener('click', () => {
-  currentActiveView = 'updates';
+  currentActiveTab = 'updates';
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
   showStage('updates');
@@ -216,7 +258,32 @@ navTabUpdates.addEventListener('click', () => {
 });
 
 // ==========================================
-// STAGE 1: Staging & File Selection
+// BRIDGE OBJECT MODE SWITCHER
+// ==========================================
+function switchBridgeMode(mode) {
+  activeBridgeMode = mode;
+  modeBtnFiles.className = mode === 'files' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  modeBtnText.className = mode === 'text' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  modeBtnClipboard.className = mode === 'clipboard' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+
+  if (mode === 'files') {
+    viewFilesMode.style.display = 'flex';
+    viewTextMode.style.display = 'none';
+  } else if (mode === 'text' || mode === 'clipboard') {
+    viewFilesMode.style.display = 'none';
+    viewTextMode.style.display = 'flex';
+    if (mode === 'clipboard') {
+      readClipboardAndFill();
+    }
+  }
+}
+
+modeBtnFiles.addEventListener('click', () => switchBridgeMode('files'));
+modeBtnText.addEventListener('click', () => switchBridgeMode('text'));
+modeBtnClipboard.addEventListener('click', () => switchBridgeMode('clipboard'));
+
+// ==========================================
+// STAGE 1A: FILE STAGING
 // ==========================================
 dropZone.addEventListener('click', () => fileInput.click());
 
@@ -246,6 +313,7 @@ fileInput.addEventListener('change', (e) => {
 btnRemoveFile.addEventListener('click', (e) => {
   e.stopPropagation();
   stagedFiles = [];
+  activePreparedFile = null;
   stagedCard.style.display = 'none';
   fileInput.value = '';
   btnGenerateQr.disabled = true;
@@ -284,53 +352,245 @@ function stageSelectedFiles(files) {
   if (!first) return;
 
   stagedCard.style.display = 'flex';
-  stagedFileName.textContent = files.length > 1 ? `${first.name} (+${files.length - 1} more)` : first.name;
   const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-  stagedFileSize.textContent = formatBytes(totalSize);
 
-  const fileInfo = getExtensionFileTypeInfo(first.name, first.type);
-  if (stagedTypeTag) {
-    stagedTypeTag.textContent = fileInfo.tag;
-    stagedTypeTag.className = 'staged-type-tag ' + fileInfo.class;
-  }
-
-  if (first.type.startsWith('image/')) {
-    thumbImg.src = URL.createObjectURL(first);
-    thumbImg.style.display = 'block';
-    thumbIcon.style.display = 'none';
-  } else {
+  if (files.length > 1) {
+    currentObjectType = 'bundle';
+    stagedFileName.textContent = `${first.name} (+${files.length - 1} more)`;
+    if (multiFileSummary) multiFileSummary.style.display = 'flex';
+    if (stagedTypeTag) {
+      stagedTypeTag.textContent = 'ZIP BUNDLE';
+      stagedTypeTag.className = 'staged-type-tag tag-zip';
+    }
     thumbImg.style.display = 'none';
-    thumbIcon.textContent = fileInfo.icon;
+    thumbIcon.textContent = '📦';
     thumbIcon.style.display = 'block';
+  } else {
+    currentObjectType = 'file';
+    stagedFileName.textContent = first.name;
+    if (multiFileSummary) multiFileSummary.style.display = 'none';
+    const fileInfo = getExtensionFileTypeInfo(first.name, first.type);
+    if (stagedTypeTag) {
+      stagedTypeTag.textContent = fileInfo.tag;
+      stagedTypeTag.className = 'staged-type-tag ' + fileInfo.class;
+    }
+    if (first.type.startsWith('image/')) {
+      thumbImg.src = URL.createObjectURL(first);
+      thumbImg.style.display = 'block';
+      thumbIcon.style.display = 'none';
+    } else {
+      thumbImg.style.display = 'none';
+      thumbIcon.textContent = fileInfo.icon;
+      thumbIcon.style.display = 'block';
+    }
   }
 
+  stagedFileSize.textContent = formatBytes(totalSize);
   btnGenerateQr.disabled = false;
-  updateStatus('ready', 'File Staged');
+  updateStatus('ready', 'Object Staged');
 }
 
-// ==========================================
-// STAGE 2: Direct Download Portal & QR Engine
-// ==========================================
-btnGenerateQr.addEventListener('click', () => {
+btnGenerateQr.addEventListener('click', async () => {
   if (stagedFiles.length === 0) return;
-  startPortalSession();
+  btnGenerateQr.disabled = true;
+  btnGenerateQr.innerHTML = '<span>⚡ Preparing Transmission...</span>';
+
+  try {
+    if (stagedFiles.length > 1 && typeof JSZip !== 'undefined') {
+      // Auto-bundle multiple files into a clean RAM ZIP archive
+      const zip = new JSZip();
+      for (const f of stagedFiles) {
+        zip.file(f.name, f);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      activePreparedFile = new File([zipBlob], `beamdrop-bundle-${stagedFiles.length}-files.zip`, {
+        type: 'application/zip'
+      });
+    } else {
+      activePreparedFile = stagedFiles[0];
+    }
+
+    startFilePortalSession(activePreparedFile);
+  } catch (err) {
+    console.error('Failed to prepare files:', err);
+    activePreparedFile = stagedFiles[0];
+    startFilePortalSession(activePreparedFile);
+  } finally {
+    btnGenerateQr.disabled = false;
+    btnGenerateQr.innerHTML = '<span>⚡ Generate Direct Download QR</span>';
+  }
 });
 
-btnCancelPortal.addEventListener('click', () => {
-  cleanupTransferSession();
+// ==========================================
+// STAGE 1B: TEXT & LINK COMPOSER
+// ==========================================
+textPayloadInput.addEventListener('input', () => {
+  const text = textPayloadInput.value.trim();
+  stagedTextContent = text;
+  textCharCount.textContent = `${text.length} chars`;
+
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    textTypeBadge.textContent = 'URL LINK';
+    textTypeBadge.style.color = '#38bdf8';
+    currentObjectType = 'link';
+  } else if (text.includes('function') || text.includes('const ') || text.includes('{') || text.includes('import ')) {
+    textTypeBadge.textContent = 'CODE';
+    textTypeBadge.style.color = '#a855f7';
+    currentObjectType = 'text';
+  } else {
+    textTypeBadge.textContent = 'TEXT';
+    textTypeBadge.style.color = '#38bdf8';
+    currentObjectType = 'text';
+  }
+
+  btnGenerateTextQr.disabled = text.length === 0;
+  if (text.length > 0) {
+    updateStatus('ready', 'Text Ready');
+  } else {
+    updateStatus('idle', 'Ready');
+  }
 });
 
+btnQuickPaste.addEventListener('click', readClipboardAndFill);
+
+async function readClipboardAndFill() {
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const clipText = await navigator.clipboard.readText();
+      if (clipText) {
+        textPayloadInput.value = clipText;
+        textPayloadInput.dispatchEvent(new Event('input'));
+        btnQuickPaste.innerHTML = '<span>✓ Pasted!</span>';
+        setTimeout(() => {
+          btnQuickPaste.innerHTML = '<span>📋 Paste from Clipboard</span>';
+        }, 1500);
+      }
+    }
+  } catch (err) {
+    console.warn('Clipboard read failed or permission denied:', err);
+  }
+}
+
+btnGenerateTextQr.addEventListener('click', () => {
+  if (!stagedTextContent) return;
+  startTextPortalSession(stagedTextContent);
+});
+
+// ==========================================
+// BACKGROUND CONTEXT MENU PENDING SHARE DETECTION
+// ==========================================
+function checkPendingShareFromBackground() {
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ action: 'get_pending_share' }, (res) => {
+      if (res && res.payload && res.payload.content) {
+        switchBridgeMode('text');
+        textPayloadInput.value = res.payload.content;
+        textPayloadInput.dispatchEvent(new Event('input'));
+        // Automatically launch portal for immediate scanning
+        startTextPortalSession(res.payload.content);
+      }
+    });
+  }
+}
+
+// Call on startup
+checkPendingShareFromBackground();
+
+// ==========================================
+// STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
+// ==========================================
+async function startFilePortalSession(file) {
+  updateStatus('ready', 'Starting Portal...');
+
+  const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).substring(2, 10);
+  currentPeerId = 'beam-' + randomSub;
+
+  const fileNameEnc = encodeURIComponent(file.name);
+  const fileSize = file.size;
+  const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
+
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
+
+  // Update badge on top of QR code in popup
+  const fileInfo = getExtensionFileTypeInfo(file.name, file.type);
+  if (portalBadgeIcon) portalBadgeIcon.textContent = fileInfo.icon;
+  if (portalFileNameBadge) portalFileNameBadge.textContent = file.name;
+  if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${formatBytes(file.size)})`;
+  if (qrScanInstruction) qrScanInstruction.textContent = 'Scan with your phone to download directly';
+
+  portalUrlText.textContent = targetUrl;
+
+  try {
+    await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+      width: 196,
+      margin: 2,
+      color: { dark: '#030712', light: '#ffffff' }
+    });
+  } catch (err) {
+    console.error('QR rendering failed:', err);
+  }
+
+  showStage('portal');
+  initPeerJsSession('file');
+}
+
+async function startTextPortalSession(text) {
+  updateStatus('ready', 'Starting Portal...');
+
+  const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).substring(2, 10);
+  currentPeerId = 'beam-' + randomSub;
+
+  const isLink = text.startsWith('http://') || text.startsWith('https://');
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&type=${isLink ? 'link' : 'text'}&name=${encodeURIComponent(isLink ? 'Beamed Link' : 'Beamed Text')}`;
+
+  if (portalBadgeIcon) portalBadgeIcon.textContent = isLink ? '🔗' : '📝';
+  if (portalFileNameBadge) portalFileNameBadge.textContent = isLink ? (text.length > 25 ? text.slice(0, 22) + '...' : text) : 'Text Snippet';
+  if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${text.length} chars)`;
+  if (qrScanInstruction) qrScanInstruction.textContent = 'Scan to beam text/link to phone clipboard';
+
+  portalUrlText.textContent = targetUrl;
+
+  try {
+    await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+      width: 196,
+      margin: 2,
+      color: { dark: '#030712', light: '#ffffff' }
+    });
+  } catch (err) {
+    console.error('QR rendering failed:', err);
+  }
+
+  showStage('portal');
+  initPeerJsSession('text');
+}
+
+// Copy link handler
 btnCopyLink.addEventListener('click', () => {
   if (!portalUrlText.textContent) return;
   navigator.clipboard.writeText(portalUrlText.textContent).then(() => {
     copyLinkText.textContent = 'Copied!';
-    setTimeout(() => {
-      copyLinkText.textContent = 'Copy Link';
-    }, 2000);
+    setTimeout(() => { copyLinkText.textContent = 'Copy Link'; }, 2000);
   });
 });
 
-// BeamDrop High-Res Watermarked QR Card Generator
+// Cancel portal session
+btnCancelPortal.addEventListener('click', () => {
+  cleanupTransferSession();
+});
+
+// High-Res Watermarked QR Card Generator
 async function createExtensionWatermarkedQr(targetUrl, name, size) {
   const width = 640;
   const height = 800;
@@ -347,13 +607,12 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // Border & Corner cyan accents
+  // Borders & Accents
   ctx.strokeStyle = '#334155';
   ctx.lineWidth = 3;
   ctx.strokeRect(14, 14, width - 28, height - 28);
   ctx.strokeStyle = '#06b6d4';
   ctx.lineWidth = 5;
-  // Corners
   ctx.beginPath(); ctx.moveTo(14, 50); ctx.lineTo(14, 14); ctx.lineTo(50, 14); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(width - 50, 14); ctx.lineTo(width - 14, 14); ctx.lineTo(width - 14, 50); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(14, height - 50); ctx.lineTo(14, height - 14); ctx.lineTo(50, height - 14); ctx.stroke();
@@ -367,9 +626,9 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
 
   ctx.font = '600 13px monospace';
   ctx.fillStyle = '#38bdf8';
-  ctx.fillText('DIRECT P2P FILE GATEWAY', width / 2, 85);
+  ctx.fillText('UNIVERSAL EPHEMERAL DEVICE BRIDGE', width / 2, 85);
 
-  // File Badge
+  // Object Badge
   if (name) {
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.beginPath();
@@ -384,13 +643,13 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
     ctx.font = 'bold 16px system-ui, sans-serif';
     ctx.fillStyle = '#f8fafc';
     const displayTrunc = name.length > 28 ? name.slice(0, 25) + '...' : name;
-    ctx.fillText(`📄 ${displayTrunc}`, 55, 129);
+    ctx.fillText(`⚡ ${displayTrunc}`, 55, 129);
 
     if (size) {
       ctx.textAlign = 'right';
       ctx.font = 'bold 14px monospace';
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText(formatBytes(size), width - 55, 129);
+      ctx.fillText(typeof size === 'number' ? formatBytes(size) : size, width - 55, 129);
     }
   }
 
@@ -422,18 +681,18 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.textBaseline = 'middle';
   ctx.fillText('⚡', width / 2, qrY + qrBoxSize / 2);
 
-  // Scan text
+  // Scan instruction
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.font = 'bold 18px system-ui, sans-serif';
   ctx.fillStyle = '#f1f5f9';
-  ctx.fillText('Point Camera to Download Directly', width / 2, qrY + qrBoxSize + 28);
+  ctx.fillText('Point Camera to Beam Directly', width / 2, qrY + qrBoxSize + 28);
 
   ctx.font = '500 13px system-ui, sans-serif';
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText('Direct RAM stream over WebRTC DataChannel', width / 2, qrY + qrBoxSize + 52);
+  ctx.fillText('Encrypted RAM-to-RAM DataChannel • Zero Cloud Storage', width / 2, qrY + qrBoxSize + 52);
 
-  // Watermark Footer
+  // Footer Watermark
   const footerY = height - 65;
   ctx.strokeStyle = '#334155';
   ctx.lineWidth = 1;
@@ -446,7 +705,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 14px monospace';
   ctx.fillStyle = '#38bdf8';
-  ctx.fillText('⚡ BeamDrop • Zero Cloud Storage • Encrypted P2P', width / 2, footerY + 20);
+  ctx.fillText('⚡ BeamDrop • Universal P2P Bridge • RAM-to-RAM', width / 2, footerY + 20);
 
   ctx.font = '500 11px monospace';
   ctx.fillStyle = '#64748b';
@@ -459,19 +718,17 @@ if (btnSaveQrWatermark) {
   btnSaveQrWatermark.addEventListener('click', async () => {
     const targetUrl = portalUrlText.textContent;
     if (!targetUrl) return;
-    const first = stagedFiles[0];
+    const name = activePreparedFile ? activePreparedFile.name : (stagedTextContent ? 'Beamed-Text' : 'BeamDrop');
+    const size = activePreparedFile ? activePreparedFile.size : `${stagedTextContent.length} chars`;
+
     const originalText = btnSaveQrWatermarkText ? btnSaveQrWatermarkText.textContent : '';
     if (btnSaveQrWatermarkText) btnSaveQrWatermarkText.textContent = 'Generating...';
 
     try {
-      const card = await createExtensionWatermarkedQr(
-        targetUrl,
-        first ? first.name : 'beamdrop-transfer',
-        stagedFiles.reduce((acc, f) => acc + f.size, 0)
-      );
+      const card = await createExtensionWatermarkedQr(targetUrl, name, size);
       const a = document.createElement('a');
       a.href = card.toDataURL('image/png');
-      a.download = first ? `beamdrop-qr-${first.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.png` : 'beamdrop-qr-card.png';
+      a.download = `beamdrop-qr-${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
       a.click();
       if (btnSaveQrWatermarkText) btnSaveQrWatermarkText.textContent = '✓ Saved QR Card!';
       setTimeout(() => {
@@ -488,13 +745,11 @@ if (btnCopyQrImage) {
   btnCopyQrImage.addEventListener('click', async () => {
     const targetUrl = portalUrlText.textContent;
     if (!targetUrl) return;
-    const first = stagedFiles[0];
+    const name = activePreparedFile ? activePreparedFile.name : (stagedTextContent ? 'Beamed-Text' : 'BeamDrop');
+    const size = activePreparedFile ? activePreparedFile.size : `${stagedTextContent.length} chars`;
+
     try {
-      const card = await createExtensionWatermarkedQr(
-        targetUrl,
-        first ? first.name : 'beamdrop-transfer',
-        stagedFiles.reduce((acc, f) => acc + f.size, 0)
-      );
+      const card = await createExtensionWatermarkedQr(targetUrl, name, size);
       card.toBlob(async (blob) => {
         if (!blob) return;
         if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
@@ -513,59 +768,10 @@ if (btnCopyQrImage) {
   });
 }
 
-async function startPortalSession() {
-  updateStatus('ready', 'Starting Portal...');
-
-  const randomSub = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID().slice(0, 8)
-    : Math.random().toString(36).substring(2, 10);
-  currentPeerId = 'beam-' + randomSub;
-
-  const first = stagedFiles[0];
-  const fileNameEnc = encodeURIComponent(first.name);
-  const fileSize = first.size;
-  const mimeEnc = encodeURIComponent(first.type || '');
-
-  // Direct download route: /download?peer=...&name=...&size=...&mime=...
-  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
-    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
-    : "https://beam-drop-mu.vercel.app";
-  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
-
-  // Update badge on top of QR code in popup
-  const fileInfo = getExtensionFileTypeInfo(first.name, first.type);
-  if (portalBadgeIcon) {
-    portalBadgeIcon.textContent = fileInfo.icon;
-  }
-  if (portalFileNameBadge && first) {
-    portalFileNameBadge.textContent = stagedFiles.length > 1
-      ? `${first.name} (+${stagedFiles.length - 1})`
-      : first.name;
-  }
-  if (portalFileSizeBadge && first) {
-    portalFileSizeBadge.textContent = `(${formatBytes(stagedFiles.reduce((acc, f) => acc + f.size, 0))})`;
-  }
-
-  portalUrlText.textContent = targetUrl;
-
-  try {
-    await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
-      width: 196,
-      margin: 2,
-      color: {
-        dark: '#030712',
-        light: '#ffffff'
-      }
-    });
-  } catch (err) {
-    console.error('QR rendering failed:', err);
-  }
-
-  showStage('portal');
-  initPeerJsSession();
-}
-
-function initPeerJsSession() {
+// ==========================================
+// PEERJS WEBRTC SESSION CONTROLLER
+// ==========================================
+function initPeerJsSession(type = 'file') {
   if (peer) {
     try { peer.destroy(); } catch (e) {}
   }
@@ -578,37 +784,34 @@ function initPeerJsSession() {
   });
 
   peer.on('open', (id) => {
-    console.log('[Extension] Portal PeerJS Open:', id);
+    console.log('[BeamDrop] Peer Open:', id);
     updateStatus('ready', 'Awaiting Phone...');
   });
 
   peer.on('connection', (conn) => {
-    console.log('[Extension] Receiver Connected:', conn.peer);
+    console.log('[BeamDrop] Receiver Connected:', conn.peer);
     activeConnection = conn;
     updateStatus('connected', 'Phone Connected');
-    setupConnectionHandlers(conn);
+    setupConnectionHandlers(conn, type);
   });
 
   peer.on('error', (err) => {
-    console.error('[Extension] PeerJS Error:', err);
+    console.error('[BeamDrop] Peer Error:', err);
     updateStatus('idle', 'Connection Error');
   });
 }
 
-function setupConnectionHandlers(conn) {
+function setupConnectionHandlers(conn, type) {
   conn.on('open', () => {
     showStage('transfer');
-    startBackpressureStream(conn);
-  });
-
-  conn.on('data', (data) => {
-    if (data && data.type === 'ack') {
-      // Receiver acknowledged chunk
+    if (type === 'text') {
+      streamTextPayload(conn);
+    } else {
+      startBackpressureStream(conn, activePreparedFile);
     }
   });
 
   conn.on('close', () => {
-    console.log('[Extension] Connection closed.');
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
     }
@@ -616,12 +819,41 @@ function setupConnectionHandlers(conn) {
 }
 
 // ==========================================
-// STAGE 3: Backpressure Stream Transmission
+// STAGE 3: TRANSMISSION ENGINES
 // ==========================================
-async function startBackpressureStream(conn) {
+async function streamTextPayload(conn) {
   isStreaming = true;
-  const file = stagedFiles[0];
+  transferFileTitle.textContent = `Beaming text (${stagedTextContent.length} chars)...`;
+  transferProgressFill.style.width = '50%';
+  transferPercentText.textContent = '50%';
+  transferSpeedText.textContent = 'Instant';
+  transferEtaText.textContent = 'In-flight';
+
+  const isLink = stagedTextContent.startsWith('http://') || stagedTextContent.startsWith('https://');
+
+  conn.send({
+    type: 'TEXT_PAYLOAD',
+    text: stagedTextContent,
+    subType: isLink ? 'link' : 'text',
+    timestamp: Date.now()
+  });
+
+  transferProgressFill.style.width = '100%';
+  transferPercentText.textContent = '100%';
+  isStreaming = false;
+
+  setTimeout(() => {
+    showStage('complete');
+    completeSubText.textContent = isLink
+      ? 'Link beamed directly to phone browser!'
+      : 'Text transferred directly to phone clipboard!';
+    updateStatus('ready', 'Transfer Complete');
+  }, 400);
+}
+
+async function startBackpressureStream(conn, file) {
   if (!file) return;
+  isStreaming = true;
 
   transferFileTitle.textContent = `Streaming: ${file.name}`;
   transferProgressFill.style.width = '0%';
@@ -630,29 +862,29 @@ async function startBackpressureStream(conn) {
   transferEtaText.textContent = '--s remaining';
 
   const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-  // 1. Send File Metadata Header (compatible with standard and custom receivers)
+  // 1. Send File Metadata Header
   conn.send({
     type: 'FILE_START',
     fileId: fileId,
     fileName: file.name,
     fileSize: file.size,
     fileMime: file.type || 'application/octet-stream',
-    totalChunks: Math.ceil(file.size / CHUNK_SIZE),
+    totalChunks: totalChunks,
     payload: {
       id: fileId,
       name: file.name,
       size: file.size,
       mimeType: file.type || 'application/octet-stream',
       chunkSize: CHUNK_SIZE,
-      totalChunks: Math.ceil(file.size / CHUNK_SIZE)
+      totalChunks: totalChunks
     }
   });
 
-  // 2. Stream File Slices
+  // 2. Stream File Slices with DataChannel Backpressure
   let offset = 0;
   let chunkIndex = 0;
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   const startTime = Date.now();
   let lastSpeedCheck = startTime;
   let lastBytes = 0;
@@ -698,19 +930,14 @@ async function startBackpressureStream(conn) {
     }
   }
 
-  // 3. Send Complete Signal (compatible with all receivers)
-  conn.send({
-    type: 'FILE_END',
-    fileId: fileId
-  });
-  conn.send({
-    type: 'complete',
-    fileId: fileId
-  });
+  // 3. Complete Signal
+  conn.send({ type: 'FILE_END', fileId: fileId });
+  conn.send({ type: 'complete', fileId: fileId });
   isStreaming = false;
 
   setTimeout(() => {
     showStage('complete');
+    completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
     updateStatus('ready', 'Transfer Complete');
   }, 400);
 }
@@ -728,9 +955,7 @@ function waitForBufferDrain(dc) {
   });
 }
 
-// ==========================================
-// STAGE 4: Reset & Resend
-// ==========================================
+// Reset session
 btnSendAnother.addEventListener('click', () => {
   cleanupTransferSession();
 });
@@ -743,11 +968,15 @@ function cleanupTransferSession() {
   activeConnection = null;
   currentPeerId = null;
   stagedFiles = [];
+  activePreparedFile = null;
+  stagedTextContent = '';
   isStreaming = false;
 
   stagedCard.style.display = 'none';
-  fileInput.value = '';
+  if (fileInput) fileInput.value = '';
+  if (textPayloadInput) textPayloadInput.value = '';
   btnGenerateQr.disabled = true;
+  btnGenerateTextQr.disabled = true;
   transferProgressFill.style.width = '0%';
   transferPercentText.textContent = '0%';
 
@@ -756,9 +985,8 @@ function cleanupTransferSession() {
 }
 
 // ==========================================
-// STAGE 5: OVER-THE-AIR (OTA) 1-CLICK UPDATER ENGINE
+// STAGE 5: APPLE/ANDROID-STYLE OTA UPDATES ENGINE
 // ==========================================
-
 const GITHUB_RAW_FALLBACK = "https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/public/version.json";
 
 function compareSemver(v1, v2) {
@@ -773,21 +1001,19 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
-// Built-in registry fallback
 const BUILT_IN_LATEST_REGISTRY = {
   version: '1.4.0',
   downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
-    'Direct chrome.downloads API integration: auto-downloads new extension.zip directly to your computer',
-    'Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting',
-    'Native Chrome desktop notification when a new version is pushed to GitHub/Vercel',
-    'Interactive Version Simulator in the Updates tab to preview and test how older version users experience updates',
-    'Guided 2-step reload assistant with 1-click chrome://extensions launcher'
+    'Universal Ephemeral Bridge: beam text, notes, URLs, and code directly to mobile clipboard',
+    'Automatic in-RAM Multi-file ZIP Bundling with JSZip',
+    'Full TURN Relay matrix for 100% reliable transfers across 4G/5G mobile firewalls',
+    'Context menu integration: right click any text/link/image to beam instantly',
+    'Apple/Android-style in-app OTA Updates Engine with 1-click reload'
   ]
 };
 
 async function fetchLatestCloudVersion() {
-  // 1. First try requesting through background service worker (bypasses popup CORS sandbox)
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     try {
       const bgData = await new Promise((resolve) => {
@@ -803,7 +1029,6 @@ async function fetchLatestCloudVersion() {
     }
   }
 
-  // 2. Direct fetch with multi-endpoint fallback
   const endpoints = [
     `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
     `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`,
@@ -812,11 +1037,7 @@ async function fetchLatestCloudVersion() {
 
   for (const ep of endpoints) {
     try {
-      const resp = await fetch(ep, {
-        method: 'GET',
-        mode: 'cors',
-        cache: 'no-store'
-      });
+      const resp = await fetch(ep, { method: 'GET', mode: 'cors', cache: 'no-store' });
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.version) return json;
@@ -835,17 +1056,13 @@ async function checkForUpdates(manual = false) {
     if (refreshSpinIcon) refreshSpinIcon.classList.add('spinning');
   }
 
-  const currentVer = simulatedInstalledVer || REAL_MANIFEST_VERSION;
+  const currentVer = REAL_MANIFEST_VERSION;
   if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
   remoteVersionInfo = await fetchLatestCloudVersion();
   const latestVer = remoteVersionInfo.version || '1.4.0';
   const isNewer = compareSemver(latestVer, currentVer) > 0;
 
-  // Sync simulator button highlights
-  if (btnSimulateV120) btnSimulateV120.className = simulatedInstalledVer === '1.2.0' ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
-  if (btnSimulateV130) btnSimulateV130.className = simulatedInstalledVer === '1.3.0' ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
-  if (btnSimulateReal) btnSimulateReal.className = !simulatedInstalledVer ? 'btn-sim-ver active-sim' : 'btn-sim-ver';
 
   if (isNewer) {
     // STATE B: NEW UPDATE AVAILABLE
@@ -859,12 +1076,11 @@ async function checkForUpdates(manual = false) {
     if (updatePostDownloadBox) updatePostDownloadBox.style.display = 'none';
     if (updateProgressContainer) updateProgressContainer.style.display = 'none';
     if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'flex';
-    if (btnResetSimulation) btnResetSimulation.style.display = simulatedInstalledVer ? 'inline' : 'none';
 
-    const notes = remoteVersionInfo.highlights || (remoteVersionInfo.changelog && remoteVersionInfo.changelog[0] && remoteVersionInfo.changelog[0].changes) || [
-      'Automated 1-click extension package downloader via chrome.downloads',
-      'Dual Vercel & GitHub Raw cloud release synchronization',
-      'Performance enhancements and streaming stability fixes.'
+    const notes = remoteVersionInfo.highlights || [
+      'Universal Device Bridge for files, text, notes, and links',
+      'Full TURN relay support for 4G/5G mobile networks',
+      'Automated 1-click extension updates'
     ];
 
     if (availableChangelogList) {
@@ -878,7 +1094,7 @@ async function checkForUpdates(manual = false) {
       btnTriggerUpdate.onclick = () => startOneClickUpdate(latestVer);
     }
   } else {
-    // STATE A: USER IS UP-TO-DATE
+    // STATE A: UP TO DATE
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
     if (stateUpToDate) stateUpToDate.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'none';
@@ -898,7 +1114,7 @@ async function checkForUpdates(manual = false) {
   }
 }
 
-// 1-Click Update Action (Downloads real ZIP package directly)
+// 1-Click Update Action
 async function startOneClickUpdate(ver) {
   if (updateProgressContainer) updateProgressContainer.style.display = 'block';
   if (btnTriggerUpdate) btnTriggerUpdate.disabled = true;
@@ -913,7 +1129,6 @@ async function startOneClickUpdate(ver) {
 
     let downloadTriggered = false;
 
-    // 1. Try Chrome Downloads API
     if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
       try {
         chrome.downloads.download({
@@ -930,7 +1145,6 @@ async function startOneClickUpdate(ver) {
       }
     }
 
-    // 2. Try Chrome runtime background message
     if (!downloadTriggered && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({
         action: 'download_update_package',
@@ -979,7 +1193,6 @@ function finishDownloadStep(ver, filename) {
       if (downloadedFilename) downloadedFilename.textContent = filename;
     }
 
-    // Clear toolbar badge
     if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
       chrome.action.setBadgeText({ text: '' });
     }
@@ -1004,38 +1217,12 @@ if (btnReloadExtension) {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
         chrome.runtime.reload();
       } else {
-        // If testing simulation, reset to real version
-        setSimulatedVersion(null);
+        checkForUpdates(false);
       }
     }, 400);
   });
 }
 
-// Simulator version switcher (allows instant testing of older version update flows)
-function setSimulatedVersion(ver) {
-  simulatedInstalledVer = ver;
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    if (ver) {
-      chrome.storage.local.set({ simulated_installed_version: ver });
-    } else {
-      chrome.storage.local.remove(['simulated_installed_version']);
-    }
-  }
-  checkForUpdates(false);
-}
-
-if (btnSimulateV120) {
-  btnSimulateV120.addEventListener('click', () => setSimulatedVersion('1.2.0'));
-}
-if (btnSimulateV130) {
-  btnSimulateV130.addEventListener('click', () => setSimulatedVersion('1.3.0'));
-}
-if (btnSimulateReal) {
-  btnSimulateReal.addEventListener('click', () => setSimulatedVersion(null));
-}
-if (btnResetSimulation) {
-  btnResetSimulation.addEventListener('click', () => setSimulatedVersion(null));
-}
 
 function setUpdateProgress(percent, label) {
   if (updateProgressFill) updateProgressFill.style.width = percent + '%';
@@ -1048,27 +1235,3 @@ if (btnCheckUpdates) {
     checkForUpdates(true);
   });
 }
-
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-// Initial update check on startup (runs silently in background)
-checkForUpdates(false);
-
-// Start on Stage 1 (Staging)
-showStage('staging');
-updateStatus('idle', 'Ready');
-
