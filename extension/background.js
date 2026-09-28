@@ -144,6 +144,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
   }
+  if (message.action === 'fetch_cloud_version') {
+    checkCloudForUpdates().then((res) => {
+      sendResponse(res && res.data ? res.data : null);
+    }).catch(() => {
+      sendResponse(null);
+    });
+    return true;
+  }
   if (message.action === 'request_store_update_check') {
     if (chrome.runtime.requestUpdateCheck) {
       chrome.runtime.requestUpdateCheck((status, details) => {

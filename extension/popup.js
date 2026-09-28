@@ -780,14 +780,36 @@ const BUILT_IN_LATEST_REGISTRY = {
 };
 
 async function fetchLatestCloudVersion() {
+  // 1. First try requesting through background service worker (bypasses popup CORS sandbox)
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    try {
+      const bgData = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'fetch_cloud_version' }, (res) => {
+          resolve(res);
+        });
+      });
+      if (bgData && bgData.version) {
+        return bgData;
+      }
+    } catch (e) {
+      console.debug('Background fetch delegation skipped:', e);
+    }
+  }
+
+  // 2. Direct fetch with multi-endpoint fallback
   const endpoints = [
     `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
-    `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`
+    `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`,
+    'https://beam-drop-mu.vercel.app/version.json'
   ];
 
   for (const ep of endpoints) {
     try {
-      const resp = await fetch(ep, { cache: 'no-store' });
+      const resp = await fetch(ep, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store'
+      });
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.version) return json;
