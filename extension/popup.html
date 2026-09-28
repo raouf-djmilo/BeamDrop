@@ -288,15 +288,16 @@
       <!-- Step 2: Post-Download Replacement Assistant -->
       <div id="updatePostDownloadBox" class="update-post-download-box" style="display: none;">
         <div class="post-download-title">
-          <span class="text-emerald-400 font-bold">✓ Package Downloaded!</span>
+          <span class="text-emerald-400 font-bold">✓ Update Package Downloaded!</span>
         </div>
         <p class="post-download-desc">
-          1. Extract the downloaded <code id="downloadedFilename">BeamDrop-v1.4.0.zip</code> into your extension folder.<br/>
-          2. Open Chrome Extensions and click <strong>Reload</strong>.
+          <strong>How to apply in Chrome:</strong><br/>
+          1. Extract the downloaded <code id="downloadedFilename">BeamDrop-v1.4.0.zip</code> and replace the files inside your BeamDrop folder (or double-click <code class="text-amber-400">update.bat</code> in the folder).<br/>
+          2. Go to Chrome Extensions and click <strong>🔄 Reload</strong>.
         </p>
         <div class="post-download-actions">
           <button id="btnOpenExtensionsPage" type="button" class="btn-clean-check">
-            <span>Open Extensions Manager</span>
+            <span>📂 Open chrome://extensions</span>
           </button>
           <button id="btnReloadExtension" type="button" class="btn-clean-check" style="border-color: #06b6d4; color: #38bdf8;">
             <span>🔄 Reload Extension</span>
@@ -306,7 +307,7 @@
 
       <!-- Primary 1-Click Update Button -->
       <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
-        <span id="btnTriggerUpdateText">⚡ Download & Apply Update (.ZIP)</span>
+        <span id="btnTriggerUpdateText">📥 Download Update Package (.ZIP)</span>
       </button>
 
       <div class="available-footer-info flex items-center justify-between mt-2">

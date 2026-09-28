@@ -4,6 +4,8 @@ import popupHtmlRaw from '../../extension/popup.html?raw';
 import popupJsRaw from '../../extension/popup.js?raw';
 import styleCssRaw from '../../extension/style.css?raw';
 import backgroundJsRaw from '../../extension/background.js?raw';
+import updateBatRaw from '../../extension/update.bat?raw';
+import updateShRaw from '../../extension/update.sh?raw';
 
 export interface ExtensionFile {
   name: string;
@@ -62,6 +64,20 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
       language: 'javascript',
       description: 'Manifest V3 Service Worker for context menus & notifications',
       content: processedBackgroundJs
+    },
+    {
+      name: 'update.bat',
+      path: 'update.bat',
+      language: 'bat',
+      description: 'Windows 1-Click Fast Auto-Updater Script (Double click to update files)',
+      content: updateBatRaw
+    },
+    {
+      name: 'update.sh',
+      path: 'update.sh',
+      language: 'bash',
+      description: 'Mac/Linux Fast Auto-Updater Script',
+      content: updateShRaw
     }
   ];
 };
