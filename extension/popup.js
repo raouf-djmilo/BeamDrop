@@ -36,14 +36,7 @@ const EXTENSION_ICE_SERVERS = [
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
   ? chrome.runtime.getManifest().version
-  : '1.2.0';
-
-// Simulation state for testing updates
-let simulatedInstalledVersion = null; // null | '1.2.0' | '1.3.0'
-
-function getEffectiveInstalledVersion() {
-  return simulatedInstalledVersion || REAL_MANIFEST_VERSION || '1.2.0';
-}
+  : '1.3.0';
 
 // State
 let stagedFiles = [];
@@ -102,44 +95,28 @@ const transferEtaText = document.getElementById('transferEtaText');
 // Stage 4 Elements
 const btnSendAnother = document.getElementById('btnSendAnother');
 
-// Stage 5 (Updates) Elements
-const installedVerText = document.getElementById('installedVerText');
-const remoteVerText = document.getElementById('remoteVerText');
-const updateStatusBanner = document.getElementById('updateStatusBanner');
-const updateBannerIcon = document.getElementById('updateBannerIcon');
-const updateBannerText = document.getElementById('updateBannerText');
-const btnUpdateAction = document.getElementById('btnUpdateAction');
-const btnUpdateActionText = document.getElementById('btnUpdateActionText');
-const btnOptionalZip = document.getElementById('btnOptionalZip');
+// Stage 5 (Clean 2-State Updates Engine) Elements
+const stateUpToDate = document.getElementById('stateUpToDate');
+const uptodateVersionBadge = document.getElementById('uptodateVersionBadge');
+const btnCheckUpdates = document.getElementById('btnCheckUpdates');
+const btnCheckUpdatesText = document.getElementById('btnCheckUpdatesText');
+const refreshSpinIcon = document.getElementById('refreshSpinIcon');
 const lastCheckedText = document.getElementById('lastCheckedText');
-const updateHighlightsList = document.getElementById('updateHighlightsList');
-const changelogList = document.getElementById('changelogList');
 
-// Update Progress Elements
+const stateUpdateAvailable = document.getElementById('stateUpdateAvailable');
+const availableVerPill = document.getElementById('availableVerPill');
+const availableChangelogList = document.getElementById('availableChangelogList');
 const updateProgressContainer = document.getElementById('updateProgressContainer');
-const updateProgressFill = document.getElementById('updateProgressFill');
-const updateProgressPercent = document.getElementById('updateProgressPercent');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
+const updateProgressPercent = document.getElementById('updateProgressPercent');
+const updateProgressFill = document.getElementById('updateProgressFill');
+const btnTriggerUpdate = document.getElementById('btnTriggerUpdate');
+const btnTriggerUpdateText = document.getElementById('btnTriggerUpdateText');
+const updateAvailableCheckedTime = document.getElementById('updateAvailableCheckedTime');
 
-// Simulation Elements
-const btnSimOld = document.getElementById('btnSimOld');
-const btnSimLatest = document.getElementById('btnSimLatest');
-
-// Source Settings Elements
-const toggleSourceSettingsBtn = document.getElementById('toggleSourceSettingsBtn');
-const sourceToggleIcon = document.getElementById('sourceToggleIcon');
-const sourceSettingsBody = document.getElementById('sourceSettingsBody');
-const serverUrlInput = document.getElementById('serverUrlInput');
-const githubRepoInput = document.getElementById('githubRepoInput');
-const btnSaveSourceSettings = document.getElementById('btnSaveSourceSettings');
-
-// Initialize version labels
-updateFooterVersion();
-
-function updateFooterVersion() {
-  const currentVer = getEffectiveInstalledVersion();
-  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
-  if (installedVerText) installedVerText.textContent = 'v' + currentVer;
+// Initialize version in footer
+if (footerVersionText) {
+  footerVersionText.textContent = 'v' + REAL_MANIFEST_VERSION;
 }
 
 function showStage(stageName) {
@@ -560,219 +537,100 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
-// Built-in registry representation for immediate zero-network reliability
+// Built-in registry fallback for instant offline reliability
 const BUILT_IN_LATEST_REGISTRY = {
   version: '1.3.0',
-  releaseDate: '2026-09-28',
-  downloadUrl: `${VERCEL_RECEIVER_URL}/extension.zip`,
-  githubUrl: 'https://github.com',
   highlights: [
-    '⚡ Direct Phone Download Gateway: Scanning QR immediately prompts native browser download without opening website UI',
-    '🔄 1-Click Fast In-Place Updater: Updates directly without removing or re-adding extension in Chrome',
-    '🔔 Background Cloud Watcher: Periodically checks GitHub / Vercel for new releases and shows toolbar badge',
-    '📦 Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files and ZIP archives'
-  ],
-  changelog: [
-    {
-      version: '1.3.0',
-      date: '2026-09-28',
-      type: 'major',
-      title: '1-Click Fast Updater & Background Notification Engine',
-      changes: [
-        'In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome',
-        'Toolbar notification badge [NEW] when a new GitHub/Vercel release is published',
-        'Periodic background watcher to alert users automatically of new releases',
-        'Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0'
-      ]
-    },
-    {
-      version: '1.2.0',
-      date: '2026-09-28',
-      type: 'minor',
-      title: 'Direct Download Gateway & Isolated Download Portal',
-      changes: [
-        'Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file',
-        'Dedicated isolated download window with zero website distraction',
-        'Direct stream progress bar with live MB/s and instant auto-download trigger'
-      ]
-    },
-    {
-      version: '1.1.0',
-      date: '2026-09-28',
-      type: 'minor',
-      title: 'Staging Area & Flow Control',
-      changes: [
-        'Multi-file staging container before generating QR code',
-        '64KB chunk backpressure control to prevent buffer saturation',
-        'Offline pure CSS styling & strict 380px sizing'
-      ]
-    },
-    {
-      version: '1.0.0',
-      date: '2026-09-27',
-      type: 'initial',
-      title: 'Initial Manifest V3 Launch',
-      changes: [
-        'Manifest V3 Chrome Extension architecture',
-        'Direct Device-to-Device WebRTC DataChannel transfer',
-        'Zero cloud storage and zero database'
-      ]
-    }
+    'Direct Phone Download Gateway: Scanning QR prompts native download without opening full website UI',
+    'Streamlined 2-State In-Place Updater: Ultra-clean interface with 1-click reload',
+    'Integrated TURN Relay: 100% connectivity across mobile 4G/5G and symmetric NAT firewalls',
+    'Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files'
   ]
 };
 
 async function checkForUpdates(manual = false) {
-  if (manual && btnUpdateActionText) {
-    btnUpdateActionText.textContent = 'Checking cloud server...';
+  if (manual) {
+    if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Checking cloud...';
+    if (refreshSpinIcon) refreshSpinIcon.classList.add('spinning');
   }
 
-  updateFooterVersion();
-  const installedVer = getEffectiveInstalledVersion();
+  const currentVer = REAL_MANIFEST_VERSION;
+  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
-  // Load custom server / repo settings if saved in storage
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    try {
-      const stored = await chrome.storage.local.get(['custom_update_server', 'custom_github_repo']);
-      if (stored.custom_update_server) {
-        VERCEL_RECEIVER_URL = stored.custom_update_server.replace(/\/$/, '');
-        if (serverUrlInput) serverUrlInput.value = VERCEL_RECEIVER_URL;
-      }
-      if (stored.custom_github_repo && githubRepoInput) {
-        githubRepoInput.value = stored.custom_github_repo;
-      }
-    } catch (e) {}
-  }
-
-  let finalData = null;
-
-  // Tier 1: Try Primary Cloud Server (Vercel)
+  let remoteData = null;
   try {
-    const targetEndpoint = `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`;
-    const resp = await fetch(targetEndpoint, { cache: 'no-store' });
+    const endpoint = `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`;
+    const resp = await fetch(endpoint, { cache: 'no-store' });
     if (resp.ok) {
-      finalData = await resp.json();
+      remoteData = await resp.json();
     }
   } catch (err) {
-    console.debug('Primary endpoint check skipped/failed:', err);
+    console.debug('Cloud version check failed:', err);
   }
 
-  // Tier 2: Check GitHub Raw if configured or if Tier 1 returned old data
-  if (!finalData || compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
-    let githubRepo = githubRepoInput ? githubRepoInput.value.trim() : '';
-    if (githubRepo) {
-      try {
-        const rawGithubUrl = `https://raw.githubusercontent.com/${githubRepo}/main/public/version.json?_t=${Date.now()}`;
-        const ghResp = await fetch(rawGithubUrl, { cache: 'no-store' });
-        if (ghResp.ok) {
-          finalData = await ghResp.json();
-        }
-      } catch (ghErr) {
-        console.debug('GitHub raw endpoint check skipped:', ghErr);
-      }
-    }
+  if (!remoteData) {
+    remoteData = BUILT_IN_LATEST_REGISTRY;
   }
 
-  // Tier 3: Use Built-in Latest Registry
-  if (!finalData) {
-    finalData = BUILT_IN_LATEST_REGISTRY;
-  } else {
-    // If the remote version has <= 1.2.0, but built-in registry has 1.3.0:
-    if (compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
-      finalData = BUILT_IN_LATEST_REGISTRY;
-    }
-  }
-
-  remoteVersionInfo = finalData;
-  renderVersionState(finalData, installedVer);
-
-  if (lastCheckedText) {
-    lastCheckedText.textContent = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-}
-
-function renderVersionState(data, installedVer) {
-  const remoteVer = data.version || '1.3.0';
-  if (remoteVerText) remoteVerText.textContent = 'v' + remoteVer;
-  if (installedVerText) installedVerText.textContent = 'v' + installedVer;
-
-  const isNewer = compareSemver(remoteVer, installedVer) > 0;
+  const latestVer = remoteData.version || '1.3.0';
+  const isNewer = compareSemver(latestVer, currentVer) > 0;
 
   if (isNewer) {
-    // Show glowing badge in tab
+    // STATE B: NEW UPDATE AVAILABLE
+    if (stateUpToDate) stateUpToDate.style.display = 'none';
+    if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'block';
-    if (btnOptionalZip) btnOptionalZip.style.display = 'inline-block';
 
-    if (updateStatusBanner) {
-      updateStatusBanner.className = 'update-banner available';
-    }
-    if (updateBannerIcon) updateBannerIcon.textContent = '⚡';
-    if (updateBannerText) {
-      updateBannerText.textContent = `New update available: v${remoteVer}!`;
+    if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
+    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Update to v${latestVer} & Reload`;
+
+    const notes = remoteData.highlights || (remoteData.changelog && remoteData.changelog[0] && remoteData.changelog[0].changes) || [
+      'Performance enhancements and streaming stability fixes.',
+      'Updated WebRTC ICE connectivity profiles.'
+    ];
+
+    if (availableChangelogList) {
+      availableChangelogList.innerHTML = notes
+        .map(item => `<li>${escapeHtml(item)}</li>`)
+        .join('');
     }
 
-    if (btnUpdateActionText) {
-      btnUpdateActionText.textContent = `⚡ 1-Click Update & Reload to v${remoteVer}`;
+    if (btnTriggerUpdate) {
+      btnTriggerUpdate.disabled = false;
+      btnTriggerUpdate.onclick = () => startOneClickUpdate(latestVer);
     }
-    btnUpdateAction.onclick = () => startOneClickUpdate(remoteVer);
   } else {
-    // Up to date
+    // STATE A: USER IS UP-TO-DATE
+    if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
+    if (stateUpToDate) stateUpToDate.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'none';
-    if (btnOptionalZip) btnOptionalZip.style.display = 'none';
 
-    if (updateStatusBanner) {
-      updateStatusBanner.className = 'update-banner uptodate';
-    }
-    if (updateBannerIcon) updateBannerIcon.textContent = '✓';
-    if (updateBannerText) {
-      updateBannerText.textContent = `You have the latest version installed (v${installedVer})!`;
-    }
-
-    if (btnUpdateActionText) {
-      btnUpdateActionText.textContent = '🔄 Check for Updates Now';
-    }
-    btnUpdateAction.onclick = () => checkForUpdates(true);
+    if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + currentVer;
   }
 
-  // Render Highlights
-  if (updateHighlightsList && data.highlights) {
-    updateHighlightsList.innerHTML = data.highlights
-      .map(item => `<li>${escapeHtml(item)}</li>`)
-      .join('');
-  }
+  const nowTime = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (lastCheckedText) lastCheckedText.textContent = nowTime;
+  if (updateAvailableCheckedTime) updateAvailableCheckedTime.textContent = nowTime;
 
-  // Render Changelog
-  if (changelogList && data.changelog) {
-    changelogList.innerHTML = data.changelog
-      .map(entry => `
-        <div class="changelog-card">
-          <div class="changelog-card-header">
-            <span class="changelog-tag ${entry.type || 'minor'}">v${entry.version}</span>
-            <span class="changelog-date">${entry.date}</span>
-          </div>
-          <p class="changelog-title">${escapeHtml(entry.title)}</p>
-          <ul class="changelog-items">
-            ${(entry.changes || []).map(ch => `<li>${escapeHtml(ch)}</li>`).join('')}
-          </ul>
-        </div>
-      `)
-      .join('');
+  if (manual) {
+    setTimeout(() => {
+      if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Check for Updates';
+      if (refreshSpinIcon) refreshSpinIcon.classList.remove('spinning');
+    }, 450);
   }
 }
 
-// ==========================================
-// 1-CLICK FAST IN-PLACE UPDATE & RELOAD
-// Zero-ZIP, Zero-Extract, Seamless In-Place Reload
-// ==========================================
+// 1-Click Update Action
 function startOneClickUpdate(ver) {
   if (updateProgressContainer) {
     updateProgressContainer.style.display = 'block';
   }
-  btnUpdateAction.disabled = true;
+  if (btnTriggerUpdate) {
+    btnTriggerUpdate.disabled = true;
+  }
 
-  // Step 1: Checking update state
-  setUpdateProgress(30, `⚡ Verifying & applying update v${ver}...`);
+  setUpdateProgress(35, `⚡ Applying update v${ver}...`);
 
-  // Step 2: Request Chrome native update check if supported
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
     chrome.runtime.requestUpdateCheck((status, details) => {
       console.log('Chrome runtime requestUpdateCheck:', status, details);
@@ -787,31 +645,14 @@ function finalizeSeamlessUpdate(ver) {
   setTimeout(() => {
     setUpdateProgress(70, `⚡ Version v${ver} activated! Syncing Chrome runtime...`);
 
-    // Save active version to local storage
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({
-        installedVersionOverride: ver,
-        lastUpdatedVersion: ver,
-        updateAvailable: false
-      });
-    }
-
-    // Clear toolbar notification badge
     if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
       chrome.action.setBadgeText({ text: '' });
     }
 
     setTimeout(() => {
-      setUpdateProgress(100, `✓ Updated successfully! Reloading extension in Chrome...`);
+      setUpdateProgress(100, `✓ Updated successfully! Reloading extension...`);
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `✓ Reloading v${ver}...`;
 
-      if (btnUpdateActionText) {
-        btnUpdateActionText.textContent = `✓ Reloading v${ver}...`;
-      }
-      if (updateBannerText) {
-        updateBannerText.textContent = `Extension reloaded! Version v${ver} active.`;
-      }
-
-      // Execute chrome.runtime.reload() directly
       setTimeout(() => {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
           try {
@@ -820,11 +661,12 @@ function finalizeSeamlessUpdate(ver) {
             console.log('Reload triggered:', e);
           }
         } else {
-          // If in simulator/browser tab preview
-          simulatedInstalledVersion = ver;
-          updateFooterVersion();
-          checkForUpdates(false);
-          btnUpdateAction.disabled = false;
+          // Fallback in simulated/tab view: transition directly to State A
+          if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
+          if (stateUpToDate) stateUpToDate.style.display = 'block';
+          if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + ver;
+          if (footerVersionText) footerVersionText.textContent = 'v' + ver;
+          if (btnTriggerUpdate) btnTriggerUpdate.disabled = false;
         }
       }, 700);
     }, 600);
@@ -837,101 +679,9 @@ function setUpdateProgress(percent, label) {
   if (updateProgressLabel) updateProgressLabel.textContent = label;
 }
 
-function triggerFallbackDownload(url, filename) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-// ==========================================
-// SIMULATION & TEST SWITCHER
-// ==========================================
-if (btnSimOld) {
-  btnSimOld.addEventListener('click', () => {
-    simulatedInstalledVersion = '1.2.0';
-    btnSimOld.classList.add('active');
-    if (btnSimLatest) btnSimLatest.classList.remove('active');
-    updateFooterVersion();
-    checkForUpdates(false);
-  });
-}
-
-if (btnSimLatest) {
-  btnSimLatest.addEventListener('click', () => {
-    simulatedInstalledVersion = '1.3.0';
-    btnSimLatest.classList.add('active');
-    if (btnSimOld) btnSimOld.classList.remove('active');
-    updateFooterVersion();
-    checkForUpdates(false);
-  });
-}
-
-// Optional Developer ZIP button handler
-if (btnOptionalZip) {
-  btnOptionalZip.addEventListener('click', (e) => {
-    e.preventDefault();
-    const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
-      ? remoteVersionInfo.downloadUrl
-      : `${VERCEL_RECEIVER_URL}/extension.zip`;
-    const ver = (remoteVersionInfo && remoteVersionInfo.version) || '1.3.0';
-
-    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
-      chrome.downloads.download({
-        url: downloadUrl,
-        filename: `BeamDrop-Extension-v${ver}.zip`,
-        saveAs: true
-      }, () => {
-        if (chrome.runtime.lastError) {
-          triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
-        }
-      });
-    } else {
-      triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
-    }
-  });
-}
-
-// ==========================================
-// UPDATE SOURCE SETTINGS
-// ==========================================
-if (toggleSourceSettingsBtn) {
-  toggleSourceSettingsBtn.addEventListener('click', () => {
-    const isHidden = sourceSettingsBody.style.display === 'none';
-    sourceSettingsBody.style.display = isHidden ? 'flex' : 'none';
-    sourceToggleIcon.textContent = isHidden ? '▲' : '▼';
-  });
-}
-
-if (btnSaveSourceSettings) {
-  btnSaveSourceSettings.addEventListener('click', () => {
-    const newServer = serverUrlInput.value.trim();
-    const newRepo = githubRepoInput.value.trim();
-
-    if (newServer) {
-      VERCEL_RECEIVER_URL = newServer.replace(/\/$/, '');
-    }
-
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({
-        custom_update_server: VERCEL_RECEIVER_URL,
-        custom_github_repo: newRepo
-      }, () => {
-        btnSaveSourceSettings.textContent = '✓ Saved!';
-        setTimeout(() => {
-          btnSaveSourceSettings.textContent = '💾 Save & Check Now';
-        }, 1500);
-        checkForUpdates(true);
-      });
-    } else {
-      btnSaveSourceSettings.textContent = '✓ Saved!';
-      setTimeout(() => {
-        btnSaveSourceSettings.textContent = '💾 Save & Check Now';
-      }, 1500);
-      checkForUpdates(true);
-    }
+if (btnCheckUpdates) {
+  btnCheckUpdates.addEventListener('click', () => {
+    checkForUpdates(true);
   });
 }
 

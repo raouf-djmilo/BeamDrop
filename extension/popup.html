@@ -179,31 +179,50 @@
     </div>
   </main>
 
-  <!-- STAGE 5: Updates & Version History System -->
+  <!-- STAGE 5: Clean 2-State Updates Engine -->
   <main id="stageUpdates" class="stage-container" style="display: none;">
-    <!-- Version Comparison Card -->
-    <div class="version-hero-card">
-      <div class="version-hero-header">
-        <div>
-          <span class="version-label">Current Version</span>
-          <p id="installedVerText" class="version-val">v1.2.0</p>
-        </div>
-        <div class="version-arrow">→</div>
-        <div>
-          <span class="version-label">Latest Cloud Release</span>
-          <p id="remoteVerText" class="version-val text-cyan-400">v1.3.0</p>
-        </div>
+    
+    <!-- STATE A: USER IS UP-TO-DATE (currentVersion >= latestVersion) -->
+    <div id="stateUpToDate" class="update-clean-card" style="display: none;">
+      <div class="uptodate-glow-badge">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <path d="m9 12 2 2 4-4"></path>
+        </svg>
+      </div>
+      <h3 class="uptodate-headline">BeamDrop is up to date</h3>
+      <div id="uptodateVersionBadge" class="uptodate-ver-pill">v1.3.0</div>
+      <p class="uptodate-sub">You have the latest version installed with all security and performance features.</p>
+
+      <div class="uptodate-bottom-bar">
+        <button id="btnCheckUpdates" class="btn-clean-check" type="button">
+          <svg id="refreshSpinIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          <span id="btnCheckUpdatesText">Check for Updates</span>
+        </button>
+        <span id="lastCheckedText" class="uptodate-time">Last checked: Just now</span>
+      </div>
+    </div>
+
+    <!-- STATE B: NEW UPDATE AVAILABLE (currentVersion < latestVersion) -->
+    <div id="stateUpdateAvailable" class="update-clean-card available-theme" style="display: none;">
+      <div class="available-top-row">
+        <span class="available-pulse-tag">⚡ New Version Available</span>
+        <span id="availableVerPill" class="available-ver-badge">v1.4.0</span>
       </div>
 
-      <div id="updateStatusBanner" class="update-banner available">
-        <span id="updateBannerIcon">⚡</span>
-        <span id="updateBannerText">Checking latest release...</span>
+      <div class="available-notes-box">
+        <h4 class="available-notes-title">What's New:</h4>
+        <ul id="availableChangelogList" class="available-notes-list">
+          <!-- Populated dynamically -->
+        </ul>
       </div>
 
       <!-- Live Update Progress Animation (hidden until updating) -->
       <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
         <div class="update-progress-header">
-          <span id="updateProgressLabel">⚡ Updating & Reloading in Chrome...</span>
+          <span id="updateProgressLabel">⚡ Updating & Reloading...</span>
           <span id="updateProgressPercent" class="font-mono">0%</span>
         </div>
         <div class="update-progress-bar">
@@ -211,81 +230,16 @@
         </div>
       </div>
 
-      <!-- Action Button (Updates if available, or manual check) -->
-      <button id="btnUpdateAction" class="btn-cta-generate">
-        <span id="btnUpdateActionText">⚡ 1-Click Update & Reload</span>
+      <!-- Primary 1-Click Update Button -->
+      <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
+        <span id="btnTriggerUpdateText">⚡ 1-Click Update & Reload</span>
       </button>
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
-        <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
-        <button id="btnOptionalZip" class="btn-text-link" type="button" style="background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; text-decoration: underline;" title="Download ZIP file for manual developer inspection">
-          📦 Developer ZIP
-        </button>
+
+      <div class="available-footer-info">
+        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked automatically from cloud repository</span>
       </div>
     </div>
 
-    <!-- Developer & Testing Switcher: Toggle between old and new state -->
-    <div class="sim-switcher-box">
-      <div class="sim-switcher-header">
-        <span class="sim-tag">🧪 Test Update Simulator:</span>
-        <span class="text-xs text-slate-400">Test how users see updates</span>
-      </div>
-      <div class="sim-buttons-row">
-        <button id="btnSimOld" class="sim-btn active" title="Simulate a user having old v1.2.0 installed">
-          <span>Old User (v1.2.0)</span>
-        </button>
-        <button id="btnSimLatest" class="sim-btn" title="Simulate having latest v1.3.0 installed">
-          <span>Latest (v1.3.0)</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- What's New Highlights (shown when update available or current features) -->
-    <div id="updateHighlightsBox" class="update-highlights-box">
-      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ v1.3.0 Release Highlights:</h4>
-      <ul id="updateHighlightsList" class="update-highlights-list">
-        <li>Direct Phone Download Gateway: Scanning QR opens minimal download window with zero website UI.</li>
-        <li>1-Click Fast In-Place Reload: Updates directly without deleting or downloading ZIP files.</li>
-        <li>Background Notification Watcher: Toolbar icon displays glowing badge when updates exist.</li>
-        <li>64KB Backpressure Engine: Zero memory buffer loss when beaming 4K video files.</li>
-      </ul>
-    </div>
-
-    <!-- Zero-Delete Fast Update Guidance -->
-    <div class="install-tip-card">
-      <p class="install-tip-title">⚡ تحديث فوري بدون حذف الإكستنشن وبدون ملفات ZIP:</p>
-      <ol class="install-tip-steps">
-        <li>لا حاجة إطلاقاً لحذف الإكستنشن أو إعادة تثبيتها في المتصفح!</li>
-        <li>الزر أعلاه يقوم بتطبيق التحديث وعمل Reload فوري داخل كروم بدون تنزيل ملفات ZIP للمستخدم.</li>
-        <li>عند نشر الإضافة على Chrome Web Store، يقوم المتصفح بتحديث الكود في الخلفية تلقائياً بضغطة زر واحدة.</li>
-      </ol>
-    </div>
-
-    <!-- Collapsible Update Source & GitHub Settings -->
-    <div class="source-settings-card">
-      <button id="toggleSourceSettingsBtn" class="source-toggle-btn" type="button">
-        <span>⚙️ Cloud Server & GitHub Source</span>
-        <span id="sourceToggleIcon">▼</span>
-      </button>
-      <div id="sourceSettingsBody" class="source-settings-body" style="display: none;">
-        <label class="source-label">Cloud Deployment URL:</label>
-        <input id="serverUrlInput" type="text" class="source-input" value="https://beam-drop-mu.vercel.app">
-        
-        <label class="source-label" style="margin-top: 6px;">GitHub Repository (owner/repo):</label>
-        <input id="githubRepoInput" type="text" class="source-input" placeholder="e.g. username/beam-drop">
-
-        <button id="btnSaveSourceSettings" class="btn-save-settings">
-          💾 Save & Check Now
-        </button>
-      </div>
-    </div>
-
-    <!-- Changelog Timeline -->
-    <div class="changelog-section">
-      <h4 class="changelog-header">Release History & Changelog</h4>
-      <div id="changelogList" class="changelog-timeline">
-        <!-- Rendered dynamically by popup.js -->
-      </div>
-    </div>
   </main>
 
   <!-- Footer -->

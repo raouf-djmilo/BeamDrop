@@ -53,7 +53,8 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }
-}`;
+}
+`;
 
   const popupHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -66,70 +67,84 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
   <script src="peerjs.min.js"></script>
 </head>
 <body>
-  <!-- Header -->
+  <!-- Header with Brand & Live Status -->
   <header class="app-header">
-    <div class="brand-group">
-      <div class="logo-box">
-        <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
       </div>
       <div>
         <h1 class="brand-title">BeamDrop</h1>
-        <p class="brand-sub">DIRECT P2P STREAM</p>
+        <p class="brand-sub">Direct Device-to-Device</p>
       </div>
     </div>
-    <div id="statusBadge" class="status-badge">
-      <span class="status-dot"></span>
-      <span id="statusText">Ready</span>
+    <div class="header-actions">
+      <button id="btnPopoutWindow" class="btn-popout-icon" title="Detach into persistent floating window (won't close on click outside)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      </button>
+      <div id="statusBadge" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
     </div>
   </header>
 
-  <!-- Navigation Tabs -->
+  <!-- Sub-Navigation Bar: Send vs Updates -->
   <nav class="app-nav">
     <button id="navTabSend" class="nav-tab active">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
       </svg>
       <span>Beam Files</span>
     </button>
     <button id="navTabUpdates" class="nav-tab">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
       </svg>
       <span>Updates</span>
       <span id="navUpdateDot" class="nav-update-dot" style="display: none;"></span>
     </button>
   </nav>
 
-  <!-- STAGE 1: File Staging & Upload -->
+  <!-- STAGE 1: File Staging Area -->
   <main id="stageStaging" class="stage-container">
+    <!-- Drag & Drop Zone -->
     <div id="dropZone" class="drop-zone">
-      <input type="file" id="fileInput" class="hidden-input" accept="*/*" multiple />
-      <div class="drop-icon-circle">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      <input type="file" id="fileInput" multiple style="display: none;">
+      <div class="drop-icon-wrapper">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
       </div>
-      <p class="drop-title">Drop ANY file, video, photo, or ZIP</p>
-      <p class="drop-sub">Direct RAM stream • No size limits • Zero cloud</p>
+      <p class="drop-primary">Choose files or drop here</p>
+      <p class="drop-secondary">Photos, 4K Videos, ZIPs, Docs</p>
     </div>
 
-    <!-- Staged File Preview Card -->
+    <!-- Staged File Card -->
     <div id="stagedCard" class="staged-card" style="display: none;">
-      <div class="thumb-wrapper">
-        <img id="thumbImg" class="thumb-img" alt="preview" style="display: none;" />
-        <div id="thumbIcon" class="thumb-icon">📦</div>
+      <div class="staged-preview">
+        <img id="thumbImg" class="thumb-img" alt="Preview" style="display: none;">
+        <span id="thumbIcon" class="thumb-icon">📄</span>
       </div>
       <div class="staged-info">
-        <p id="stagedFileName" class="staged-name">archive.zip</p>
-        <div class="staged-meta">
-          <span id="stagedFileSize">0 MB</span>
-          <span>•</span>
-          <span style="color: #38bdf8;">Ready to Beam</span>
-        </div>
+        <p id="stagedFileName" class="staged-name">filename.ext</p>
+        <p id="stagedFileSize" class="staged-size">0 KB</p>
       </div>
-      <button id="btnRemoveFile" class="btn-trash" title="Remove File">✕</button>
+      <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
 
     <!-- Primary CTA Button -->
@@ -141,83 +156,131 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
-      <div class="portal-file-badge">
-        <span id="portalFileNameBadge" class="portal-filename">file.zip</span>
-        <span id="portalFileSizeBadge" class="portal-filesize">0 MB</span>
+      <!-- Staged File Info Badge on top of QR -->
+      <div id="portalFileBadge" class="portal-file-badge">
+        <span class="portal-badge-icon">📦</span>
+        <span id="portalFileNameBadge" class="portal-badge-name">file.ext</span>
+        <span id="portalFileSizeBadge" class="portal-badge-size">(0 KB)</span>
       </div>
 
       <div class="qr-box-200">
-        <canvas id="qrcodeCanvas" width="184" height="184"></canvas>
+        <canvas id="qrcodeCanvas"></canvas>
       </div>
+      <p class="qr-scan-instruction">Scan with your phone to download directly</p>
+      <div class="portal-pill">
+        <span class="radar-dot"></span>
+        <span>Awaiting phone connection...</span>
+      </div>
+      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
+    </div>
 
-      <div class="radar-row">
-        <span class="radar-ping"></span>
-        <span class="radar-text">Scan with phone camera to download directly</span>
-      </div>
-      <p id="portalUrlText" class="portal-url-text">${cleanUrl}/download?peer=...</p>
+    <div class="action-row">
+      <button id="btnCopyLink" class="btn-action-outline">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span id="copyLinkText">Copy Link</span>
+      </button>
+      <button id="btnCancelPortal" class="btn-action-danger">Cancel</button>
+    </div>
 
-      <div class="qr-actions-row">
-        <button id="btnCopyLink" class="btn-secondary">
-          <span id="copyLinkText">Copy Download Link</span>
-        </button>
-        <button id="btnCancelPortal" class="btn-secondary" style="color: #f87171;">
-          Cancel / New Upload
-        </button>
-      </div>
+    <!-- Background Persistence Tip -->
+    <div class="persistence-tip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+      <span>Tip: Click 🗗 in header to detach into a floating window so transfer won't close if you click outside.</span>
     </div>
   </main>
 
-  <!-- STAGE 3: High-Performance Streaming & Auto-Transfer -->
+  <!-- STAGE 3: Live P2P Streaming Transfer -->
   <main id="stageTransfer" class="stage-container" style="display: none;">
-    <div class="transfer-live-card">
-      <p id="transferFileTitle" class="transfer-file-title">Streaming file to phone...</p>
-      <div class="progress-track">
-        <div id="transferProgressFill" class="progress-fill" style="width: 0%"></div>
+    <div class="transfer-card">
+      <div class="transfer-header-row">
+        <span class="pulsing-radar"></span>
+        <h3 id="transferFileTitle" class="transfer-title">Streaming file...</h3>
       </div>
+
+      <div class="progress-container">
+        <div id="transferProgressFill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+
       <div class="transfer-metrics-row">
         <span id="transferPercentText">0%</span>
-        <span id="transferSpeedText" class="speed-tag">0 MB/s</span>
-        <span id="transferEtaText">Streaming directly to device...</span>
+        <span id="transferSpeedText" class="speed-tag">0.0 MB/s</span>
+        <span id="transferEtaText">--s remaining</span>
+      </div>
+
+      <div class="persistence-tip" style="margin-top: 12px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Streaming live P2P. Keep this window open until transfer reaches 100%.</span>
       </div>
     </div>
   </main>
 
-  <!-- STAGE 4: Completion & Reset -->
+  <!-- STAGE 4: Transfer Complete -->
   <main id="stageComplete" class="stage-container" style="display: none;">
     <div class="complete-card">
       <div class="complete-icon">✓</div>
-      <h3 class="complete-title">File Streamed Successfully!</h3>
-      <p class="complete-sub">Sent directly to phone RAM and saved to Downloads.</p>
+      <h3 class="complete-title">Transfer Complete!</h3>
+      <p class="complete-sub">Direct P2P transmission finished without servers.</p>
       <button id="btnSendAnother" class="btn-cta-generate">
         <span>Send Another File</span>
       </button>
     </div>
   </main>
 
-  <!-- STAGE 5: Updates & Version History System -->
+  <!-- STAGE 5: Clean 2-State Updates Engine -->
   <main id="stageUpdates" class="stage-container" style="display: none;">
-    <div class="version-hero-card">
-      <div class="version-hero-header">
-        <div>
-          <span class="version-label">Current Version</span>
-          <p id="installedVerText" class="version-val">v1.2.0</p>
-        </div>
-        <div class="version-arrow">→</div>
-        <div>
-          <span class="version-label">Latest Cloud Release</span>
-          <p id="remoteVerText" class="version-val text-cyan-400">v1.3.0</p>
-        </div>
+    
+    <!-- STATE A: USER IS UP-TO-DATE (currentVersion >= latestVersion) -->
+    <div id="stateUpToDate" class="update-clean-card" style="display: none;">
+      <div class="uptodate-glow-badge">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <path d="m9 12 2 2 4-4"></path>
+        </svg>
+      </div>
+      <h3 class="uptodate-headline">BeamDrop is up to date</h3>
+      <div id="uptodateVersionBadge" class="uptodate-ver-pill">v1.3.0</div>
+      <p class="uptodate-sub">You have the latest version installed with all security and performance features.</p>
+
+      <div class="uptodate-bottom-bar">
+        <button id="btnCheckUpdates" class="btn-clean-check" type="button">
+          <svg id="refreshSpinIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          <span id="btnCheckUpdatesText">Check for Updates</span>
+        </button>
+        <span id="lastCheckedText" class="uptodate-time">Last checked: Just now</span>
+      </div>
+    </div>
+
+    <!-- STATE B: NEW UPDATE AVAILABLE (currentVersion < latestVersion) -->
+    <div id="stateUpdateAvailable" class="update-clean-card available-theme" style="display: none;">
+      <div class="available-top-row">
+        <span class="available-pulse-tag">⚡ New Version Available</span>
+        <span id="availableVerPill" class="available-ver-badge">v1.4.0</span>
       </div>
 
-      <div id="updateStatusBanner" class="update-banner available">
-        <span id="updateBannerIcon">⚡</span>
-        <span id="updateBannerText">Checking latest release...</span>
+      <div class="available-notes-box">
+        <h4 class="available-notes-title">What's New:</h4>
+        <ul id="availableChangelogList" class="available-notes-list">
+          <!-- Populated dynamically -->
+        </ul>
       </div>
 
-      <!-- Update Progress Animation -->
+      <!-- Live Update Progress Animation (hidden until updating) -->
       <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
         <div class="update-progress-header">
-          <span id="updateProgressLabel">⚡ Updating & Reloading in Chrome...</span>
+          <span id="updateProgressLabel">⚡ Updating & Reloading...</span>
           <span id="updateProgressPercent" class="font-mono">0%</span>
         </div>
         <div class="update-progress-bar">
@@ -225,71 +288,16 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
         </div>
       </div>
 
-      <button id="btnUpdateAction" class="btn-cta-generate">
-        <span id="btnUpdateActionText">⚡ 1-Click Update & Reload</span>
+      <!-- Primary 1-Click Update Button -->
+      <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
+        <span id="btnTriggerUpdateText">⚡ 1-Click Update & Reload</span>
       </button>
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
-        <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
-        <button id="btnOptionalZip" class="btn-text-link" type="button" style="background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; text-decoration: underline;" title="Download ZIP file for manual developer inspection">
-          📦 Developer ZIP
-        </button>
+
+      <div class="available-footer-info">
+        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked automatically from cloud repository</span>
       </div>
     </div>
 
-    <!-- Developer & User Simulation Switcher -->
-    <div class="sim-switcher-box">
-      <div class="sim-switcher-header">
-        <span class="sim-tag">🧪 Test Update Simulator:</span>
-        <span class="text-xs text-slate-400">Test how users see updates</span>
-      </div>
-      <div class="sim-buttons-row">
-        <button id="btnSimOld" class="sim-btn active" title="Simulate old v1.2.0 installed">
-          <span>Old User (v1.2.0)</span>
-        </button>
-        <button id="btnSimLatest" class="sim-btn" title="Simulate latest v1.3.0 installed">
-          <span>Latest (v1.3.0)</span>
-        </button>
-      </div>
-    </div>
-
-    <div id="updateHighlightsBox" class="update-highlights-box">
-      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ v1.3.0 Release Highlights:</h4>
-      <ul id="updateHighlightsList" class="update-highlights-list">
-        <li>Direct Phone Download Gateway: Scanning QR opens minimal download window without opening website UI.</li>
-        <li>1-Click Fast In-Place Reload: Updates directly without deleting or downloading ZIP files.</li>
-        <li>Background Notification Watcher: Toolbar icon displays glowing badge when updates exist.</li>
-        <li>64KB Backpressure Engine: Zero memory buffer loss when beaming 4K video files.</li>
-      </ul>
-    </div>
-
-    <div class="install-tip-card">
-      <p class="install-tip-title">⚡ تحديث فوري بدون حذف الإكستنشن وبدون ملفات ZIP:</p>
-      <ol class="install-tip-steps">
-        <li>لا حاجة إطلاقاً لحذف الإكستنشن أو إعادة تثبيتها في المتصفح!</li>
-        <li>الزر أعلاه يقوم بتطبيق التحديث وعمل Reload فوري داخل كروم بدون تنزيل ملفات ZIP للمستخدم.</li>
-        <li>عند نشر الإضافة على Chrome Web Store، يقوم المتصفح بتحديث الكود في الخلفية تلقائياً بضغطة زر واحدة.</li>
-      </ol>
-    </div>
-
-    <!-- Collapsible Source Settings -->
-    <div class="source-settings-card">
-      <button id="toggleSourceSettingsBtn" class="source-toggle-btn" type="button">
-        <span>⚙️ Cloud Server & GitHub Source</span>
-        <span id="sourceToggleIcon">▼</span>
-      </button>
-      <div id="sourceSettingsBody" class="source-settings-body" style="display: none;">
-        <label class="source-label">Cloud Deployment URL:</label>
-        <input id="serverUrlInput" type="text" class="source-input" value="${cleanUrl}">
-        <label class="source-label" style="margin-top: 6px;">GitHub Repository (owner/repo):</label>
-        <input id="githubRepoInput" type="text" class="source-input" placeholder="e.g. username/beam-drop">
-        <button id="btnSaveSourceSettings" class="btn-save-settings">💾 Save & Check Now</button>
-      </div>
-    </div>
-
-    <div class="changelog-section">
-      <h4 class="changelog-header">Release History & Changelog</h4>
-      <div id="changelogList" class="changelog-timeline"></div>
-    </div>
   </main>
 
   <!-- Footer -->
@@ -305,25 +313,48 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
 
   <script src="popup.js"></script>
 </body>
-</html>`;
+</html>
+`;
 
   const popupJs = `/**
  * BeamDrop Chrome Extension - Popup Controller (Manifest V3)
- * Dynamic Staging -> Direct Download QR -> Backpressure Stream -> OTA Updates Engine
+ * Dynamic Staging -> Direct Download QR -> Backpressure Stream -> OTA 1-Click Updater Engine
  */
 
-const VERCEL_RECEIVER_URL = "${cleanUrl}";
+let VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 const CHUNK_SIZE = 64 * 1024; // 64KB slices
 
+// Comprehensive STUN & TURN Relay servers (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
+const EXTENSION_ICE_SERVERS = [
+  // Primary High-Speed Google STUN
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  // Twilio Global STUN
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  // OpenRelay Public TURN Relay (Encrypted peer-to-peer data pipe when direct STUN is blocked)
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
+// Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
   ? chrome.runtime.getManifest().version
-  : '1.2.0';
-
-let simulatedInstalledVersion = null;
-
-function getEffectiveInstalledVersion() {
-  return simulatedInstalledVersion || REAL_MANIFEST_VERSION || '1.2.0';
-}
+  : '1.3.0';
 
 // State
 let stagedFiles = [];
@@ -331,10 +362,11 @@ let peer = null;
 let activeConnection = null;
 let currentPeerId = null;
 let isStreaming = false;
-let currentActiveView = 'send';
+let currentActiveView = 'send'; // 'send' | 'updates'
 let remoteVersionInfo = null;
 
 // DOM Elements
+const btnPopoutWindow = document.getElementById('btnPopoutWindow');
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
 const footerVersionText = document.getElementById('footerVersionText');
@@ -381,43 +413,29 @@ const transferEtaText = document.getElementById('transferEtaText');
 // Stage 4 Elements
 const btnSendAnother = document.getElementById('btnSendAnother');
 
-// Stage 5 (Updates) Elements
-const installedVerText = document.getElementById('installedVerText');
-const remoteVerText = document.getElementById('remoteVerText');
-const updateStatusBanner = document.getElementById('updateStatusBanner');
-const updateBannerIcon = document.getElementById('updateBannerIcon');
-const updateBannerText = document.getElementById('updateBannerText');
-const btnUpdateAction = document.getElementById('btnUpdateAction');
-const btnUpdateActionText = document.getElementById('btnUpdateActionText');
-const btnOptionalZip = document.getElementById('btnOptionalZip');
+// Stage 5 (Clean 2-State Updates Engine) Elements
+const stateUpToDate = document.getElementById('stateUpToDate');
+const uptodateVersionBadge = document.getElementById('uptodateVersionBadge');
+const btnCheckUpdates = document.getElementById('btnCheckUpdates');
+const btnCheckUpdatesText = document.getElementById('btnCheckUpdatesText');
+const refreshSpinIcon = document.getElementById('refreshSpinIcon');
 const lastCheckedText = document.getElementById('lastCheckedText');
-const updateHighlightsList = document.getElementById('updateHighlightsList');
-const changelogList = document.getElementById('changelogList');
 
-// Update Progress Elements
+const stateUpdateAvailable = document.getElementById('stateUpdateAvailable');
+const availableVerPill = document.getElementById('availableVerPill');
+const availableChangelogList = document.getElementById('availableChangelogList');
 const updateProgressContainer = document.getElementById('updateProgressContainer');
-const updateProgressFill = document.getElementById('updateProgressFill');
-const updateProgressPercent = document.getElementById('updateProgressPercent');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
+const updateProgressPercent = document.getElementById('updateProgressPercent');
+const updateProgressFill = document.getElementById('updateProgressFill');
+const btnTriggerUpdate = document.getElementById('btnTriggerUpdate');
+const btnTriggerUpdateText = document.getElementById('btnTriggerUpdateText');
+const updateAvailableCheckedTime = document.getElementById('updateAvailableCheckedTime');
 
-// Simulation Elements
-const btnSimOld = document.getElementById('btnSimOld');
-const btnSimLatest = document.getElementById('btnSimLatest');
-
-// Source Settings Elements
-const toggleSourceSettingsBtn = document.getElementById('toggleSourceSettingsBtn');
-const sourceToggleIcon = document.getElementById('sourceToggleIcon');
-const sourceSettingsBody = document.getElementById('sourceSettingsBody');
-const serverUrlInput = document.getElementById('serverUrlInput');
-const githubRepoInput = document.getElementById('githubRepoInput');
-const btnSaveSourceSettings = document.getElementById('btnSaveSourceSettings');
-
-function updateFooterVersion() {
-  const currentVer = getEffectiveInstalledVersion();
-  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
-  if (installedVerText) installedVerText.textContent = 'v' + currentVer;
+// Initialize version in footer
+if (footerVersionText) {
+  footerVersionText.textContent = 'v' + REAL_MANIFEST_VERSION;
 }
-updateFooterVersion();
 
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
@@ -439,15 +457,43 @@ function updateStatus(state, text) {
   }
 }
 
-// Navigation Tabs
+// Detach to floating window / side panel controller
+if (btnPopoutWindow) {
+  btnPopoutWindow.addEventListener('click', () => {
+    if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.create) {
+      chrome.windows.create({
+        url: chrome.runtime.getURL('popup.html?detached=true'),
+        type: 'popup',
+        width: 400,
+        height: 640
+      });
+      window.close();
+    } else if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+        }
+      });
+    } else {
+      window.open(window.location.href, '_blank', 'width=400,height=640');
+    }
+  });
+}
+
+// ==========================================
+// NAVIGATION CONTROLLER
+// ==========================================
 navTabSend.addEventListener('click', () => {
   currentActiveView = 'send';
   navTabSend.classList.add('active');
   navTabUpdates.classList.remove('active');
+
   if (isStreaming) {
     showStage('transfer');
   } else if (currentPeerId && activeConnection) {
     showStage('portal');
+  } else if (stagedFiles.length > 0) {
+    showStage('staging');
   } else {
     showStage('staging');
   }
@@ -458,10 +504,18 @@ navTabUpdates.addEventListener('click', () => {
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
   showStage('updates');
+
+  // Clear badge in background service worker
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ action: 'clear_update_badge' }).catch(() => {});
+  }
+
   checkForUpdates(false);
 });
 
-// Stage 1: File Staging
+// ==========================================
+// STAGE 1: Staging & File Selection
+// ==========================================
 dropZone.addEventListener('click', () => fileInput.click());
 
 dropZone.addEventListener('dragover', (e) => {
@@ -502,7 +556,7 @@ function stageSelectedFiles(files) {
   if (!first) return;
 
   stagedCard.style.display = 'flex';
-  stagedFileName.textContent = files.length > 1 ? first.name + ' (+' + (files.length - 1) + ' more)' : first.name;
+  stagedFileName.textContent = files.length > 1 ? \`\${first.name} (+\${files.length - 1} more)\` : first.name;
   const totalSize = files.reduce((acc, f) => acc + f.size, 0);
   stagedFileSize.textContent = formatBytes(totalSize);
 
@@ -528,16 +582,30 @@ function stageSelectedFiles(files) {
   updateStatus('ready', 'File Staged');
 }
 
-// Stage 2: Portal Active
+// ==========================================
+// STAGE 2: Direct Download Portal & QR Engine
+// ==========================================
 btnGenerateQr.addEventListener('click', () => {
   if (stagedFiles.length === 0) return;
   startPortalSession();
 });
 
-function startPortalSession() {
-  if (peer) {
-    try { peer.destroy(); } catch (e) {}
-  }
+btnCancelPortal.addEventListener('click', () => {
+  cleanupTransferSession();
+});
+
+btnCopyLink.addEventListener('click', () => {
+  if (!portalUrlText.textContent) return;
+  navigator.clipboard.writeText(portalUrlText.textContent).then(() => {
+    copyLinkText.textContent = 'Copied!';
+    setTimeout(() => {
+      copyLinkText.textContent = 'Copy Link';
+    }, 2000);
+  });
+});
+
+async function startPortalSession() {
+  updateStatus('ready', 'Starting Portal...');
 
   const randomSub = typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID().slice(0, 8)
@@ -545,183 +613,213 @@ function startPortalSession() {
   currentPeerId = 'beam-' + randomSub;
 
   const first = stagedFiles[0];
-  const fileNameEnc = encodeURIComponent(first ? first.name : 'file');
-  const fileSizeEnc = first ? first.size : 0;
-  const fileMimeEnc = encodeURIComponent(first ? (first.type || 'application/octet-stream') : '');
+  const fileNameEnc = encodeURIComponent(first.name);
+  const fileSize = first.size;
+  const mimeEnc = encodeURIComponent(first.type || '');
 
-  const targetUrl = VERCEL_RECEIVER_URL + '/download?peer=' + currentPeerId + '&name=' + fileNameEnc + '&size=' + fileSizeEnc + '&mime=' + fileMimeEnc;
-  portalUrlText.textContent = targetUrl;
+  // Direct download route: /download?peer=...&name=...&size=...&mime=...
+  const targetUrl = \`\${VERCEL_RECEIVER_URL}/download?peer=\${currentPeerId}&name=\${fileNameEnc}&size=\${fileSize}&mime=\${mimeEnc}\`;
 
+  // Update badge on top of QR code in popup
   if (portalFileNameBadge && first) {
-    portalFileNameBadge.textContent = stagedFiles.length > 1 ? first.name + ' (+' + (stagedFiles.length - 1) + ' more)' : first.name;
+    portalFileNameBadge.textContent = stagedFiles.length > 1
+      ? \`\${first.name} (+\${stagedFiles.length - 1})\`
+      : first.name;
   }
   if (portalFileSizeBadge && first) {
-    const totalSize = stagedFiles.reduce((acc, f) => acc + f.size, 0);
-    portalFileSizeBadge.textContent = formatBytes(totalSize);
+    portalFileSizeBadge.textContent = \`(\${formatBytes(stagedFiles.reduce((acc, f) => acc + f.size, 0))})\`;
   }
 
-  if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-    QRCode.toCanvas(qrcodeCanvas, targetUrl, {
-      width: 184,
-      margin: 1,
+  portalUrlText.textContent = targetUrl;
+
+  try {
+    await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+      width: 196,
+      margin: 2,
       color: {
-        dark: '#0b0f19',
+        dark: '#030712',
         light: '#ffffff'
       }
     });
+  } catch (err) {
+    console.error('QR rendering failed:', err);
   }
 
   showStage('portal');
-  updateStatus('ready', 'Waiting for Phone');
-
-  try {
-    peer = new Peer(currentPeerId, {
-      debug: 1,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
-          { urls: 'stun:stun.relay.metered.ca:80' },
-          { urls: 'turn:standard.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:standard.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-        ]
-      }
-    });
-
-    peer.on('connection', (conn) => {
-      activeConnection = conn;
-      setupConnection(conn);
-    });
-
-    peer.on('error', (err) => {
-      console.error('Peer error:', err);
-    });
-  } catch (e) {
-    console.error('Failed to init Peer:', e);
-  }
+  initPeerJsSession();
 }
 
-function setupConnection(conn) {
-  updateStatus('connected', 'Phone Connected!');
+function initPeerJsSession() {
+  if (peer) {
+    try { peer.destroy(); } catch (e) {}
+  }
 
+  peer = new Peer(currentPeerId, {
+    debug: 1,
+    config: {
+      iceServers: EXTENSION_ICE_SERVERS
+    }
+  });
+
+  peer.on('open', (id) => {
+    console.log('[Extension] Portal PeerJS Open:', id);
+    updateStatus('ready', 'Awaiting Phone...');
+  });
+
+  peer.on('connection', (conn) => {
+    console.log('[Extension] Receiver Connected:', conn.peer);
+    activeConnection = conn;
+    updateStatus('connected', 'Phone Connected');
+    setupConnectionHandlers(conn);
+  });
+
+  peer.on('error', (err) => {
+    console.error('[Extension] PeerJS Error:', err);
+    updateStatus('idle', 'Connection Error');
+  });
+}
+
+function setupConnectionHandlers(conn) {
   conn.on('open', () => {
-    startStreamingStagedFiles();
+    showStage('transfer');
+    startBackpressureStream(conn);
+  });
+
+  conn.on('data', (data) => {
+    if (data && data.type === 'ack') {
+      // Receiver acknowledged chunk
+    }
   });
 
   conn.on('close', () => {
-    activeConnection = null;
+    console.log('[Extension] Connection closed.');
     if (!isStreaming) {
-      updateStatus('ready', 'Phone Disconnected');
+      updateStatus('idle', 'Disconnected');
     }
   });
 }
 
-btnCopyLink.addEventListener('click', () => {
-  const targetUrl = portalUrlText.textContent || (VERCEL_RECEIVER_URL + '/download?peer=' + currentPeerId);
-  navigator.clipboard.writeText(targetUrl);
-  copyLinkText.textContent = 'Copied!';
-  setTimeout(() => { copyLinkText.textContent = 'Copy Download Link'; }, 2000);
-});
-
-btnCancelPortal.addEventListener('click', () => {
-  resetToStaging();
-});
-
-// Stage 3: Streaming
-async function startStreamingStagedFiles() {
-  if (isStreaming || stagedFiles.length === 0 || !activeConnection) return;
+// ==========================================
+// STAGE 3: Backpressure Stream Transmission
+// ==========================================
+async function startBackpressureStream(conn) {
   isStreaming = true;
+  const file = stagedFiles[0];
+  if (!file) return;
 
-  showStage('transfer');
-  updateStatus('connected', 'Streaming File to Phone...');
+  transferFileTitle.textContent = \`Streaming: \${file.name}\`;
+  transferProgressFill.style.width = '0%';
+  transferPercentText.textContent = '0%';
+  transferSpeedText.textContent = '0.0 MB/s';
+  transferEtaText.textContent = '--s remaining';
 
-  for (const file of stagedFiles) {
-    await streamFile(file);
-  }
+  const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
 
-  isStreaming = false;
-  showStage('complete');
-  updateStatus('connected', 'Download Complete');
-}
-
-async function streamFile(file) {
-  transferFileTitle.textContent = file.name;
-  const fileId = 'file-' + Math.random().toString(36).substring(2, 9);
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-  activeConnection.send({
+  // 1. Send File Metadata Header (compatible with standard and custom receivers)
+  conn.send({
     type: 'FILE_START',
-    fileId,
+    fileId: fileId,
     fileName: file.name,
     fileSize: file.size,
     fileMime: file.type || 'application/octet-stream',
-    totalChunks
+    totalChunks: Math.ceil(file.size / CHUNK_SIZE),
+    payload: {
+      id: fileId,
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      chunkSize: CHUNK_SIZE,
+      totalChunks: Math.ceil(file.size / CHUNK_SIZE)
+    }
   });
 
-  let sentBytes = 0;
-  let lastTime = Date.now();
+  // 2. Stream File Slices
+  let offset = 0;
+  let chunkIndex = 0;
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const startTime = Date.now();
+  let lastSpeedCheck = startTime;
   let lastBytes = 0;
 
-  for (let i = 0; i < totalChunks; i++) {
-    if (!activeConnection) break;
+  const dataChannel = conn.dataChannel;
 
-    const start = i * CHUNK_SIZE;
-    const end = Math.min(start + CHUNK_SIZE, file.size);
-    const chunk = await file.slice(start, end).arrayBuffer();
+  while (offset < file.size) {
+    if (dataChannel && dataChannel.bufferedAmount > 4 * CHUNK_SIZE) {
+      await waitForBufferDrain(dataChannel);
+    }
 
-    activeConnection.send({
+    const slice = file.slice(offset, offset + CHUNK_SIZE);
+    const arrayBuffer = await slice.arrayBuffer();
+
+    conn.send({
       type: 'FILE_CHUNK',
-      fileId,
-      chunkIndex: i,
-      totalChunks,
-      data: chunk
+      fileId: fileId,
+      chunkIndex: chunkIndex,
+      totalChunks: totalChunks,
+      data: arrayBuffer
     });
 
-    sentBytes += chunk.byteLength;
-    const pct = Math.min(100, Math.round((sentBytes / file.size) * 100));
-    transferProgressFill.style.width = pct + '%';
-    transferPercentText.textContent = pct + '%';
+    offset += slice.size;
+    chunkIndex++;
+
+    const progress = Math.min(100, Math.round((offset / file.size) * 100));
+    transferProgressFill.style.width = \`\${progress}%\`;
+    transferPercentText.textContent = \`\${progress}%\`;
 
     const now = Date.now();
-    const elapsed = (now - lastTime) / 1000;
-    if (elapsed >= 0.25 || i === totalChunks - 1) {
-      const speed = (sentBytes - lastBytes) / Math.max(elapsed, 0.001);
-      transferSpeedText.textContent = formatBytes(speed) + '/s';
+    if (now - lastSpeedCheck > 300) {
+      const durationSec = (now - lastSpeedCheck) / 1000;
+      const bytesSent = offset - lastBytes;
+      const speedMBs = (bytesSent / (1024 * 1024)) / durationSec;
+      transferSpeedText.textContent = \`\${speedMBs.toFixed(1)} MB/s\`;
 
-      const remainingBytes = file.size - sentBytes;
-      const etaSeconds = speed > 0 ? Math.round(remainingBytes / speed) : 0;
-      transferEtaText.textContent = etaSeconds > 0 ? 'ETA ~' + etaSeconds + 's' : 'Finalizing...';
+      const remainingBytes = file.size - offset;
+      const etaSec = speedMBs > 0 ? Math.round((remainingBytes / (1024 * 1024)) / speedMBs) : 0;
+      transferEtaText.textContent = \`\${etaSec}s remaining\`;
 
-      lastTime = now;
-      lastBytes = sentBytes;
-    }
-
-    const dataChannel = activeConnection.dataChannel;
-    if (dataChannel) {
-      while (dataChannel.bufferedAmount > 1024 * 1024) {
-        await new Promise(r => setTimeout(r, 20));
-      }
-    }
-
-    if (i % 8 === 0) {
-      await new Promise(r => setTimeout(r, 4));
+      lastSpeedCheck = now;
+      lastBytes = offset;
     }
   }
 
-  activeConnection.send({
+  // 3. Send Complete Signal (compatible with all receivers)
+  conn.send({
     type: 'FILE_END',
-    fileId
+    fileId: fileId
+  });
+  conn.send({
+    type: 'complete',
+    fileId: fileId
+  });
+  isStreaming = false;
+
+  setTimeout(() => {
+    showStage('complete');
+    updateStatus('ready', 'Transfer Complete');
+  }, 400);
+}
+
+function waitForBufferDrain(dc) {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (!dc || dc.bufferedAmount < CHUNK_SIZE) {
+        resolve();
+      } else {
+        setTimeout(check, 10);
+      }
+    };
+    check();
   });
 }
 
+// ==========================================
+// STAGE 4: Reset & Resend
+// ==========================================
 btnSendAnother.addEventListener('click', () => {
-  resetToStaging();
+  cleanupTransferSession();
 });
 
-function resetToStaging() {
+function cleanupTransferSession() {
   if (peer) {
     try { peer.destroy(); } catch (e) {}
     peer = null;
@@ -741,7 +839,10 @@ function resetToStaging() {
   updateStatus('idle', 'Ready');
 }
 
-// Stage 5: OTA Updates Engine
+// ==========================================
+// STAGE 5: OVER-THE-AIR (OTA) 1-CLICK UPDATER ENGINE
+// ==========================================
+
 function compareSemver(v1, v2) {
   const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
   const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -754,180 +855,99 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+// Built-in registry fallback for instant offline reliability
 const BUILT_IN_LATEST_REGISTRY = {
   version: '1.3.0',
-  releaseDate: '2026-09-28',
-  downloadUrl: VERCEL_RECEIVER_URL + '/extension.zip',
-  githubUrl: 'https://github.com',
   highlights: [
-    '⚡ Direct Phone Download Gateway: Scanning QR opens minimal download window without opening website UI',
-    '🔄 1-Click Fast In-Place Updater: Updates directly without removing or re-adding extension in Chrome',
-    '🔔 Background Cloud Watcher: Periodically checks GitHub / Vercel for new releases and shows toolbar badge',
-    '📦 Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files and ZIP archives'
-  ],
-  changelog: [
-    {
-      version: '1.3.0',
-      date: '2026-09-28',
-      type: 'major',
-      title: '1-Click Fast Updater & Background Notification Engine',
-      changes: [
-        'In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome',
-        'Toolbar notification badge [NEW] when a new GitHub/Vercel release is published',
-        'Periodic background watcher to alert users automatically of new releases',
-        'Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0'
-      ]
-    },
-    {
-      version: '1.2.0',
-      date: '2026-09-28',
-      type: 'minor',
-      title: 'Direct Download Gateway & Isolated Download Portal',
-      changes: [
-        'Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file',
-        'Dedicated isolated download window with zero website distraction',
-        'Direct stream progress bar with live MB/s and instant auto-download trigger'
-      ]
-    },
-    {
-      version: '1.1.0',
-      date: '2026-09-28',
-      type: 'minor',
-      title: 'Staging Area & Flow Control',
-      changes: [
-        'Multi-file staging container before generating QR code',
-        '64KB chunk backpressure control to prevent buffer saturation',
-        'Offline pure CSS styling & strict 380px sizing'
-      ]
-    },
-    {
-      version: '1.0.0',
-      date: '2026-09-27',
-      type: 'initial',
-      title: 'Initial Manifest V3 Launch',
-      changes: [
-        'Manifest V3 Chrome Extension architecture',
-        'Direct Device-to-Device WebRTC DataChannel transfer',
-        'Zero cloud storage and zero database'
-      ]
-    }
+    'Direct Phone Download Gateway: Scanning QR prompts native download without opening full website UI',
+    'Streamlined 2-State In-Place Updater: Ultra-clean interface with 1-click reload',
+    'Integrated TURN Relay: 100% connectivity across mobile 4G/5G and symmetric NAT firewalls',
+    'Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files'
   ]
 };
 
 async function checkForUpdates(manual = false) {
-  if (manual && btnUpdateActionText) {
-    btnUpdateActionText.textContent = 'Checking cloud server...';
+  if (manual) {
+    if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Checking cloud...';
+    if (refreshSpinIcon) refreshSpinIcon.classList.add('spinning');
   }
 
-  updateFooterVersion();
-  const installedVer = getEffectiveInstalledVersion();
+  const currentVer = REAL_MANIFEST_VERSION;
+  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    try {
-      const stored = await chrome.storage.local.get(['custom_update_server', 'custom_github_repo']);
-      if (stored && stored.custom_update_server) {
-        VERCEL_RECEIVER_URL = stored.custom_update_server.replace(/\\/$/, '');
-        if (serverUrlInput) serverUrlInput.value = VERCEL_RECEIVER_URL;
-      }
-      if (stored && stored.custom_github_repo && githubRepoInput) {
-        githubRepoInput.value = stored.custom_github_repo;
-      }
-    } catch (e) {}
-  }
-
-  let finalData = null;
-
+  let remoteData = null;
   try {
-    const targetEndpoint = VERCEL_RECEIVER_URL + '/version.json?_t=' + Date.now();
-    const resp = await fetch(targetEndpoint, { cache: 'no-store' });
+    const endpoint = \`\${VERCEL_RECEIVER_URL}/version.json?_t=\${Date.now()}\`;
+    const resp = await fetch(endpoint, { cache: 'no-store' });
     if (resp.ok) {
-      finalData = await resp.json();
+      remoteData = await resp.json();
     }
-  } catch (err) {}
-
-  if (!finalData || compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
-    let githubRepo = githubRepoInput ? githubRepoInput.value.trim() : '';
-    if (githubRepo) {
-      try {
-        const rawGithubUrl = 'https://raw.githubusercontent.com/' + githubRepo + '/main/public/version.json?_t=' + Date.now();
-        const ghResp = await fetch(rawGithubUrl, { cache: 'no-store' });
-        if (ghResp.ok) {
-          finalData = await ghResp.json();
-        }
-      } catch (ghErr) {}
-    }
+  } catch (err) {
+    console.debug('Cloud version check failed:', err);
   }
 
-  if (!finalData) {
-    finalData = BUILT_IN_LATEST_REGISTRY;
-  } else if (compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
-    finalData = BUILT_IN_LATEST_REGISTRY;
+  if (!remoteData) {
+    remoteData = BUILT_IN_LATEST_REGISTRY;
   }
 
-  remoteVersionInfo = finalData;
-  renderVersionState(finalData, installedVer);
-
-  if (lastCheckedText) {
-    lastCheckedText.textContent = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-}
-
-function renderVersionState(data, installedVer) {
-  const remoteVer = data.version || '1.3.0';
-  if (remoteVerText) remoteVerText.textContent = 'v' + remoteVer;
-  if (installedVerText) installedVerText.textContent = 'v' + installedVer;
-
-  const isNewer = compareSemver(remoteVer, installedVer) > 0;
+  const latestVer = remoteData.version || '1.3.0';
+  const isNewer = compareSemver(latestVer, currentVer) > 0;
 
   if (isNewer) {
+    // STATE B: NEW UPDATE AVAILABLE
+    if (stateUpToDate) stateUpToDate.style.display = 'none';
+    if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'block';
-    if (btnOptionalZip) btnOptionalZip.style.display = 'inline-block';
-    if (updateStatusBanner) updateStatusBanner.className = 'update-banner available';
-    if (updateBannerIcon) updateBannerIcon.textContent = '⚡';
-    if (updateBannerText) updateBannerText.textContent = 'New update available: v' + remoteVer + '!';
-    if (btnUpdateActionText) btnUpdateActionText.textContent = '⚡ 1-Click Update & Reload to v' + remoteVer;
-    btnUpdateAction.onclick = () => startOneClickUpdate(remoteVer);
+
+    if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
+    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = \`⚡ Update to v\${latestVer} & Reload\`;
+
+    const notes = remoteData.highlights || (remoteData.changelog && remoteData.changelog[0] && remoteData.changelog[0].changes) || [
+      'Performance enhancements and streaming stability fixes.',
+      'Updated WebRTC ICE connectivity profiles.'
+    ];
+
+    if (availableChangelogList) {
+      availableChangelogList.innerHTML = notes
+        .map(item => \`<li>\${escapeHtml(item)}</li>\`)
+        .join('');
+    }
+
+    if (btnTriggerUpdate) {
+      btnTriggerUpdate.disabled = false;
+      btnTriggerUpdate.onclick = () => startOneClickUpdate(latestVer);
+    }
   } else {
+    // STATE A: USER IS UP-TO-DATE
+    if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
+    if (stateUpToDate) stateUpToDate.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'none';
-    if (btnOptionalZip) btnOptionalZip.style.display = 'none';
-    if (updateStatusBanner) updateStatusBanner.className = 'update-banner uptodate';
-    if (updateBannerIcon) updateBannerIcon.textContent = '✓';
-    if (updateBannerText) updateBannerText.textContent = 'You have the latest version installed (v' + installedVer + ')!';
-    if (btnUpdateActionText) btnUpdateActionText.textContent = '🔄 Check for Updates Now';
-    btnUpdateAction.onclick = () => checkForUpdates(true);
+
+    if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + currentVer;
   }
 
-  if (updateHighlightsList && data.highlights) {
-    updateHighlightsList.innerHTML = data.highlights
-      .map(item => '<li>' + escapeHtml(item) + '</li>')
-      .join('');
-  }
+  const nowTime = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (lastCheckedText) lastCheckedText.textContent = nowTime;
+  if (updateAvailableCheckedTime) updateAvailableCheckedTime.textContent = nowTime;
 
-  if (changelogList && data.changelog) {
-    changelogList.innerHTML = data.changelog
-      .map(entry => [
-        '<div class="changelog-card">',
-        '  <div class="changelog-card-header">',
-        '    <span class="changelog-tag ' + (entry.type || 'minor') + '">v' + entry.version + '</span>',
-        '    <span class="changelog-date">' + entry.date + '</span>',
-        '  </div>',
-        '  <p class="changelog-title">' + escapeHtml(entry.title) + '</p>',
-        '  <ul class="changelog-items">',
-        (entry.changes || []).map(ch => '<li>' + escapeHtml(ch) + '</li>').join(''),
-        '  </ul>',
-        '</div>'
-      ].join(''))
-      .join('');
+  if (manual) {
+    setTimeout(() => {
+      if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Check for Updates';
+      if (refreshSpinIcon) refreshSpinIcon.classList.remove('spinning');
+    }, 450);
   }
 }
 
+// 1-Click Update Action
 function startOneClickUpdate(ver) {
   if (updateProgressContainer) {
     updateProgressContainer.style.display = 'block';
   }
-  btnUpdateAction.disabled = true;
+  if (btnTriggerUpdate) {
+    btnTriggerUpdate.disabled = true;
+  }
 
-  setUpdateProgress(30, '⚡ Verifying & applying update v' + ver + '...');
+  setUpdateProgress(35, \`⚡ Applying update v\${ver}...\`);
 
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
     chrome.runtime.requestUpdateCheck((status, details) => {
@@ -941,34 +961,30 @@ function startOneClickUpdate(ver) {
 
 function finalizeSeamlessUpdate(ver) {
   setTimeout(() => {
-    setUpdateProgress(70, '⚡ Version v' + ver + ' activated! Syncing Chrome runtime...');
-
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({
-        installedVersionOverride: ver,
-        lastUpdatedVersion: ver,
-        updateAvailable: false
-      });
-    }
+    setUpdateProgress(70, \`⚡ Version v\${ver} activated! Syncing Chrome runtime...\`);
 
     if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
       chrome.action.setBadgeText({ text: '' });
     }
 
     setTimeout(() => {
-      setUpdateProgress(100, '✓ Updated successfully! Reloading extension in Chrome...');
-
-      if (btnUpdateActionText) btnUpdateActionText.textContent = '✓ Reloading v' + ver + '...';
-      if (updateBannerText) updateBannerText.textContent = 'Extension reloaded! Version v' + ver + ' active.';
+      setUpdateProgress(100, \`✓ Updated successfully! Reloading extension...\`);
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = \`✓ Reloading v\${ver}...\`;
 
       setTimeout(() => {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-          try { chrome.runtime.reload(); } catch (e) {}
+          try {
+            chrome.runtime.reload();
+          } catch (e) {
+            console.log('Reload triggered:', e);
+          }
         } else {
-          btnUpdateAction.disabled = false;
-          simulatedInstalledVersion = ver;
-          updateFooterVersion();
-          checkForUpdates(false);
+          // Fallback in simulated/tab view: transition directly to State A
+          if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
+          if (stateUpToDate) stateUpToDate.style.display = 'block';
+          if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + ver;
+          if (footerVersionText) footerVersionText.textContent = 'v' + ver;
+          if (btnTriggerUpdate) btnTriggerUpdate.disabled = false;
         }
       }, 700);
     }, 600);
@@ -981,96 +997,18 @@ function setUpdateProgress(percent, label) {
   if (updateProgressLabel) updateProgressLabel.textContent = label;
 }
 
-if (btnOptionalZip) {
-  btnOptionalZip.addEventListener('click', (e) => {
-    e.preventDefault();
-    const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
-      ? remoteVersionInfo.downloadUrl
-      : (VERCEL_RECEIVER_URL + '/extension.zip');
-    const ver = (remoteVersionInfo && remoteVersionInfo.version) || '1.3.0';
-    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
-      chrome.downloads.download({
-        url: downloadUrl,
-        filename: 'BeamDrop-Extension-v' + ver + '.zip',
-        saveAs: true
-      });
-    } else {
-      triggerFallbackDownload(downloadUrl, 'BeamDrop-Extension-v' + ver + '.zip');
-    }
+if (btnCheckUpdates) {
+  btnCheckUpdates.addEventListener('click', () => {
+    checkForUpdates(true);
   });
-}
-
-if (btnSimOld) {
-  btnSimOld.addEventListener('click', () => {
-    simulatedInstalledVersion = '1.2.0';
-    btnSimOld.classList.add('active');
-    if (btnSimLatest) btnSimLatest.classList.remove('active');
-    updateFooterVersion();
-    checkForUpdates(false);
-  });
-}
-
-if (btnSimLatest) {
-  btnSimLatest.addEventListener('click', () => {
-    simulatedInstalledVersion = '1.3.0';
-    btnSimLatest.classList.add('active');
-    if (btnSimOld) btnSimOld.classList.remove('active');
-    updateFooterVersion();
-    checkForUpdates(false);
-  });
-}
-
-if (toggleSourceSettingsBtn) {
-  toggleSourceSettingsBtn.addEventListener('click', () => {
-    const isHidden = sourceSettingsBody.style.display === 'none';
-    sourceSettingsBody.style.display = isHidden ? 'flex' : 'none';
-    sourceToggleIcon.textContent = isHidden ? '▲' : '▼';
-  });
-}
-
-if (btnSaveSourceSettings) {
-  btnSaveSourceSettings.addEventListener('click', () => {
-    const newServer = serverUrlInput.value.trim();
-    const newRepo = githubRepoInput.value.trim();
-    if (newServer) VERCEL_RECEIVER_URL = newServer.replace(/\\/$/, '');
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({
-        custom_update_server: VERCEL_RECEIVER_URL,
-        custom_github_repo: newRepo
-      }, () => {
-        btnSaveSourceSettings.textContent = '✓ Saved!';
-        setTimeout(() => { btnSaveSourceSettings.textContent = '💾 Save & Check Now'; }, 1500);
-        checkForUpdates(true);
-      });
-    } else {
-      btnSaveSourceSettings.textContent = '✓ Saved!';
-      setTimeout(() => { btnSaveSourceSettings.textContent = '💾 Save & Check Now'; }, 1500);
-      checkForUpdates(true);
-    }
-  });
-}
-
-function triggerFallbackDownload(url, filename) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-function notifyDownloadSuccess(ver) {
-  if (btnUpdateActionText) {
-    btnUpdateActionText.textContent = '✓ v' + ver + ' Downloaded! Click Reload in Chrome';
-  }
-  if (updateBannerText) {
-    updateBannerText.textContent = 'ZIP saved to Downloads! Extract & reload in chrome://extensions';
-  }
 }
 
 function escapeHtml(text) {
   if (!text) return '';
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function formatBytes(bytes) {
@@ -1081,12 +1019,20 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
+// Initial update check on startup (runs silently in background)
 checkForUpdates(false);
+
+// Start on Stage 1 (Staging)
 showStage('staging');
 updateStatus('idle', 'Ready');
 `;
 
-  const styleCss = `/* BeamDrop Chrome Extension Stylesheet */
+  const styleCss = `/* ==========================================================================
+   BeamDrop Chrome Extension - 100% Offline Pure Stylesheet
+   Strict Dimensions: width: 380px; max-height: 580px
+   Theme: #0b0f19 background, electric cyan (#06b6d4) & blue (#3b82f6)
+   ========================================================================== */
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -1109,12 +1055,14 @@ body {
   user-select: none;
 }
 
+/* Restrict all images and SVGs from exceeding parent */
 img, svg {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -1130,6 +1078,9 @@ img, svg {
   background: #06b6d4;
 }
 
+/* ==========================================================================
+   App Header & Brand
+   ========================================================================== */
 .app-header {
   display: flex;
   align-items: center;
@@ -1139,6 +1090,61 @@ img, svg {
   margin-bottom: 10px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-popout-icon {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-popout-icon:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: #06b6d4;
+  color: #06b6d4;
+  transform: scale(1.05);
+}
+
+.persistence-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 10px;
+  line-height: 1.35;
+}
+
+.persistence-tip svg {
+  flex-shrink: 0;
+  color: #06b6d4;
+  margin-top: 2px;
+}
+
+@media (min-width: 400px) {
+  body {
+    width: 100%;
+    min-height: 100vh;
+    max-height: 100vh;
+  }
+}
+
+/* Navigation Tabs */
 .app-nav {
   display: flex;
   gap: 6px;
@@ -1269,6 +1275,9 @@ img, svg {
   50% { opacity: 1; transform: scale(1.2); }
 }
 
+/* ==========================================================================
+   STAGE 1: Staging & Drop Zone
+   ========================================================================== */
 .stage-container {
   display: flex;
   flex-direction: column;
@@ -1325,6 +1334,7 @@ img, svg {
   margin-top: 3px;
 }
 
+/* Staged File Preview Card */
 .staged-card {
   display: flex;
   align-items: center;
@@ -1398,6 +1408,7 @@ img, svg {
   background: rgba(248, 113, 113, 0.12);
 }
 
+/* Primary CTA Button */
 .btn-cta-generate {
   width: 100%;
   padding: 12px 16px;
@@ -1427,6 +1438,9 @@ img, svg {
   box-shadow: none;
 }
 
+/* ==========================================================================
+   STAGE 2: QR Code Active Portal
+   ========================================================================== */
 .qr-card-container {
   display: flex;
   flex-direction: column;
@@ -1542,6 +1556,9 @@ img, svg {
   color: #ffffff;
 }
 
+/* ==========================================================================
+   STAGE 3: Active Transfer & Streaming
+   ========================================================================== */
 .transfer-live-card {
   background: rgba(6, 182, 212, 0.08);
   border: 1px solid rgba(6, 182, 212, 0.35);
@@ -1589,6 +1606,9 @@ img, svg {
   font-weight: 700;
 }
 
+/* ==========================================================================
+   STAGE 4: Complete State
+   ========================================================================== */
 .complete-card {
   text-align: center;
   background: #111827;
@@ -1624,218 +1644,165 @@ img, svg {
   margin-bottom: 16px;
 }
 
-/* Stage 5: Updates & Version History System */
-.version-hero-card {
-  background: rgba(15, 23, 42, 0.8);
+/* ==========================================================================
+   STAGE 5: Clean 2-State Updates Engine
+   ========================================================================== */
+.update-clean-card {
+  background: rgba(15, 23, 42, 0.75);
   border: 1px solid #1e293b;
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 20px;
+  padding: 24px 18px;
   text-align: center;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  transition: all 0.25s ease;
 }
 
-.version-hero-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #1e293b;
-  margin-bottom: 10px;
-}
-
-.version-label {
-  font-size: 9px;
-  font-family: ui-monospace, monospace;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.version-val {
-  font-size: 15px;
-  font-weight: 800;
-  color: #f1f5f9;
-  font-family: ui-monospace, monospace;
-  margin-top: 2px;
-}
-
-.version-val.text-cyan-400 {
-  color: #38bdf8;
-}
-
-.version-arrow {
-  font-size: 14px;
-  color: #64748b;
-}
-
-.update-banner {
+/* STATE A: UP TO DATE */
+.uptodate-glow-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.12);
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  margin: 6px auto 16px auto;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.2);
 }
 
-.update-banner.uptodate {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #34d399;
-}
-
-.update-banner.available {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
-  animation: pulseDot 2s infinite ease-in-out;
-}
-
-.update-last-checked {
-  font-size: 10px;
-  color: #64748b;
-  font-family: ui-monospace, monospace;
-  margin-top: 8px;
-}
-
-.update-highlights-box {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid #334155;
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.update-highlights-title {
-  font-size: 11px;
+.uptodate-headline {
+  font-size: 16px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #ffffff;
   margin-bottom: 6px;
 }
 
-.update-highlights-list {
-  padding-left: 16px;
-  font-size: 11px;
-  color: #cbd5e1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  line-height: 1.35;
-}
-
-.install-tip-card {
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px dashed #334155;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 11px;
-}
-
-.install-tip-title {
-  font-weight: 700;
-  color: #f1f5f9;
-  margin-bottom: 4px;
-}
-
-.install-tip-steps {
-  padding-left: 16px;
-  color: #94a3b8;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 10.5px;
-}
-
-.install-tip-steps code {
-  color: #38bdf8;
-  background: #0f172a;
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-family: ui-monospace, monospace;
-}
-
-.changelog-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.changelog-header {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.changelog-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.changelog-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid #1e293b;
-  border-radius: 12px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.changelog-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.changelog-tag {
-  font-size: 10px;
-  font-family: ui-monospace, monospace;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.changelog-tag.major {
-  background: rgba(6, 182, 212, 0.2);
-  color: #38bdf8;
-  border: 1px solid rgba(6, 182, 212, 0.35);
-}
-
-.changelog-tag.minor {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.changelog-tag.initial {
+.uptodate-ver-pill {
+  display: inline-block;
   background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  margin-bottom: 12px;
 }
 
-.changelog-date {
-  font-size: 9px;
+.uptodate-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin-bottom: 18px;
+  max-width: 290px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.uptodate-bottom-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(30, 41, 59, 0.7);
+}
+
+.btn-clean-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  color: #f1f5f9;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clean-check:hover {
+  background: #334155;
+  border-color: #06b6d4;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.uptodate-time {
+  font-size: 10.5px;
   color: #64748b;
   font-family: ui-monospace, monospace;
 }
 
-.changelog-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffffff;
+/* STATE B: UPDATE AVAILABLE */
+.update-clean-card.available-theme {
+  border-color: rgba(6, 182, 212, 0.4);
+  background: radial-gradient(ellipse at top, rgba(6, 182, 212, 0.12), rgba(15, 23, 42, 0.85));
+  box-shadow: 0 10px 30px -5px rgba(6, 182, 212, 0.25);
+  text-align: left;
 }
 
-.changelog-items {
-  padding-left: 14px;
-  font-size: 10.5px;
+.available-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+.available-pulse-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.available-ver-badge {
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  color: #38bdf8;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.available-notes-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(30, 41, 59, 0.6);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.available-notes-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 8px;
+}
+
+.available-notes-list {
+  padding-left: 18px;
+  font-size: 11px;
   color: #94a3b8;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  line-height: 1.3;
+  gap: 6px;
+  line-height: 1.4;
 }
 
 /* Progress bar for Update Downloading & In-Place Reload */
@@ -1871,135 +1838,49 @@ img, svg {
   transition: width 0.2s ease-in-out;
 }
 
-/* Simulation Switcher */
-.sim-switcher-box {
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px dashed #334155;
+.btn-cta-update {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #06b6d4, #2563eb);
+  border: none;
   border-radius: 12px;
-  padding: 8px 10px;
-  margin-top: 4px;
-}
-
-.sim-switcher-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.sim-tag {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #38bdf8;
-}
-
-.sim-buttons-row {
-  display: flex;
-  gap: 6px;
-}
-
-.sim-btn {
-  flex: 1;
-  padding: 5px 8px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  color: #94a3b8;
-  font-size: 10.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.sim-btn:hover {
-  background: #334155;
-  color: #f8fafc;
-}
-
-.sim-btn.active {
-  background: #0284c7;
-  border-color: #38bdf8;
   color: #ffffff;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
-}
-
-/* Source Settings Card */
-.source-settings-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid #1e293b;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.source-toggle-btn {
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.35);
+  transition: all 0.2s ease;
 }
 
-.source-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.03);
-  color: #f1f5f9;
+.btn-cta-update:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.45);
 }
 
-.source-settings-body {
-  padding: 8px 12px 12px 12px;
-  border-top: 1px solid #1e293b;
-  display: flex;
-  flex-direction: column;
+.btn-cta-update:active {
+  transform: scale(0.98);
 }
 
-.source-label {
-  font-size: 10px;
-  color: #64748b;
-  font-family: ui-monospace, monospace;
+.available-footer-info {
+  margin-top: 10px;
+  text-align: center;
 }
 
-.source-input {
-  width: 100%;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 5px 8px;
-  color: #f1f5f9;
-  font-size: 11px;
-  font-family: ui-monospace, monospace;
-  margin-top: 3px;
-  box-sizing: border-box;
+.spinning {
+  animation: spinIcon 0.8s linear infinite;
 }
 
-.source-input:focus {
-  outline: none;
-  border-color: #38bdf8;
+@keyframes spinIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.btn-save-settings {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: #0284c7;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-size: 10.5px;
-  font-weight: 600;
-  cursor: pointer;
-  align-self: flex-end;
-  transition: background 0.15s ease;
-}
-
-.btn-save-settings:hover {
-  background: #0369a1;
-}
-
+/* App Footer */
 .app-footer {
   margin-top: 14px;
   padding-top: 10px;
@@ -2030,9 +1911,10 @@ img, svg {
  * Handles context menus, OTA background update checks, and toolbar notification badges.
  */
 
-const DEFAULT_VERCEL_URL = "${cleanUrl}";
+const DEFAULT_VERCEL_URL = "https://beam-drop-mu.vercel.app";
 const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
 
+// Initialize on installed
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "beamdrop_send_selection",
@@ -2052,21 +1934,42 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["image"]
   });
 
+  chrome.contextMenus.create({
+    id: "beamdrop_open_sidepanel",
+    title: "BeamDrop: Open in Side Panel (Persistent)",
+    contexts: ["action"]
+  });
+
+  // Setup periodic background check for updates (every 30 mins)
   chrome.alarms.create(UPDATE_ALARM_NAME, {
     periodInMinutes: 30,
     delayInMinutes: 1
   });
 
+  // Check immediately on install
   checkCloudForUpdates();
 });
 
+// Periodic alarm listener
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === UPDATE_ALARM_NAME) {
     checkCloudForUpdates();
   }
 });
 
+// Context Menu actions
 chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === "beamdrop_open_sidepanel") {
+    if (chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+        }
+      });
+    }
+    return;
+  }
+
   let contentToSend = "";
   if (info.menuItemId === "beamdrop_send_selection" && info.selectionText) {
     contentToSend = info.selectionText;
@@ -2082,12 +1985,26 @@ chrome.contextMenus.onClicked.addListener((info) => {
         type: "basic",
         iconUrl: "icons/icon48.png",
         title: "BeamDrop Ready",
-        message: "Text ready to beam! Click BeamDrop to generate your QR portal."
+        message: "Text ready to beam! Click BeamDrop in your toolbar to generate your QR portal."
       });
     });
   }
 });
 
+// Background update available listener (Web Store / CRX auto-update)
+chrome.runtime.onUpdateAvailable.addListener((details) => {
+  console.log('Native update downloaded and waiting to install:', details.version);
+  chrome.action.setBadgeText({ text: 'NEW' });
+  chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' });
+  if (chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({
+      nativeUpdateReady: true,
+      latestVersion: details.version
+    });
+  }
+});
+
+// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'check_updates_now') {
     checkCloudForUpdates().then((res) => sendResponse(res));
@@ -2097,11 +2014,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.action.setBadgeText({ text: '' });
     sendResponse({ cleared: true });
   }
+  if (message.action === 'trigger_runtime_reload') {
+    setTimeout(() => {
+      if (chrome.runtime.reload) {
+        chrome.runtime.reload();
+      }
+    }, 100);
+    sendResponse({ reloading: true });
+  }
+  if (message.action === 'request_store_update_check') {
+    if (chrome.runtime.requestUpdateCheck) {
+      chrome.runtime.requestUpdateCheck((status, details) => {
+        sendResponse({ status, details });
+      });
+      return true;
+    } else {
+      sendResponse({ status: 'unsupported' });
+    }
+  }
 });
 
+// Background Cloud Updater Check
 async function checkCloudForUpdates() {
   try {
     const installedVer = chrome.runtime.getManifest().version || '1.2.0';
+
+    // Retrieve custom server or repo if set
     let targetBaseUrl = DEFAULT_VERCEL_URL;
     if (chrome.storage && chrome.storage.local) {
       const stored = await chrome.storage.local.get(['custom_update_server']);
@@ -2110,7 +2048,7 @@ async function checkCloudForUpdates() {
       }
     }
 
-    const endpoint = targetBaseUrl + '/version.json?_t=' + Date.now();
+    const endpoint = \`\${targetBaseUrl}/version.json?_t=\${Date.now()}\`;
     const resp = await fetch(endpoint, { cache: 'no-store' });
     if (!resp.ok) return { hasUpdate: false };
 
@@ -2119,16 +2057,18 @@ async function checkCloudForUpdates() {
 
     const isNewer = compareSemver(remoteVer, installedVer) > 0;
     if (isNewer) {
+      // Set badge on toolbar icon
       chrome.action.setBadgeText({ text: 'NEW' });
-      chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' });
-      chrome.action.setTitle({ title: 'BeamDrop Update Available (v' + remoteVer + ')! Click to update.' });
+      chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' }); // Glowing cyan
+      chrome.action.setTitle({ title: \`BeamDrop Update Available (v\${remoteVer})! Click to update.\` });
 
       if (chrome.storage && chrome.storage.local) {
         await chrome.storage.local.set({
           updateAvailable: true,
           latestVersion: remoteVer,
           updateHighlights: data.highlights || [],
-          updateChangelog: data.changelog || []
+          updateChangelog: data.changelog || [],
+          lastCheckedTimestamp: Date.now()
         });
       }
       return { hasUpdate: true, version: remoteVer };
@@ -2137,8 +2077,21 @@ async function checkCloudForUpdates() {
       return { hasUpdate: false, version: remoteVer };
     }
   } catch (err) {
+    console.debug('Background update check skipped/failed:', err);
     return { hasUpdate: false };
   }
+}
+
+function compareSemver(v1, v2) {
+  const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
 }
 `;
 
