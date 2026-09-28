@@ -183,7 +183,7 @@ async function checkCloudForUpdates() {
     let targetBaseUrl = DEFAULT_VERCEL_URL;
     if (chrome.storage && chrome.storage.local) {
       const stored = await chrome.storage.local.get(['custom_update_server']);
-      if (stored && stored.custom_update_server) {
+      if (stored && stored.custom_update_server && !stored.custom_update_server.includes('.run.app') && !stored.custom_update_server.includes('localhost')) {
         targetBaseUrl = stored.custom_update_server.replace(/\/$/, '');
       }
     }

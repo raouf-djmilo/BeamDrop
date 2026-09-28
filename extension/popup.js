@@ -4,6 +4,10 @@
  */
 
 let VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
+// Automatic protection: Always force public production Vercel URL for phones so QR codes never point to dev containers
+if (!VERCEL_RECEIVER_URL || VERCEL_RECEIVER_URL.includes('.run.app') || VERCEL_RECEIVER_URL.includes('localhost') || VERCEL_RECEIVER_URL.includes('127.0.0.1')) {
+  VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
+}
 const CHUNK_SIZE = 64 * 1024; // 64KB slices
 
 // Comprehensive STUN & TURN Relay servers (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
@@ -523,7 +527,10 @@ async function startPortalSession() {
   const mimeEnc = encodeURIComponent(first.type || '');
 
   // Direct download route: /download?peer=...&name=...&size=...&mime=...
-  const targetUrl = `${VERCEL_RECEIVER_URL}/download?peer=${currentPeerId}&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
 
   // Update badge on top of QR code in popup
   const fileInfo = getExtensionFileTypeInfo(first.name, first.type);

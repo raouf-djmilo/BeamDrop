@@ -16,7 +16,10 @@ export interface ExtensionFile {
 }
 
 export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-mu.vercel.app'): ExtensionFile[] => {
-  const cleanUrl = (receiverBaseUrl || 'https://beam-drop-mu.vercel.app').replace(/\/$/, '');
+  let cleanUrl = (receiverBaseUrl || 'https://beam-drop-mu.vercel.app').replace(/\/$/, '');
+  if (cleanUrl.includes('.run.app') || cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
+    cleanUrl = 'https://beam-drop-mu.vercel.app';
+  }
 
   // Ensure receiver URL in popupJs matches cleanUrl
   const processedPopupJs = popupJsRaw.replace(
