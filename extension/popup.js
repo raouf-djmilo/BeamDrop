@@ -580,7 +580,7 @@ const BUILT_IN_LATEST_REGISTRY = {
       title: '1-Click Fast Updater & Background Notification Engine',
       changes: [
         'In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome',
-        'Toolbar notification badge (\'NEW\') when a new GitHub/Vercel release is published',
+        'Toolbar notification badge [NEW] when a new GitHub/Vercel release is published',
         'Periodic background watcher to alert users automatically of new releases',
         'Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0'
       ]
