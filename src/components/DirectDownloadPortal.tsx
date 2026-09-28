@@ -11,10 +11,12 @@ import {
   ShieldCheck,
   RefreshCw,
   Eye,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  Presentation
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile } from '../utils/p2p';
-import { formatBytes, formatSpeed, getFileCategory } from '../utils/formatters';
+import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { playChime } from '../utils/audio';
 
 interface DirectDownloadPortalProps {
@@ -135,14 +137,22 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const getFileCategoryIcon = (mime: string, name: string) => {
     const cat = getFileCategory(mime, name);
     switch (cat) {
+      case 'excel':
+        return <FileSpreadsheet className="w-10 h-10 text-emerald-400" />;
+      case 'powerpoint':
+        return <Presentation className="w-10 h-10 text-amber-400" />;
+      case 'word':
+        return <FileText className="w-10 h-10 text-blue-400" />;
+      case 'pdf':
+        return <FileText className="w-10 h-10 text-rose-400" />;
+      case 'archive':
+        return <FileArchive className="w-10 h-10 text-yellow-400" />;
       case 'image':
-        return <ImageIcon className="w-10 h-10 text-emerald-400" />;
+        return <ImageIcon className="w-10 h-10 text-teal-400" />;
       case 'video':
         return <Film className="w-10 h-10 text-purple-400" />;
       case 'audio':
         return <Music className="w-10 h-10 text-pink-400" />;
-      case 'archive':
-        return <FileArchive className="w-10 h-10 text-amber-400" />;
       default:
         return <FileText className="w-10 h-10 text-cyan-400" />;
     }
@@ -150,6 +160,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
   const isImage = displayMime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(displayName);
   const isVideo = displayMime.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(displayName);
+  const fileMeta = getFileTypeMeta(displayMime, displayName);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-cyan-500 selection:text-white">
@@ -175,10 +186,15 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           </div>
 
           {/* File Name & Specs */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-800/40 inline-block">
-              Direct File Download
-            </span>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-center space-x-1.5">
+              <span className={`text-[10px] font-mono uppercase tracking-widest font-bold px-2 py-0.5 rounded-full border ${fileMeta.bgColor} ${fileMeta.textColor} ${fileMeta.borderColor}`}>
+                {fileMeta.badgeLabel}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-800/40">
+                Direct Download
+              </span>
+            </div>
             <h1 className="text-xl font-bold text-white break-words max-w-full pt-1" title={displayName}>
               {displayName}
             </h1>

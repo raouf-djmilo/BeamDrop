@@ -17,10 +17,12 @@ import {
   Share2,
   Shield,
   Eye,
-  Check
+  Check,
+  FileSpreadsheet,
+  Presentation
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
-import { formatBytes, formatSpeed, getFileCategory } from '../utils/formatters';
+import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { playChime } from '../utils/audio';
 
 interface ReceiverViewProps {
@@ -150,11 +152,24 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
   const getFileIcon = (type: string, name: string) => {
     const cat = getFileCategory(type, name);
     switch (cat) {
-      case 'image': return <ImageIcon className="w-5 h-5 text-emerald-400" />;
-      case 'video': return <Film className="w-5 h-5 text-purple-400" />;
-      case 'audio': return <Music className="w-5 h-5 text-pink-400" />;
-      case 'archive': return <FileArchive className="w-5 h-5 text-amber-400" />;
-      default: return <FileText className="w-5 h-5 text-blue-400" />;
+      case 'excel':
+        return <FileSpreadsheet className="w-5 h-5 text-emerald-400" />;
+      case 'powerpoint':
+        return <Presentation className="w-5 h-5 text-amber-400" />;
+      case 'word':
+        return <FileText className="w-5 h-5 text-blue-400" />;
+      case 'pdf':
+        return <FileText className="w-5 h-5 text-rose-400" />;
+      case 'archive':
+        return <FileArchive className="w-5 h-5 text-yellow-400" />;
+      case 'image':
+        return <ImageIcon className="w-5 h-5 text-teal-400" />;
+      case 'video':
+        return <Film className="w-5 h-5 text-purple-400" />;
+      case 'audio':
+        return <Music className="w-5 h-5 text-pink-400" />;
+      default:
+        return <FileText className="w-5 h-5 text-cyan-400" />;
     }
   };
 
@@ -359,9 +374,19 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                     )}
 
                     <div className="truncate">
-                      <h4 className="text-xs font-bold text-white truncate max-w-md">
-                        {file.name}
-                      </h4>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-xs font-bold text-white truncate max-w-md">
+                          {file.name}
+                        </h4>
+                        {(() => {
+                          const meta = getFileTypeMeta(file.type, file.name);
+                          return (
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${meta.bgColor} ${meta.textColor} ${meta.borderColor}`}>
+                              {meta.badgeLabel}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5 font-mono">
                         <span>{formatBytes(file.size)}</span>
                         <span>•</span>

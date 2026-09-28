@@ -328,7 +328,15 @@
         btnDownloadText.textContent = "Downloading...";
       }
 
-      if (expectedName.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) || expectedMime.startsWith('image/')) {
+      if (expectedName.match(/\.(xlsx?|csv|ods|tsv)$/i) || expectedMime.includes('spreadsheet') || expectedMime.includes('excel')) {
+        fileEmoji.textContent = '📊';
+      } else if (expectedName.match(/\.(pptx?|ppsx?|odp)$/i) || expectedMime.includes('presentation')) {
+        fileEmoji.textContent = '📽️';
+      } else if (expectedName.match(/\.pdf$/i) || expectedMime === 'application/pdf') {
+        fileEmoji.textContent = '📑';
+      } else if (expectedName.match(/\.(docx?|rtf|odt)$/i) || expectedMime.includes('word')) {
+        fileEmoji.textContent = '📄';
+      } else if (expectedName.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) || expectedMime.startsWith('image/')) {
         fileEmoji.textContent = '🖼️';
       } else if (expectedName.match(/\.(mp4|webm|mov|mkv|avi)$/i) || expectedMime.startsWith('video/')) {
         fileEmoji.textContent = '🎬';

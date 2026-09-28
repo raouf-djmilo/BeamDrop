@@ -12,29 +12,202 @@ export function formatSpeed(bytesPerSec: number): string {
   return `${formatBytes(bytesPerSec, 1)}/s`;
 }
 
-export function getFileCategory(mimeType: string, fileName: string): 'image' | 'video' | 'audio' | 'archive' | 'code' | 'pdf' | 'document' | 'other' {
+export type FileCategory =
+  | 'excel'
+  | 'powerpoint'
+  | 'word'
+  | 'pdf'
+  | 'archive'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'code'
+  | 'document'
+  | 'other';
+
+export function getFileCategory(mimeType: string, fileName: string): FileCategory {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
-  if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'heic'].includes(ext)) {
-    return 'image';
+  // Excel spreadsheets
+  if (
+    ['xls', 'xlsx', 'csv', 'ods', 'tsv', 'xlsm', 'xltx'].includes(ext) ||
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('excel') ||
+    mimeType === 'text/csv'
+  ) {
+    return 'excel';
   }
-  if (mimeType.startsWith('video/') || ['mp4', 'mkv', 'mov', 'webm', 'avi'].includes(ext)) {
-    return 'video';
+
+  // PowerPoint presentations
+  if (
+    ['ppt', 'pptx', 'pps', 'ppsx', 'odp', 'key', 'pot', 'potx'].includes(ext) ||
+    mimeType.includes('presentation') ||
+    mimeType.includes('powerpoint')
+  ) {
+    return 'powerpoint';
   }
-  if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext)) {
-    return 'audio';
+
+  // Word documents
+  if (
+    ['doc', 'docx', 'odt', 'rtf', 'pages', 'dotx'].includes(ext) ||
+    mimeType.includes('wordprocessing') ||
+    mimeType.includes('msword')
+  ) {
+    return 'word';
   }
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) {
-    return 'archive';
-  }
-  if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'py', 'java', 'c', 'cpp', 'rs', 'go'].includes(ext)) {
-    return 'code';
-  }
+
+  // PDF
   if (ext === 'pdf' || mimeType === 'application/pdf') {
     return 'pdf';
   }
-  if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md'].includes(ext)) {
+
+  // Images
+  if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'heic', 'bmp', 'ico', 'tiff'].includes(ext)) {
+    return 'image';
+  }
+
+  // Videos
+  if (mimeType.startsWith('video/') || ['mp4', 'mkv', 'mov', 'webm', 'avi', 'flv', 'wmv', 'm4v'].includes(ext)) {
+    return 'video';
+  }
+
+  // Audio
+  if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'wma', 'opus'].includes(ext)) {
+    return 'audio';
+  }
+
+  // Archives
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'iso', 'dmg', 'tgz', 'xz'].includes(ext)) {
+    return 'archive';
+  }
+
+  // Code
+  if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'py', 'java', 'c', 'cpp', 'rs', 'go', 'php', 'sql', 'sh', 'yaml', 'yml', 'xml'].includes(ext)) {
+    return 'code';
+  }
+
+  // Plain document
+  if (['txt', 'md', 'log', 'ini', 'conf'].includes(ext)) {
     return 'document';
   }
+
   return 'other';
+}
+
+export interface FileTypeMeta {
+  category: FileCategory;
+  extension: string;
+  badgeLabel: string;
+  colorName: string;
+  textColor: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+export function getFileTypeMeta(mimeType: string, fileName: string): FileTypeMeta {
+  const ext = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+  const category = getFileCategory(mimeType, fileName);
+
+  switch (category) {
+    case 'excel':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext.includes('XLS') || ext === 'CSV' ? ext : 'EXCEL',
+        colorName: 'emerald',
+        textColor: 'text-emerald-400',
+        bgColor: 'bg-emerald-950/70',
+        borderColor: 'border-emerald-500/40'
+      };
+    case 'powerpoint':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext.includes('PPT') ? ext : 'PPTX',
+        colorName: 'amber',
+        textColor: 'text-amber-400',
+        bgColor: 'bg-amber-950/70',
+        borderColor: 'border-amber-500/40'
+      };
+    case 'word':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext.includes('DOC') ? ext : 'DOCX',
+        colorName: 'blue',
+        textColor: 'text-blue-400',
+        bgColor: 'bg-blue-950/70',
+        borderColor: 'border-blue-500/40'
+      };
+    case 'pdf':
+      return {
+        category,
+        extension: 'PDF',
+        badgeLabel: 'PDF',
+        colorName: 'rose',
+        textColor: 'text-rose-400',
+        bgColor: 'bg-rose-950/70',
+        borderColor: 'border-rose-500/40'
+      };
+    case 'archive':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'yellow',
+        textColor: 'text-yellow-400',
+        bgColor: 'bg-yellow-950/70',
+        borderColor: 'border-yellow-500/40'
+      };
+    case 'image':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'teal',
+        textColor: 'text-teal-400',
+        bgColor: 'bg-teal-950/70',
+        borderColor: 'border-teal-500/40'
+      };
+    case 'video':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'purple',
+        textColor: 'text-purple-400',
+        bgColor: 'bg-purple-950/70',
+        borderColor: 'border-purple-500/40'
+      };
+    case 'audio':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'pink',
+        textColor: 'text-pink-400',
+        bgColor: 'bg-pink-950/70',
+        borderColor: 'border-pink-500/40'
+      };
+    case 'code':
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'cyan',
+        textColor: 'text-cyan-400',
+        bgColor: 'bg-cyan-950/70',
+        borderColor: 'border-cyan-500/40'
+      };
+    default:
+      return {
+        category,
+        extension: ext,
+        badgeLabel: ext,
+        colorName: 'slate',
+        textColor: 'text-slate-300',
+        bgColor: 'bg-slate-800/70',
+        borderColor: 'border-slate-700/60'
+      };
+  }
 }

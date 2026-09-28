@@ -57,6 +57,15 @@
 
   <!-- STAGE 1: File Staging Area -->
   <main id="stageStaging" class="stage-container">
+    <!-- Quick format pills -->
+    <div class="quick-types-pills">
+      <span class="q-pill q-pill-excel">📊 Excel</span>
+      <span class="q-pill q-pill-ppt">📽️ PowerPoint</span>
+      <span class="q-pill q-pill-pdf">📑 PDF</span>
+      <span class="q-pill q-pill-zip">📦 ZIP</span>
+      <span class="q-pill q-pill-media">🎬 Media</span>
+    </div>
+
     <!-- Drag & Drop Zone -->
     <div id="dropZone" class="drop-zone">
       <input type="file" id="fileInput" multiple style="display: none;">
@@ -68,7 +77,7 @@
         </svg>
       </div>
       <p class="drop-primary">Choose files or drop here</p>
-      <p class="drop-secondary">Photos, 4K Videos, ZIPs, Docs</p>
+      <p class="drop-secondary">Excel, PowerPoint, PDF, Photos, 4K Video, ZIP</p>
     </div>
 
     <!-- Staged File Card -->
@@ -78,7 +87,10 @@
         <span id="thumbIcon" class="thumb-icon">📄</span>
       </div>
       <div class="staged-info">
-        <p id="stagedFileName" class="staged-name">filename.ext</p>
+        <div class="staged-name-row">
+          <p id="stagedFileName" class="staged-name">filename.ext</p>
+          <span id="stagedTypeTag" class="staged-type-tag">FILE</span>
+        </div>
         <p id="stagedFileSize" class="staged-size">0 KB</p>
       </div>
       <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
@@ -100,7 +112,7 @@
     <div class="qr-card-container">
       <!-- Staged File Info Badge on top of QR -->
       <div id="portalFileBadge" class="portal-file-badge">
-        <span class="portal-badge-icon">📦</span>
+        <span id="portalBadgeIcon" class="portal-badge-icon">📦</span>
         <span id="portalFileNameBadge" class="portal-badge-name">file.ext</span>
         <span id="portalFileSizeBadge" class="portal-badge-size">(0 KB)</span>
       </div>
@@ -114,17 +126,47 @@
         <span>Awaiting phone connection...</span>
       </div>
       <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
+
+      <!-- Primary Action: Save Watermarked QR Code Image -->
+      <button id="btnSaveQrWatermark" class="btn-save-watermark-qr" type="button" title="Save QR card with BeamDrop watermark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span id="btnSaveQrWatermarkText">Save QR Card (BeamDrop Watermark)</span>
+      </button>
+
+      <!-- Sub-row: Copy QR Code & Copy Link -->
+      <div class="portal-sub-actions">
+        <button id="btnCopyQrImage" class="btn-portal-sub" type="button" title="Copy QR Code Image to Clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span id="copyQrImageText">Copy QR Code</span>
+        </button>
+
+        <button id="btnCopyLink" class="btn-portal-sub" type="button" title="Copy Link URL">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copyLinkText">Copy Link</span>
+        </button>
+      </div>
+
+      <!-- Watermark Guarantee Notice -->
+      <div class="portal-watermark-notice">
+        <span class="watermark-dot"></span>
+        <span>BeamDrop Watermark Engine • Zero Cloud Storage</span>
+      </div>
     </div>
 
     <div class="action-row">
-      <button id="btnCopyLink" class="btn-action-outline">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-        <span id="copyLinkText">Copy Link</span>
-      </button>
-      <button id="btnCancelPortal" class="btn-action-danger">Cancel</button>
+      <button id="btnCancelPortal" class="btn-action-danger">Cancel Session</button>
     </div>
 
     <!-- Background Persistence Tip -->
