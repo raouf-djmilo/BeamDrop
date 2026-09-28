@@ -14,6 +14,9 @@
   "rewrites": [
     { "source": "/download", "destination": "/download.html" },
     { "source": "/dl", "destination": "/download.html" },
+    { "source": "/notebook", "destination": "/notebook.html" },
+    { "source": "/note", "destination": "/notebook.html" },
+    { "source": "/code", "destination": "/notebook.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

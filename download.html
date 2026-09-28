@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Download File</title>
+  <title>BeamDrop - Universal Device Bridge</title>
   <script src="/libs/peerjs.min.js"></script>
   <style>
     * {
@@ -25,9 +25,10 @@
       overflow-x: hidden;
     }
 
+    /* Isolated Download Box */
     .download-card {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       background: rgba(17, 24, 39, 0.95);
       border: 1px solid rgba(55, 65, 81, 0.8);
       border-radius: 28px;
@@ -40,6 +41,7 @@
       position: relative;
     }
 
+    /* File Icon Representation */
     .file-icon-wrap {
       width: 80px;
       height: 80px;
@@ -96,83 +98,84 @@
       margin-bottom: 22px;
     }
 
+    /* Stream Progress Container */
     .stream-container {
       width: 100%;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(51, 65, 85, 0.7);
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(51, 65, 85, 0.6);
       border-radius: 18px;
-      padding: 14px 16px;
-      margin-bottom: 18px;
+      padding: 16px;
+      margin-bottom: 20px;
     }
 
     .stream-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
-      margin-bottom: 8px;
+      color: #cbd5e1;
+      margin-bottom: 10px;
     }
 
     .stream-status {
       display: flex;
       align-items: center;
       gap: 6px;
-      color: #38bdf8;
     }
 
     .status-dot {
-      width: 7px;
-      height: 7px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background-color: #38bdf8;
-      animation: blink 1.2s infinite ease-in-out;
+      animation: blink 1.5s infinite ease-in-out;
     }
 
     @keyframes blink {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .stream-speed {
       font-family: ui-monospace, monospace;
-      color: #34d399;
-      font-size: 11px;
+      color: #38bdf8;
     }
 
     .progress-bar-bg {
       width: 100%;
-      height: 10px;
-      background: #0b0f19;
+      height: 8px;
+      background: rgba(15, 23, 42, 0.8);
       border-radius: 9999px;
       overflow: hidden;
-      margin-bottom: 6px;
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      margin-bottom: 10px;
     }
 
     .progress-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, #0284c7, #38bdf8);
       width: 0%;
-      transition: width 0.15s ease;
+      background: linear-gradient(90deg, #0284c7, #38bdf8);
       border-radius: 9999px;
+      transition: width 0.15s ease-out;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
     }
 
     .stream-bytes {
       display: flex;
       justify-content: space-between;
-      font-size: 10.5px;
-      color: #64748b;
+      font-size: 11px;
       font-family: ui-monospace, monospace;
+      color: #94a3b8;
     }
 
+    /* Action Buttons */
     .btn-download-action {
       width: 100%;
-      padding: 16px 20px;
-      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
       color: #ffffff;
       border: none;
-      border-radius: 18px;
+      border-radius: 16px;
+      padding: 16px 20px;
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
@@ -180,9 +183,8 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.4);
       transition: all 0.2s ease;
-      text-decoration: none;
+      box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.5);
     }
 
     .btn-download-action:active {
@@ -201,6 +203,71 @@
       flex-shrink: 0;
     }
 
+    /* Text & Link Payload Container */
+    .text-payload-container {
+      display: none;
+      width: 100%;
+      margin-top: 10px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .text-box {
+      width: 100%;
+      max-height: 220px;
+      overflow-y: auto;
+      background: #030712;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      color: #f1f5f9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+      line-height: 1.5;
+    }
+
+    .text-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    .btn-text-action {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #f8fafc;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-text-action:hover, .btn-text-action:active {
+      background: #334155;
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    .btn-primary-action {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border: none;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+    }
+
+    /* Success Alert */
     .success-box {
       display: none;
       width: 100%;
@@ -217,6 +284,7 @@
       text-align: left;
     }
 
+    /* Media Preview Container */
     .preview-box {
       display: none;
       width: 100%;
@@ -246,21 +314,23 @@
 </head>
 <body>
 
+  <!-- Dedicated Isolated Direct Gateway Card -->
   <div class="download-card">
     <div class="file-icon-wrap">
       <div id="pulseRing" class="file-pulse-ring"></div>
-      <span id="fileEmoji">📦</span>
+      <span id="fileEmoji">⚡</span>
     </div>
 
-    <span class="file-badge-tag">DIRECT FILE DOWNLOAD</span>
-    <h1 id="fileNameHeading" class="file-name">Preparing Download...</h1>
-    <p id="fileSizeLabel" class="file-info">Direct P2P Stream • RAM-to-RAM</p>
+    <span id="portalBadgeTag" class="file-badge-tag">DIRECT P2P BRIDGE</span>
+    <h1 id="fileNameHeading" class="file-name">Connecting to Device...</h1>
+    <p id="fileSizeLabel" class="file-info">RAM-to-RAM Stream • Zero Storage</p>
 
-    <div class="stream-container">
+    <!-- Real-Time Transfer Indicator -->
+    <div id="streamContainer" class="stream-container">
       <div class="stream-header">
         <div class="stream-status">
           <span class="status-dot"></span>
-          <span id="transferStatusText">Connecting directly to device...</span>
+          <span id="transferStatusText">Establishing direct WebRTC link...</span>
         </div>
         <span id="transferSpeedText" class="stream-speed">-- MB/s</span>
       </div>
@@ -271,18 +341,33 @@
 
       <div class="stream-bytes">
         <span id="progressPctLabel">0%</span>
-        <span id="bytesTransferredLabel">0 MB / 0 MB</span>
+        <span id="bytesTransferredLabel">Connecting...</span>
       </div>
     </div>
 
+    <!-- Text / Link Payload Container -->
+    <div id="textPayloadContainer" class="text-payload-container">
+      <div id="textBox" class="text-box"></div>
+      <div class="text-actions">
+        <button id="btnCopyText" class="btn-text-action btn-primary-action" type="button">
+          <span>📋 Copy to Clipboard</span>
+        </button>
+        <a id="btnOpenLink" class="btn-text-action" href="#" target="_blank" style="display: none;">
+          <span>🔗 Open Link</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Success Feedback -->
     <div id="successBox" class="success-box">
       <span>✓</span>
       <div>
-        <strong>File Saved to Downloads!</strong>
-        <p style="font-weight: 400; opacity: 0.9; font-size: 11px;">The file was streamed directly and saved to your device.</p>
+        <strong id="successTitle">Transfer Complete!</strong>
+        <p id="successSub" style="font-weight: 400; opacity: 0.9; font-size: 11px;">The object was streamed directly into your device.</p>
       </div>
     </div>
 
+    <!-- Prominent Direct Action Button -->
     <button id="btnDownload" class="btn-download-action" disabled>
       <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -290,44 +375,84 @@
       <span id="btnDownloadText">Connecting...</span>
     </button>
 
+    <!-- In-Line Media Preview -->
     <div id="previewBox" class="preview-box"></div>
 
-    <p class="privacy-tag">🔒 Direct Encrypted Stream • Zero Storage</p>
+    <p class="privacy-tag">🔒 Encrypted RAM-to-RAM Bridge • No Server Storage</p>
   </div>
 
   <script>
     (function() {
       const urlParams = new URLSearchParams(window.location.search);
       const peerId = urlParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
-      const expectedName = decodeURIComponent(urlParams.get('name') || urlParams.get('file') || 'Shared File');
+      const expectedType = urlParams.get('type') || 'file'; // 'file' | 'text' | 'link'
+      const expectedName = decodeURIComponent(urlParams.get('name') || urlParams.get('file') || (expectedType === 'text' ? 'Beamed Text' : 'Shared Object'));
       const expectedSize = parseInt(urlParams.get('size') || '0', 10);
       const expectedMime = decodeURIComponent(urlParams.get('mime') || '');
 
       const fileNameHeading = document.getElementById('fileNameHeading');
       const fileSizeLabel = document.getElementById('fileSizeLabel');
       const fileEmoji = document.getElementById('fileEmoji');
+      const portalBadgeTag = document.getElementById('portalBadgeTag');
+      const streamContainer = document.getElementById('streamContainer');
       const transferStatusText = document.getElementById('transferStatusText');
       const transferSpeedText = document.getElementById('transferSpeedText');
       const progressBarFill = document.getElementById('progressBarFill');
       const progressPctLabel = document.getElementById('progressPctLabel');
       const bytesTransferredLabel = document.getElementById('bytesTransferredLabel');
+      const textPayloadContainer = document.getElementById('textPayloadContainer');
+      const textBox = document.getElementById('textBox');
+      const btnCopyText = document.getElementById('btnCopyText');
+      const btnOpenLink = document.getElementById('btnOpenLink');
       const successBox = document.getElementById('successBox');
+      const successTitle = document.getElementById('successTitle');
+      const successSub = document.getElementById('successSub');
       const btnDownload = document.getElementById('btnDownload');
       const btnDownloadText = document.getElementById('btnDownloadText');
       const previewBox = document.getElementById('previewBox');
       const pulseRing = document.getElementById('pulseRing');
 
       fileNameHeading.textContent = expectedName;
-      document.title = "Download " + expectedName;
+      document.title = "BeamDrop - " + expectedName;
 
-      if (expectedSize > 0) {
+      // Full High-Speed STUN + TURN Relay Matrix (Guarantees 4G/5G and Mobile Firewall Connectivity)
+      const ICE_SERVERS = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        {
+          urls: 'turn:standard.relay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:standard.relay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ];
+
+      if (expectedType === 'text' || expectedType === 'link') {
+        portalBadgeTag.textContent = 'INSTANT TEXT BRIDGE';
+        fileEmoji.textContent = expectedType === 'link' ? '🔗' : '📝';
+        fileSizeLabel.textContent = 'Direct Text Transmission';
+        btnDownloadText.textContent = 'Awaiting Text...';
+      } else if (expectedSize > 0) {
         fileSizeLabel.textContent = formatBytes(expectedSize) + " • Direct Download Link";
         btnDownloadText.textContent = "Download (" + formatBytes(expectedSize) + ")";
       } else {
         fileSizeLabel.textContent = "Direct Download Link";
-        btnDownloadText.textContent = "Downloading...";
+        btnDownloadText.textContent = "Connecting to sender...";
       }
 
+      // Format Icon
       if (expectedName.match(/\.(xlsx?|csv|ods|tsv)$/i) || expectedMime.includes('spreadsheet') || expectedMime.includes('excel')) {
         fileEmoji.textContent = '📊';
       } else if (expectedName.match(/\.(pptx?|ppsx?|odp)$/i) || expectedMime.includes('presentation')) {
@@ -344,8 +469,6 @@
         fileEmoji.textContent = '📦';
       } else if (expectedName.match(/\.(mp3|wav|flac|m4a|aac)$/i) || expectedMime.startsWith('audio/')) {
         fileEmoji.textContent = '🎵';
-      } else {
-        fileEmoji.textContent = '📄';
       }
 
       if (!peerId) {
@@ -366,10 +489,7 @@
         peer = new Peer(receiverId, {
           debug: 1,
           config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+            iceServers: ICE_SERVERS
           }
         });
 
@@ -381,7 +501,7 @@
 
         peer.on('error', function(err) {
           console.error("Peer error:", err);
-          transferStatusText.textContent = "Connection error. Rescan QR.";
+          transferStatusText.textContent = "Connection error. Please rescan QR.";
           btnDownloadText.textContent = "Connection Failed";
         });
       }
@@ -395,6 +515,12 @@
               triggerBrowserSave(currentDownloadUrl, activeFileName);
             }
           };
+
+          // Send handshake
+          conn.send({
+            type: 'DEVICE_INFO',
+            device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver'
+          });
         });
 
         conn.on('data', function(msg) {
@@ -411,6 +537,52 @@
       function handleIncomingData(msg) {
         if (!msg || !msg.type) return;
 
+        // 1. Text or Link Payload
+        if (msg.type === 'TEXT_PAYLOAD' || msg.type === 'TEXT_MSG') {
+          const rawText = msg.text || '';
+          isCompleted = true;
+          portalBadgeTag.textContent = 'BEAMED CONTENT';
+          fileNameHeading.textContent = msg.subType === 'link' || rawText.startsWith('http') ? 'Received Link' : 'Received Text';
+          fileSizeLabel.textContent = rawText.length + ' characters';
+          fileEmoji.textContent = rawText.startsWith('http') ? '🔗' : '📝';
+
+          streamContainer.style.display = 'none';
+          btnDownload.style.display = 'none';
+          pulseRing.style.display = 'none';
+
+          textPayloadContainer.style.display = 'block';
+          textBox.textContent = rawText;
+
+          if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
+            btnOpenLink.href = rawText;
+            btnOpenLink.style.display = 'inline-flex';
+          }
+
+          btnCopyText.onclick = function() {
+            navigator.clipboard.writeText(rawText).then(function() {
+              btnCopyText.innerHTML = '<span>✓ Copied to Clipboard!</span>';
+              setTimeout(function() {
+                btnCopyText.innerHTML = '<span>📋 Copy to Clipboard</span>';
+              }, 2500);
+            }).catch(function() {
+              // Fallback
+              const ta = document.createElement('textarea');
+              ta.value = rawText;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+              btnCopyText.innerHTML = '<span>✓ Copied!</span>';
+            });
+          };
+
+          successTitle.textContent = 'Text Received Successfully!';
+          successSub.textContent = 'Content was transferred in-flight without cloud storage.';
+          successBox.style.display = 'flex';
+          return;
+        }
+
+        // 2. Binary File Chunks
         if (msg.type === 'FILE_START') {
           activeFileName = msg.fileName;
           fileNameHeading.textContent = msg.fileName;
@@ -447,7 +619,7 @@
             entry.lastTime = now;
             entry.lastBytes = entry.receivedBytes;
           }
-        } else if (msg.type === 'FILE_END') {
+        } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
           const entry = chunksMap.get(msg.fileId);
           if (!entry) return;
 
@@ -456,6 +628,7 @@
           currentDownloadUrl = URL.createObjectURL(blob);
           activeFileName = entry.name;
 
+          // Automatic instant native download to device
           triggerBrowserSave(currentDownloadUrl, activeFileName);
 
           progressBarFill.style.width = '100%';
@@ -471,6 +644,7 @@
             triggerBrowserSave(currentDownloadUrl, activeFileName);
           };
 
+          // Preview
           if (entry.mime.startsWith('image/')) {
             previewBox.innerHTML = '<img src="' + currentDownloadUrl + '" alt="' + activeFileName + '" />';
             previewBox.style.display = 'block';

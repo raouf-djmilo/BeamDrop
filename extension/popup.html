@@ -126,8 +126,16 @@
       </button>
     </div>
 
-    <!-- SUB-VIEW 2: TEXT & LINK COMPOSER -->
+    <!-- SUB-VIEW 2: TEXT & LINK COMPOSER (SMART NOTEBOOK ENGINE) -->
     <div id="viewTextMode" style="display: none; flex-direction: column; gap: 10px;">
+      <!-- Content Type Selector Pills -->
+      <div class="text-format-pills">
+        <button id="textTypeAuto" class="t-pill active" type="button">⚡ Auto</button>
+        <button id="textTypeNote" class="t-pill" type="button">📓 Note</button>
+        <button id="textTypeCode" class="t-pill" type="button">💻 Code</button>
+        <button id="textTypeUrl" class="t-pill" type="button">🔗 Link</button>
+      </div>
+
       <div class="text-composer-card">
         <textarea id="textPayloadInput" class="text-composer-area" placeholder="Type or paste any text, notes, code snippet, or website URL link to beam to your phone..."></textarea>
         <div class="text-composer-toolbar">
@@ -136,14 +144,23 @@
           </button>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span id="textCharCount" style="color: #64748b; font-family: ui-monospace, monospace; font-size: 10px;">0 chars</span>
-            <span id="textTypeBadge" class="text-type-badge">TEXT</span>
+            <span id="textTypeBadge" class="text-type-badge">NOTE</span>
           </div>
         </div>
       </div>
 
+      <!-- Feature Highlight Banner -->
+      <div class="notebook-banner-info">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+        <span>Beams directly to Smart Notebook on Phone &amp; PC</span>
+      </div>
+
       <!-- Primary CTA for Text -->
       <button id="btnGenerateTextQr" class="btn-cta-generate" disabled>
-        <span>⚡ Beam Text to Phone (Instant QR)</span>
+        <span>⚡ Beam to Smart Notebook (Instant QR)</span>
       </button>
     </div>
   </main>
@@ -162,9 +179,9 @@
         <canvas id="qrcodeCanvas"></canvas>
       </div>
       <p id="qrScanInstruction" class="qr-scan-instruction">Scan with phone camera to transfer directly</p>
-      <div class="portal-pill">
-        <span class="radar-dot"></span>
-        <span>Awaiting phone connection...</span>
+      <div id="portalRadarPill" class="portal-pill">
+        <span id="portalRadarDot" class="radar-dot"></span>
+        <span id="portalRadarText">Awaiting phone connection...</span>
       </div>
       <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
 

@@ -1,29 +1,41 @@
 {
   "name": "BeamDrop",
-  "version": "1.4.0",
-  "releaseDate": "2026-09-28",
+  "version": "1.5.0",
+  "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "highlights": [
-    "🚀 1-Click Direct ZIP Package Downloader via chrome.downloads API directly to user machine",
-    "🔄 Dual Cloud Sync Engine: Simultaneous real-time querying against Vercel and GitHub Raw",
-    "🔔 Chrome Native Notification & Glowing Cyan Badge for all new releases",
-    "🧪 In-Extension Old Version Simulator: Instant testing of update notifications from v1.0.0, v1.2.0, and v1.3.0",
-    "⚡ Direct Phone Download Gateway: QR code prompts instant mobile browser download"
+    "📝 BeamDrop Live Ephemeral Notebook: Beam code, text & links directly into an interactive digital notebook with line numbers",
+    "🔗 Smart URL detector: 1-click open link in mobile/PC browser with zero server storage",
+    "📋 Instant Clipboard Copy & Live Scratchpad editing directly on recipient device",
+    "💾 1-Click Save as File (.txt, .md, .js, .py) directly to recipient's local storage",
+    "⚡ Cleaned up OTA Updates Engine: Removed simulation clutter for 100% genuine real-time updates"
   ],
   "changelog": [
     {
+      "version": "1.5.0",
+      "date": "2026-09-29",
+      "type": "major",
+      "title": "BeamDrop Ephemeral Live Notebook & Pure OTA Engine",
+      "changes": [
+        "Interactive Digital Notebook page: Scanned text, code, and links open directly in an interactive notebook",
+        "Code canvas with line numbers, code copy, and smart syntax detection",
+        "Save as File button (.txt, .md, .js, .py) directly from recipient device",
+        "Smart URL detection with 1-click browser navigation",
+        "Removed test simulator from Updates tab for a pure, clean, fast OTA update experience",
+        "Multi-file in-memory ZIP bundling with JSZip"
+      ]
+    },
+    {
       "version": "1.4.0",
       "date": "2026-09-28",
-      "type": "major",
+      "type": "minor",
       "title": "Automated Package Downloader & Dual GitHub/Vercel Sync",
       "changes": [
-        "Direct chrome.downloads API integration: downloads new extension.zip directly to user Downloads folder with 1 click",
+        "Direct chrome.downloads API integration: downloads new extension.zip directly to user machine",
         "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting",
-        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel",
-        "Interactive Version Simulator in the Updates tab to preview and test how older version users experience updates",
-        "Guided 2-step reload assistant with 1-click chrome://extensions launcher"
+        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel"
       ]
     },
     {
@@ -36,39 +48,6 @@
         "Toolbar notification badge ('NEW') when a new GitHub/Vercel release is published",
         "Periodic background watcher to alert users automatically of new releases",
         "Integrated TURN relay for high-speed transfer across firewalls"
-      ]
-    },
-    {
-      "version": "1.2.0",
-      "date": "2026-09-28",
-      "type": "minor",
-      "title": "Direct Download Gateway & Isolated Download Portal",
-      "changes": [
-        "Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file",
-        "Dedicated isolated download window with zero website distraction",
-        "Direct stream progress bar with live MB/s and instant auto-download trigger"
-      ]
-    },
-    {
-      "version": "1.1.0",
-      "date": "2026-09-28",
-      "type": "minor",
-      "title": "Staging Area & Flow Control",
-      "changes": [
-        "Multi-file staging container before generating QR code",
-        "64KB chunk backpressure control to prevent buffer saturation",
-        "Offline pure CSS styling & strict 380px sizing"
-      ]
-    },
-    {
-      "version": "1.0.0",
-      "date": "2026-09-27",
-      "type": "initial",
-      "title": "Initial Manifest V3 Launch",
-      "changes": [
-        "Manifest V3 Chrome Extension architecture",
-        "Direct Device-to-Device WebRTC DataChannel transfer",
-        "Zero cloud storage and zero database"
       ]
     }
   ]

@@ -2,6 +2,7 @@
  * BeamDrop Standalone Web Receiver Client
  * Auto-connects to Desktop WebRTC peer via URL query (?peer=beam-xxxxxx)
  * Reassembles binary chunks in RAM and triggers direct download to device
+ * Handles File, Text, Link, and Media objects with zero server storage
  */
 
 (function () {
@@ -24,6 +25,29 @@
   const btnManualDownload = document.getElementById('btnManualDownload');
   const receivedMediaCard = document.getElementById('receivedMediaCard');
   const mediaPreviewImg = document.getElementById('mediaPreviewImg');
+
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    {
+      urls: 'turn:standard.relay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ];
 
   function updateStatus(state, label) {
     if (!statusText) return;
@@ -48,11 +72,7 @@
     peer = new Peer(myPeerId, {
       debug: 1,
       config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-        ]
+        iceServers: ICE_SERVERS
       }
     });
 
@@ -90,11 +110,20 @@
   function handleIncomingData(msg) {
     if (!msg || !msg.type) return;
 
+    if (msg.type === 'TEXT_PAYLOAD' || msg.type === 'TEXT_MSG') {
+      const text = msg.text || '';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+      alert('⚡ Beamed from Desktop:\n\n' + text);
+      return;
+    }
+
     if (msg.type === 'FILE_START') {
-      transferArea.style.display = 'block';
+      if (transferArea) transferArea.style.display = 'block';
       if (downloadSuccessCard) downloadSuccessCard.style.display = 'none';
 
-      transferFileName.textContent = msg.fileName;
+      if (transferFileName) transferFileName.textContent = msg.fileName;
       incomingFiles.set(msg.fileId, {
         name: msg.fileName,
         size: msg.fileSize,
@@ -114,19 +143,19 @@
       entry.receivedBytes += chunk.byteLength;
 
       const progress = Math.min(100, Math.round((entry.receivedBytes / entry.size) * 100));
-      transferProgressBar.style.width = progress + '%';
-      transferPercentage.textContent = progress + '%';
-      transferBytes.textContent = formatBytes(entry.receivedBytes) + ' / ' + formatBytes(entry.size);
+      if (transferProgressBar) transferProgressBar.style.width = progress + '%';
+      if (transferPercentage) transferPercentage.textContent = progress + '%';
+      if (transferBytes) transferBytes.textContent = formatBytes(entry.receivedBytes) + ' / ' + formatBytes(entry.size);
 
       const now = Date.now();
       const elapsed = (now - entry.lastSpeedTime) / 1000;
       if (elapsed >= 0.25) {
         const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
-        transferSpeed.textContent = formatBytes(speed) + '/s';
+        if (transferSpeed) transferSpeed.textContent = formatBytes(speed) + '/s';
         entry.lastSpeedTime = now;
         entry.lastBytes = entry.receivedBytes;
       }
-    } else if (msg.type === 'FILE_END') {
+    } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
       const entry = incomingFiles.get(msg.fileId);
       if (!entry) return;
 
@@ -145,12 +174,10 @@
       // If image, show visual preview
       if (entry.mime.startsWith('image/') && mediaPreviewImg) {
         mediaPreviewImg.src = downloadUrl;
-        receivedMediaCard.style.display = 'flex';
+        if (receivedMediaCard) receivedMediaCard.style.display = 'flex';
       }
 
       incomingFiles.delete(msg.fileId);
-    } else if (msg.type === 'TEXT_MSG') {
-      alert('Received from Desktop:\n\n' + msg.text);
     }
   }
 

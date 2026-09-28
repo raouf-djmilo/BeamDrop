@@ -1,6 +1,7 @@
 /**
  * BeamDrop Background Service Worker (Manifest V3)
- * Handles context menus, OTA background update checks, toolbar notification badges, and direct downloads.
+ * Universal Device Bridge: Context Menus, Clipboard Relaying,
+ * OTA Background Update Engine, Toolbar Badges, and Direct Package Downloads.
  */
 
 const DEFAULT_VERCEL_URL = "https://beam-drop-mu.vercel.app";
@@ -9,27 +10,28 @@ const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
 
 // Initialize on installed
 chrome.runtime.onInstalled.addListener(() => {
+  // Setup Context Menus
   chrome.contextMenus.create({
     id: "beamdrop_send_selection",
-    title: "BeamDrop: Send selection to Phone",
+    title: "⚡ BeamDrop: Beam text to Phone",
     contexts: ["selection"]
   });
 
   chrome.contextMenus.create({
     id: "beamdrop_send_link",
-    title: "BeamDrop: Send link to Phone",
+    title: "⚡ BeamDrop: Beam link to Phone",
     contexts: ["link"]
   });
 
   chrome.contextMenus.create({
     id: "beamdrop_send_image",
-    title: "BeamDrop: Send image URL to Phone",
+    title: "⚡ BeamDrop: Beam image URL to Phone",
     contexts: ["image"]
   });
 
   chrome.contextMenus.create({
     id: "beamdrop_open_sidepanel",
-    title: "BeamDrop: Open in Side Panel (Persistent)",
+    title: "⚡ BeamDrop: Open Side Panel (Persistent)",
     contexts: ["action"]
   });
 
@@ -54,41 +56,67 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 if (chrome.notifications && chrome.notifications.onClicked) {
   chrome.notifications.onClicked.addListener((notificationId) => {
     if (notificationId.startsWith('beamdrop_update_')) {
-      chrome.action.openPopup ? chrome.action.openPopup() : null;
+      if (chrome.action && chrome.action.openPopup) {
+        chrome.action.openPopup().catch(() => {});
+      }
     }
   });
 }
 
 // Context Menu actions
-chrome.contextMenus.onClicked.addListener((info) => {
+chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "beamdrop_open_sidepanel") {
     if (chrome.sidePanel && chrome.sidePanel.open) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && tabs[0].id) {
-          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
-        }
-      });
+      if (tab && tab.id) {
+        chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+      } else {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs && tabs[0] && tabs[0].id) {
+            chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+          }
+        });
+      }
     }
     return;
   }
 
   let contentToSend = "";
+  let contentType = "text";
+
   if (info.menuItemId === "beamdrop_send_selection" && info.selectionText) {
     contentToSend = info.selectionText;
+    contentType = "text";
   } else if (info.menuItemId === "beamdrop_send_link" && info.linkUrl) {
     contentToSend = info.linkUrl;
+    contentType = "link";
   } else if (info.menuItemId === "beamdrop_send_image" && info.srcUrl) {
     contentToSend = info.srcUrl;
+    contentType = "link";
   }
 
-  if (contentToSend && chrome.storage) {
-    chrome.storage.local.set({ pendingShareText: contentToSend }, () => {
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: "icons/icon48.png",
-        title: "BeamDrop Ready",
-        message: "Text ready to beam! Click BeamDrop in your toolbar to generate your QR portal."
-      });
+  if (contentToSend && chrome.storage && chrome.storage.local) {
+    const payload = {
+      type: contentType,
+      content: contentToSend,
+      timestamp: Date.now()
+    };
+
+    chrome.storage.local.set({ pendingSharePayload: payload }, () => {
+      // Try to open side panel or popup immediately if supported
+      if (chrome.sidePanel && chrome.sidePanel.open && tab && tab.id) {
+        chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+      } else if (chrome.action && chrome.action.openPopup) {
+        chrome.action.openPopup().catch(() => {});
+      }
+
+      if (chrome.notifications && chrome.notifications.create) {
+        chrome.notifications.create({
+          type: "basic",
+          iconUrl: "icons/icon48.png",
+          title: "BeamDrop: Ready to Beam!",
+          message: `${contentType === 'link' ? 'Link' : 'Text'} ready to transfer. Click BeamDrop in your toolbar to scan QR.`
+        });
+      }
     });
   }
 });
@@ -108,24 +136,41 @@ chrome.runtime.onUpdateAvailable.addListener((details) => {
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'get_pending_share') {
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['pendingSharePayload', 'pendingShareText'], (res) => {
+        const payload = res.pendingSharePayload || (res.pendingShareText ? { type: 'text', content: res.pendingShareText } : null);
+        // Clear after reading
+        chrome.storage.local.remove(['pendingSharePayload', 'pendingShareText']);
+        sendResponse({ payload });
+      });
+      return true;
+    }
+    sendResponse({ payload: null });
+    return true;
+  }
+
   if (message.action === 'check_updates_now') {
     checkCloudForUpdates().then((res) => sendResponse(res));
     return true;
   }
+
   if (message.action === 'clear_update_badge') {
     chrome.action.setBadgeText({ text: '' });
     sendResponse({ cleared: true });
     return true;
   }
+
   if (message.action === 'trigger_runtime_reload') {
     setTimeout(() => {
       if (chrome.runtime.reload) {
         chrome.runtime.reload();
       }
-    }, 100);
+    }, 150);
     sendResponse({ reloading: true });
     return true;
   }
+
   if (message.action === 'download_update_package') {
     const url = message.url || `${DEFAULT_VERCEL_URL}/extension.zip`;
     const filename = message.filename || 'BeamDrop-Extension-Latest.zip';
@@ -144,6 +189,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
   }
+
   if (message.action === 'fetch_cloud_version') {
     checkCloudForUpdates().then((res) => {
       sendResponse(res && res.data ? res.data : null);
@@ -152,6 +198,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
   if (message.action === 'request_store_update_check') {
     if (chrome.runtime.requestUpdateCheck) {
       chrome.runtime.requestUpdateCheck((status, details) => {
@@ -165,19 +212,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Compare Semver utility
+function compareSemver(v1, v2) {
+  const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
 // Background Cloud Updater Check (Vercel + GitHub Raw Dual Polling)
 async function checkCloudForUpdates() {
   try {
     let installedVer = (chrome.runtime && chrome.runtime.getManifest)
-      ? (chrome.runtime.getManifest().version || '1.3.0')
-      : '1.3.0';
+      ? (chrome.runtime.getManifest().version || '1.5.0')
+      : '1.5.0';
 
-    // Support test simulation version override if set in storage
+    // Ensure legacy simulation keys are cleanly pruned from storage
     if (chrome.storage && chrome.storage.local) {
-      const storedSim = await chrome.storage.local.get(['simulated_installed_version', 'custom_update_server']);
-      if (storedSim && storedSim.simulated_installed_version) {
-        installedVer = storedSim.simulated_installed_version;
-      }
+      chrome.storage.local.remove(['simulated_installed_version']).catch(() => {});
     }
 
     let targetBaseUrl = DEFAULT_VERCEL_URL;
@@ -215,7 +272,7 @@ async function checkCloudForUpdates() {
       // Set badge on toolbar icon
       chrome.action.setBadgeText({ text: 'NEW' });
       chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' }); // Glowing cyan
-      chrome.action.setTitle({ title: `BeamDrop Update Available (v${remoteVer})! Click to update.` });
+      chrome.action.setTitle({ title: `⚡ BeamDrop Update Available (v${remoteVer})! Click to update.` });
 
       if (chrome.storage && chrome.storage.local) {
         await chrome.storage.local.set({
@@ -228,13 +285,13 @@ async function checkCloudForUpdates() {
         });
       }
 
-      // Native OS notification (alert user even when popup is closed)
+      // Native OS notification
       if (chrome.notifications && chrome.notifications.create) {
         chrome.notifications.create(`beamdrop_update_${remoteVer}`, {
           type: "basic",
           iconUrl: "icons/icon48.png",
           title: `⚡ BeamDrop Update v${remoteVer} Available!`,
-          message: `A new version of BeamDrop was published on GitHub/Vercel. Click toolbar icon to download and update.`
+          message: `A new version of BeamDrop is available. Click toolbar icon to apply instant update.`
         });
       }
 
@@ -247,16 +304,4 @@ async function checkCloudForUpdates() {
     console.debug('Background update check skipped/failed:', err);
     return { hasUpdate: false };
   }
-}
-
-function compareSemver(v1, v2) {
-  const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-    const num1 = p1[i] || 0;
-    const num2 = p2[i] || 0;
-    if (num1 > num2) return 1;
-    if (num1 < num2) return -1;
-  }
-  return 0;
 }

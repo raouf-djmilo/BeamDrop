@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BeamDrop Notebook - Smart Beamed Notes & Code</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="/libs/peerjs.min.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-deep: #030712;
+      --bg-card: rgba(11, 17, 32, 0.94);
+      --bg-surface: rgba(15, 23, 42, 0.85);
+      --bg-elevated: rgba(22, 33, 56, 0.75);
+      --border: rgba(55, 65, 81, 0.6);
+      --border-cyan: rgba(56, 189, 248, 0.35);
+      --border-amber: rgba(251, 191, 36, 0.35);
+      --cyan: #38bdf8;
+      --cyan-dim: #0284c7;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --purple: #a78bfa;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #475569;
+      --code-bg: #090d16;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 85% 85%, rgba(167, 139, 250, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 50% 20%, #0d1525 0%, #030712 100%);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 16px 14px 40px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* ─── Top Brand Bar ─── */
+    .brand-bar {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding: 0 4px;
+    }
+
+    .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.45);
+    }
+
+    .brand-name {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-name span {
+      color: var(--cyan);
+    }
+
+    .brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ─── Main Notebook Container ─── */
+    .notebook-shell {
+      width: 100%;
+      max-width: 680px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(56, 189, 248, 0.05);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      animation: cardAppear 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes cardAppear {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Gradient Top Border */
+    .notebook-shell::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #0284c7, #38bdf8, #a78bfa, #34d399);
+    }
+
+    /* ─── Shell Header ─── */
+    .shell-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.4);
+      background: rgba(15, 23, 42, 0.4);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .shell-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .type-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+    }
+
+    .type-pill.note {
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: var(--amber);
+    }
+
+    .type-pill.code {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--cyan);
+    }
+
+    .type-pill.url {
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      color: var(--green);
+    }
+
+    .timestamp-text {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .stats-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── P2P Connecting Loader (only when streamed) ─── */
+    .p2p-loader-box {
+      padding: 40px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .pulse-radar-ring {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 3px solid var(--cyan);
+      border-top-color: transparent;
+      animation: spinRing 1s linear infinite;
+    }
+
+    @keyframes spinRing {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─── URL Card View ─── */
+    .url-view-container {
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .url-hero-box {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-cyan);
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .url-hero-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .url-hero-details {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .url-domain-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .url-target-string {
+      font-size: 14px;
+      color: #fff;
+      word-break: break-all;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.4;
+    }
+
+    .btn-open-url {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-open-url:hover, .btn-open-url:active {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(2, 132, 199, 0.6);
+    }
+
+    /* ─── Code Card View ─── */
+    .code-view-container {
+      background: var(--code-bg);
+      border-radius: 0 0 20px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .code-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #0d131f;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.4);
+    }
+
+    .code-window-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #f43f5e; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    .code-lang-label {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .code-wrapper {
+      display: flex;
+      max-height: 480px;
+      overflow-y: auto;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .line-numbers {
+      padding: 16px 12px 16px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #475569;
+      text-align: right;
+      user-select: none;
+      border-right: 1px solid rgba(55, 65, 81, 0.3);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .code-text-pre {
+      flex: 1;
+      padding: 16px 16px 16px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre;
+      overflow-x: auto;
+      user-select: text;
+    }
+
+    /* Light Token Highlighting */
+    .token-kw { color: #f472b6; font-weight: 600; }
+    .token-fn { color: #60a5fa; }
+    .token-str { color: #34d399; }
+    .token-num { color: #fbbf24; }
+    .token-com { color: #64748b; font-style: italic; }
+
+    /* ─── Note Card View (Clean Notebook) ─── */
+    .note-view-container {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .note-paper-area {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(55, 65, 81, 0.4);
+      border-radius: 16px;
+      padding: 20px;
+      min-height: 180px;
+      max-height: 480px;
+      overflow-y: auto;
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: #f1f5f9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .note-paper-area:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 1px var(--cyan);
+    }
+
+    /* ─── Bottom Actions Bar ─── */
+    .bottom-actions-bar {
+      padding: 14px 20px;
+      background: rgba(15, 23, 42, 0.6);
+      border-top: 1px solid rgba(55, 65, 81, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      flex: 1;
+      min-width: 120px;
+      padding: 11px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      text-decoration: none;
+    }
+
+    .action-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    }
+
+    .action-btn.primary:hover {
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.55);
+      color: #fff;
+    }
+
+    .action-btn.success {
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    /* ─── Toast Notification ─── */
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(30px);
+      opacity: 0;
+      pointer-events: none;
+      background: #0f172a;
+      border: 1px solid var(--cyan);
+      color: #f8fafc;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.3);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+    }
+
+    .toast-msg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ─── Responsive Media Queries ─── */
+    @media (max-width: 600px) {
+      body {
+        padding: 12px 10px 30px;
+      }
+      .shell-header {
+        padding: 12px 14px;
+      }
+      .note-paper-area {
+        padding: 14px;
+        font-size: 14px;
+      }
+      .bottom-actions-bar {
+        padding: 12px 14px;
+      }
+      .action-btn {
+        min-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Brand Navigation Bar -->
+  <header class="brand-bar">
+    <div class="brand-left">
+      <div class="brand-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-name">Beam<span>Drop</span> Notebook</h1>
+      </div>
+    </div>
+    <div class="brand-badge">
+      <span class="live-dot"></span>
+      <span id="connectionModeBadge">Instant Zero-Knowledge</span>
+    </div>
+  </header>
+
+  <!-- Main Notebook Shell -->
+  <main class="notebook-shell">
+    
+    <!-- Shell Header with Type & Live Metrics -->
+    <div class="shell-header">
+      <div class="shell-header-left">
+        <span id="shellTypePill" class="type-pill note">NOTE</span>
+        <span id="shellTimestamp" class="timestamp-text">Just now</span>
+      </div>
+      <div class="stats-group">
+        <span id="statChars">0 chars</span>
+        <span>•</span>
+        <span id="statWords">0 words</span>
+        <span id="statReadTimeWrap" style="display: none;">
+          <span>•</span>
+          <span id="statReadTime">1 min read</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- P2P Receiving Stream Loader (only active when streaming big text via WebRTC) -->
+    <div id="p2pLoaderBox" class="p2p-loader-box" style="display: none;">
+      <div class="pulse-radar-ring"></div>
+      <h3 style="font-size: 16px; font-weight: 700;">Receiving Beamed Content...</h3>
+      <p id="p2pStatusLabel" style="font-size: 13px; color: var(--text-muted);">Establishing WebRTC direct memory bridge</p>
+    </div>
+
+    <!-- VIEW 1: URL / LINK CARD -->
+    <div id="viewUrl" class="url-view-container" style="display: none;">
+      <div class="url-hero-box">
+        <div class="url-hero-icon">🔗</div>
+        <div class="url-hero-details">
+          <div id="urlDomainTag" class="url-domain-tag">WEBSITE LINK</div>
+          <div id="urlTargetString" class="url-target-string">https://...</div>
+        </div>
+      </div>
+      <a id="btnOpenLink" class="btn-open-url" href="#" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+        <span>Open Link in Browser</span>
+      </a>
+    </div>
+
+    <!-- VIEW 2: CODE CARD WITH LINE NUMBERS -->
+    <div id="viewCode" class="code-view-container" style="display: none;">
+      <div class="code-toolbar">
+        <div class="code-window-dots">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+        </div>
+        <span id="codeLangLabel" class="code-lang-label">CODE</span>
+      </div>
+      <div class="code-wrapper">
+        <div id="codeLineNumbers" class="line-numbers"></div>
+        <pre id="codePre" class="code-text-pre"></pre>
+      </div>
+    </div>
+
+    <!-- VIEW 3: NOTEBOOK PAPER / TEXT CARD -->
+    <div id="viewNote" class="note-view-container" style="display: none;">
+      <div id="notePaperArea" class="note-paper-area" contenteditable="true" spellcheck="false"></div>
+    </div>
+
+    <!-- Bottom Actions Toolbar -->
+    <div class="bottom-actions-bar">
+      <button id="btnCopyContent" class="action-btn primary" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+        </svg>
+        <span id="btnCopyLabel">Copy to Clipboard</span>
+      </button>
+
+      <button id="btnNativeShare" class="action-btn" type="button" style="display: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="18" cy="5" r="3"></circle>
+          <circle cx="6" cy="12" r="3"></circle>
+          <circle cx="18" cy="19" r="3"></circle>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+        </svg>
+        <span>Share</span>
+      </button>
+
+      <button id="btnExportFile" class="action-btn" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span id="btnExportLabel">Save File</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Live Toast Floating Message -->
+  <div id="toastMsg" class="toast-msg">
+    <span>✓</span>
+    <span id="toastText">Copied to clipboard</span>
+  </div>
+
+  <script>
+    /**
+     * BeamDrop Notebook Engine
+     * Zero-latency instant payload decoding + P2P streaming receiver
+     */
+
+    let currentPayload = "";
+    let currentDetectedType = "note"; // 'note' | 'code' | 'url'
+    let currentCodeLanguage = "text";
+
+    // DOM Elements
+    const shellTypePill = document.getElementById('shellTypePill');
+    const shellTimestamp = document.getElementById('shellTimestamp');
+    const statChars = document.getElementById('statChars');
+    const statWords = document.getElementById('statWords');
+    const statReadTimeWrap = document.getElementById('statReadTimeWrap');
+    const statReadTime = document.getElementById('statReadTime');
+    const connectionModeBadge = document.getElementById('connectionModeBadge');
+
+    const p2pLoaderBox = document.getElementById('p2pLoaderBox');
+    const p2pStatusLabel = document.getElementById('p2pStatusLabel');
+
+    const viewUrl = document.getElementById('viewUrl');
+    const urlDomainTag = document.getElementById('urlDomainTag');
+    const urlTargetString = document.getElementById('urlTargetString');
+    const btnOpenLink = document.getElementById('btnOpenLink');
+
+    const viewCode = document.getElementById('viewCode');
+    const codeLangLabel = document.getElementById('codeLangLabel');
+    const codeLineNumbers = document.getElementById('codeLineNumbers');
+    const codePre = document.getElementById('codePre');
+
+    const viewNote = document.getElementById('viewNote');
+    const notePaperArea = document.getElementById('notePaperArea');
+
+    const btnCopyContent = document.getElementById('btnCopyContent');
+    const btnCopyLabel = document.getElementById('btnCopyLabel');
+    const btnNativeShare = document.getElementById('btnNativeShare');
+    const btnExportFile = document.getElementById('btnExportFile');
+    const btnExportLabel = document.getElementById('btnExportLabel');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // Show native share button if supported on mobile
+    if (navigator.share) {
+      btnNativeShare.style.display = 'inline-flex';
+    }
+
+    // ─────────────────────────────────────────
+    // 1. SMART CONTENT DETECTION
+    // ─────────────────────────────────────────
+    function isUrl(text) {
+      const trimmed = text.trim();
+      if (/^https?:\/\/[^\s]+$/i.test(trimmed)) return true;
+      if (/^www\.[^\s]+\.[a-z]{2,}[^\s]*$/i.test(trimmed)) return true;
+      return false;
+    }
+
+    function detectCodeLanguage(text) {
+      const codeSignals = [
+        { lang: 'javascript', ext: 'js', re: /\b(const|let|var|function|console\.log|import\s+.*from|export\s+(default|const)|=>|document\.)\b/ },
+        { lang: 'python', ext: 'py', re: /\b(def\s+\w+\(|import\s+\w+|from\s+\w+\s+import|elif\s+|print\(|self\.)\b/ },
+        { lang: 'html', ext: 'html', re: /<\/?[a-z][\s\S]*>/i },
+        { lang: 'css', ext: 'css', re: /[.#][\w-]+\s*\{[\s\S]*?\}/ },
+        { lang: 'json', ext: 'json', re: /^\s*[\{\[][\s\S]*[\}\]]\s*$/ },
+        { lang: 'sql', ext: 'sql', re: /\b(SELECT|INSERT INTO|UPDATE|DELETE FROM|CREATE TABLE|WHERE|JOIN)\b/i },
+        { lang: 'bash', ext: 'sh', re: /^(#!|\b(sudo|apt-get|npm|git|echo|cd|mkdir|chmod)\b)/m },
+        { lang: 'java', ext: 'java', re: /\b(public\s+class|System\.out\.println|private\s+final)\b/ }
+      ];
+
+      for (const sig of codeSignals) {
+        if (sig.re.test(text)) {
+          return { lang: sig.lang, ext: sig.ext };
+        }
+      }
+
+      // Check structural cues (brackets, indentation, semicolons)
+      const lines = text.split('\n');
+      let codeCues = 0;
+      for (const line of lines) {
+        if (/;\s*$/.test(line) || /^\s{2,4}\S/.test(line) || /[{}()\[\]]/.test(line)) {
+          codeCues++;
+        }
+      }
+      if (lines.length >= 3 && codeCues >= lines.length * 0.55) {
+        return { lang: 'code', ext: 'txt' };
+      }
+
+      return null;
+    }
+
+    // ─────────────────────────────────────────
+    // 2. RENDER ENGINE
+    // ─────────────────────────────────────────
+    function renderContent(rawText, overrideType) {
+      currentPayload = rawText || "";
+      const trimmed = currentPayload.trim();
+
+      // Update Live Stats
+      statChars.textContent = `${currentPayload.length} chars`;
+      const words = trimmed ? trimmed.split(/\s+/).length : 0;
+      statWords.textContent = `${words} words`;
+      if (words > 60) {
+        statReadTimeWrap.style.display = 'inline';
+        const mins = Math.max(1, Math.round(words / 180));
+        statReadTime.textContent = `${mins} min read`;
+      } else {
+        statReadTimeWrap.style.display = 'none';
+      }
+
+      shellTimestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Determine Type
+      let detected = overrideType;
+      let langMeta = null;
+
+      if (!detected || detected === 'auto') {
+        if (isUrl(trimmed)) {
+          detected = 'url';
+        } else {
+          langMeta = detectCodeLanguage(currentPayload);
+          detected = langMeta ? 'code' : 'note';
+        }
+      } else if (detected === 'code') {
+        langMeta = detectCodeLanguage(currentPayload) || { lang: 'code', ext: 'txt' };
+      }
+
+      currentDetectedType = detected;
+
+      // Hide all sub-views
+      viewUrl.style.display = 'none';
+      viewCode.style.display = 'none';
+      viewNote.style.display = 'none';
+      p2pLoaderBox.style.display = 'none';
+
+      if (detected === 'url') {
+        renderUrlView(trimmed);
+      } else if (detected === 'code') {
+        renderCodeView(currentPayload, langMeta ? langMeta.lang : 'CODE');
+      } else {
+        renderNoteView(currentPayload);
+      }
+    }
+
+    function renderUrlView(urlStr) {
+      shellTypePill.className = 'type-pill url';
+      shellTypePill.textContent = 'LINK';
+
+      let fullUrl = urlStr;
+      if (!/^https?:\/\//i.test(fullUrl)) {
+        fullUrl = 'https://' + fullUrl;
+      }
+
+      let domain = 'WEB LINK';
+      try {
+        const u = new URL(fullUrl);
+        domain = u.hostname.toUpperCase();
+      } catch (e) {}
+
+      urlDomainTag.textContent = domain;
+      urlTargetString.textContent = fullUrl;
+      btnOpenLink.href = fullUrl;
+
+      btnExportLabel.textContent = 'Export URL';
+      viewUrl.style.display = 'flex';
+    }
+
+    function renderCodeView(codeStr, langName) {
+      shellTypePill.className = 'type-pill code';
+      shellTypePill.textContent = langName.toUpperCase();
+      codeLangLabel.textContent = langName.toUpperCase();
+
+      const lines = codeStr.split('\n');
+      codeLineNumbers.innerHTML = lines.map((_, i) => i + 1).join('<br>');
+      
+      // Escape HTML & highlight basic tokens
+      codePre.innerHTML = escapeHtml(codeStr);
+
+      btnExportLabel.textContent = `Save .${(langName === 'javascript' ? 'js' : langName === 'python' ? 'py' : langName === 'html' ? 'html' : 'txt')}`;
+      viewCode.style.display = 'flex';
+    }
+
+    function renderNoteView(noteStr) {
+      shellTypePill.className = 'type-pill note';
+      shellTypePill.textContent = 'NOTE';
+
+      notePaperArea.innerText = noteStr;
+      btnExportLabel.textContent = 'Save .txt';
+      viewNote.style.display = 'flex';
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function showToast(msg) {
+      toastText.textContent = msg;
+      toastMsg.classList.add('show');
+      setTimeout(() => {
+        toastMsg.classList.remove('show');
+      }, 2200);
+    }
+
+    // ─────────────────────────────────────────
+    // 3. ACTION HANDLERS (Copy, Share, Export)
+    // ─────────────────────────────────────────
+    btnCopyContent.addEventListener('click', async () => {
+      const textToCopy = (currentDetectedType === 'note') ? notePaperArea.innerText : currentPayload;
+      if (!textToCopy) return;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showToast('✓ Copied to clipboard!');
+        btnCopyLabel.textContent = 'Copied!';
+        setTimeout(() => { btnCopyLabel.textContent = 'Copy to Clipboard'; }, 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = textToCopy;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('✓ Copied to clipboard!');
+      }
+    });
+
+    btnNativeShare.addEventListener('click', async () => {
+      const textToShare = (currentDetectedType === 'note') ? notePaperArea.innerText : currentPayload;
+      if (!textToShare) return;
+
+      try {
+        if (currentDetectedType === 'url') {
+          await navigator.share({ title: 'Shared Link', url: textToShare });
+        } else {
+          await navigator.share({ title: 'BeamDrop Note', text: textToShare });
+        }
+      } catch (err) {
+        console.log('Share dismissed');
+      }
+    });
+
+    btnExportFile.addEventListener('click', () => {
+      const textToExport = (currentDetectedType === 'note') ? notePaperArea.innerText : currentPayload;
+      if (!textToExport) return;
+
+      let filename = 'beamed-note.txt';
+      if (currentDetectedType === 'url') filename = 'beamed-link.url';
+      else if (currentDetectedType === 'code') filename = 'snippet.txt';
+
+      const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('✓ Saved ' + filename);
+    });
+
+    // ─────────────────────────────────────────
+    // 4. PAYLOAD INGESTION (Hash, Search, or WebRTC)
+    // ─────────────────────────────────────────
+    function initNotebookFromUrl() {
+      // Priority 1: Check Hash for Instant zero-latency embedded data (#data=... or #content=...)
+      const hashStr = window.location.hash ? window.location.hash.substring(1) : '';
+      const hashParams = new URLSearchParams(hashStr);
+
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const encodedData = hashParams.get('data') || hashParams.get('content') || searchParams.get('data') || searchParams.get('content');
+      const explicitType = hashParams.get('type') || searchParams.get('type') || 'auto';
+
+      if (encodedData) {
+        try {
+          // Decode UTF-8 Base64
+          const decoded = decodeURIComponent(escape(atob(encodedData)));
+          connectionModeBadge.textContent = 'Instant Zero-Latency';
+          renderContent(decoded, explicitType);
+          return;
+        } catch (e) {
+          console.warn('Direct base64 decode failed, trying raw decodeURIComponent', e);
+          try {
+            const rawDecoded = decodeURIComponent(encodedData);
+            renderContent(rawDecoded, explicitType);
+            return;
+          } catch (e2) {}
+        }
+      }
+
+      // Priority 2: Check for P2P Peer Room (Large text/code payloads streamed via WebRTC)
+      const peerId = searchParams.get('peer') || hashParams.get('peer');
+      if (peerId) {
+        connectP2PTextStream(peerId, explicitType);
+        return;
+      }
+
+      // Priority 3: Fallback interactive empty notebook playground
+      renderContent("Welcome to BeamDrop Notebook!\n\nScan any BeamDrop Text/Code QR code from your browser extension or mobile device to beam notes, code snippets, and links here instantly with zero cloud storage.", 'note');
+    }
+
+    // ─────────────────────────────────────────
+    // 5. P2P FALLBACK (FOR MASSIVE > 3KB TEXTS)
+    // ─────────────────────────────────────────
+    function connectP2PTextStream(targetPeerId, explicitType) {
+      p2pLoaderBox.style.display = 'flex';
+      connectionModeBadge.textContent = 'Direct WebRTC Bridge';
+      p2pStatusLabel.textContent = `Connecting to sender peer (${targetPeerId})...`;
+
+      const ICE_SERVERS = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        { urls: 'stun:stun.relay.metered.ca:80' },
+        { urls: 'turn:standard.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:standard.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ];
+
+      const peer = new Peer({
+        config: { iceServers: ICE_SERVERS, iceCandidatePoolSize: 10 }
+      });
+
+      peer.on('open', () => {
+        p2pStatusLabel.textContent = 'Establishing memory bridge...';
+        const conn = peer.connect(targetPeerId, { reliable: true });
+
+        conn.on('open', () => {
+          p2pStatusLabel.textContent = 'Handshake confirmed. Streaming payload...';
+          conn.send({ type: 'ready_for_data' });
+        });
+
+        conn.on('data', (data) => {
+          if (data && data.text) {
+            renderContent(data.text, explicitType || data.detectedType);
+          } else if (typeof data === 'string') {
+            renderContent(data, explicitType);
+          }
+        });
+
+        conn.on('error', (err) => {
+          p2pStatusLabel.textContent = 'Connection error: ' + (err.message || 'Peer closed');
+        });
+      });
+
+      peer.on('error', (err) => {
+        p2pStatusLabel.textContent = 'Network link error: ' + (err.message || 'Unable to connect');
+      });
+    }
+
+    // Run on mount
+    window.addEventListener('DOMContentLoaded', initNotebookFromUrl);
+    window.addEventListener('hashchange', initNotebookFromUrl);
+  </script>
+</body>
+</html>

@@ -1,28 +1,43 @@
 {
   "name": "BeamDrop",
-  "version": "1.4.0",
-  "releaseDate": "2026-09-28",
+  "version": "1.5.0",
+  "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "highlights": [
-    "🚀 1-Click Direct ZIP Package Downloader via chrome.downloads API directly to user machine",
-    "🔄 Dual Cloud Sync Engine: Simultaneous real-time querying against Vercel and GitHub Raw",
-    "🔔 Chrome Native Notification & Glowing Cyan Badge for all new releases",
-    "🧪 In-Extension Old Version Simulator: Instant testing of update notifications from v1.0.0, v1.2.0, and v1.3.0",
-    "⚡ Direct Phone Download Gateway: QR code prompts instant mobile browser download"
+    "📓 BeamDrop Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC",
+    "⚡ Zero-Latency Instant Beaming: Scan and view without waiting for WebRTC connection or download confirmation",
+    "💻 Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code",
+    "🔗 Smart URL Web Cards: 1-click browser launcher and native mobile share integration",
+    "✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension",
+    "🛡️ 100% Simulator-Free Engine: Clean, fast, and frozen-free OTA update system"
   ],
   "changelog": [
     {
+      "version": "1.5.0",
+      "date": "2026-09-29",
+      "type": "major",
+      "title": "Smart Notebook Engine & Ultra-Clean Glassmorphism UI",
+      "changes": [
+        "Dedicated BeamDrop Notebook web app (/notebook.html) for zero-latency note and code viewing on mobile & desktop",
+        "Instant hash-embedded QR code: short text, code, and links beam with 0ms waiting time without WebRTC handshake",
+        "Built-in Code Engine with syntax highlighting, line numbers, language badges, and file exporting (.js, .py, .html, .txt)",
+        "Smart URL cards with 1-tap browser opener and mobile native share (Web Share API)",
+        "Fully overhauled extension styling: ultra-clean obsidian dark glassmorphism theme",
+        "Completely purged test simulator for smooth, frozen-free performance"
+      ]
+    },
+    {
       "version": "1.4.0",
       "date": "2026-09-28",
-      "type": "major",
+      "type": "minor",
       "title": "Automated Package Downloader & Dual GitHub/Vercel Sync",
       "changes": [
         "Direct chrome.downloads API integration: downloads new extension.zip directly to user Downloads folder with 1 click",
         "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting",
         "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel",
-        "Interactive Version Simulator in the Updates tab to preview and test how older version users experience updates",
+        "Cleaned up Updates tab for a pure, clean, fast OTA update experience",
         "Guided 2-step reload assistant with 1-click chrome://extensions launcher"
       ]
     },

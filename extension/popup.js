@@ -36,8 +36,8 @@ const EXTENSION_ICE_SERVERS = [
 
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-  ? (chrome.runtime.getManifest().version || '1.4.0')
-  : '1.4.0';
+  ? (chrome.runtime.getManifest().version || '1.5.0')
+  : '1.5.0';
 
 // Global App State
 let activeBridgeMode = 'files'; // 'files' | 'text'
@@ -92,12 +92,16 @@ const multiFileSummary = document.getElementById('multiFileSummary');
 const btnRemoveFile = document.getElementById('btnRemoveFile');
 const btnGenerateQr = document.getElementById('btnGenerateQr');
 
-// Text View Elements
+// Text View Elements (Smart Notebook Engine)
 const textPayloadInput = document.getElementById('textPayloadInput');
 const btnQuickPaste = document.getElementById('btnQuickPaste');
 const textCharCount = document.getElementById('textCharCount');
 const textTypeBadge = document.getElementById('textTypeBadge');
 const btnGenerateTextQr = document.getElementById('btnGenerateTextQr');
+const textTypeAuto = document.getElementById('textTypeAuto');
+const textTypeNote = document.getElementById('textTypeNote');
+const textTypeCode = document.getElementById('textTypeCode');
+const textTypeUrl = document.getElementById('textTypeUrl');
 
 // Portal Elements
 const portalBadgeIcon = document.getElementById('portalBadgeIcon');
@@ -105,6 +109,9 @@ const portalFileNameBadge = document.getElementById('portalFileNameBadge');
 const portalFileSizeBadge = document.getElementById('portalFileSizeBadge');
 const qrcodeCanvas = document.getElementById('qrcodeCanvas');
 const qrScanInstruction = document.getElementById('qrScanInstruction');
+const portalRadarPill = document.getElementById('portalRadarPill');
+const portalRadarDot = document.getElementById('portalRadarDot');
+const portalRadarText = document.getElementById('portalRadarText');
 const portalUrlText = document.getElementById('portalUrlText');
 const btnSaveQrWatermark = document.getElementById('btnSaveQrWatermark');
 const btnSaveQrWatermarkText = document.getElementById('btnSaveQrWatermarkText');
@@ -422,34 +429,81 @@ btnGenerateQr.addEventListener('click', async () => {
 });
 
 // ==========================================
-// STAGE 1B: TEXT & LINK COMPOSER
+// STAGE 1B: TEXT & LINK COMPOSER (SMART NOTEBOOK ENGINE)
 // ==========================================
-textPayloadInput.addEventListener('input', () => {
+let selectedTextMode = 'auto'; // 'auto' | 'note' | 'code' | 'url'
+
+function updateTextFormatPills(mode) {
+  selectedTextMode = mode;
+  [textTypeAuto, textTypeNote, textTypeCode, textTypeUrl].forEach(btn => {
+    if (btn) btn.classList.remove('active');
+  });
+  if (mode === 'auto' && textTypeAuto) textTypeAuto.classList.add('active');
+  if (mode === 'note' && textTypeNote) textTypeNote.classList.add('active');
+  if (mode === 'code' && textTypeCode) textTypeCode.classList.add('active');
+  if (mode === 'url' && textTypeUrl) textTypeUrl.classList.add('active');
+
+  updateTextTypeVisuals();
+}
+
+if (textTypeAuto) textTypeAuto.addEventListener('click', () => updateTextFormatPills('auto'));
+if (textTypeNote) textTypeNote.addEventListener('click', () => updateTextFormatPills('note'));
+if (textTypeCode) textTypeCode.addEventListener('click', () => updateTextFormatPills('code'));
+if (textTypeUrl) textTypeUrl.addEventListener('click', () => updateTextFormatPills('url'));
+
+function resolveTextType(text) {
+  if (selectedTextMode !== 'auto') {
+    return selectedTextMode;
+  }
+  const trimmed = text.trim();
+  if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+\.[a-z]{2,}[^\s]*$/i.test(trimmed)) {
+    return 'url';
+  }
+  if (
+    /\b(const|let|var|function|def\s|class\s|import\s|export\s|console\.log|SELECT\s|public\s+class|=>)\b/.test(text) ||
+    (text.split('\n').length >= 3 && /;\s*$/.test(text))
+  ) {
+    return 'code';
+  }
+  return 'note';
+}
+
+function updateTextTypeVisuals() {
   const text = textPayloadInput.value.trim();
   stagedTextContent = text;
   textCharCount.textContent = `${text.length} chars`;
 
-  if (text.startsWith('http://') || text.startsWith('https://')) {
-    textTypeBadge.textContent = 'URL LINK';
-    textTypeBadge.style.color = '#38bdf8';
+  const effectiveType = resolveTextType(text);
+
+  if (effectiveType === 'url') {
+    textTypeBadge.textContent = 'LINK';
+    textTypeBadge.style.color = '#34d399';
+    textTypeBadge.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+    textTypeBadge.style.background = 'rgba(52, 211, 153, 0.12)';
     currentObjectType = 'link';
-  } else if (text.includes('function') || text.includes('const ') || text.includes('{') || text.includes('import ')) {
+  } else if (effectiveType === 'code') {
     textTypeBadge.textContent = 'CODE';
-    textTypeBadge.style.color = '#a855f7';
+    textTypeBadge.style.color = '#38bdf8';
+    textTypeBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+    textTypeBadge.style.background = 'rgba(56, 189, 248, 0.12)';
     currentObjectType = 'text';
   } else {
-    textTypeBadge.textContent = 'TEXT';
-    textTypeBadge.style.color = '#38bdf8';
+    textTypeBadge.textContent = 'NOTE';
+    textTypeBadge.style.color = '#fbbf24';
+    textTypeBadge.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+    textTypeBadge.style.background = 'rgba(251, 191, 36, 0.12)';
     currentObjectType = 'text';
   }
 
   btnGenerateTextQr.disabled = text.length === 0;
   if (text.length > 0) {
-    updateStatus('ready', 'Text Ready');
+    updateStatus('ready', `${effectiveType.toUpperCase()} Ready`);
   } else {
     updateStatus('idle', 'Ready');
   }
-});
+}
+
+textPayloadInput.addEventListener('input', updateTextTypeVisuals);
 
 btnQuickPaste.addEventListener('click', readClipboardAndFill);
 
@@ -541,24 +595,62 @@ async function startFilePortalSession(file) {
 }
 
 async function startTextPortalSession(text) {
-  updateStatus('ready', 'Starting Portal...');
+  updateStatus('ready', 'Starting Notebook Bridge...');
 
-  const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID().slice(0, 8)
-    : Math.random().toString(36).substring(2, 10);
-  currentPeerId = 'beam-' + randomSub;
-
-  const isLink = text.startsWith('http://') || text.startsWith('https://');
+  const chosenType = resolveTextType(text);
   const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
     ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
     : "https://beam-drop-mu.vercel.app";
 
-  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&type=${isLink ? 'link' : 'text'}&name=${encodeURIComponent(isLink ? 'Beamed Link' : 'Beamed Text')}`;
+  // Check if payload fits in instant zero-latency URL fragment (<= 2200 chars)
+  const isInstant = text.length <= 2200;
+  let targetUrl = '';
 
-  if (portalBadgeIcon) portalBadgeIcon.textContent = isLink ? '🔗' : '📝';
-  if (portalFileNameBadge) portalFileNameBadge.textContent = isLink ? (text.length > 25 ? text.slice(0, 22) + '...' : text) : 'Text Snippet';
-  if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${text.length} chars)`;
-  if (qrScanInstruction) qrScanInstruction.textContent = 'Scan to beam text/link to phone clipboard';
+  if (isInstant) {
+    // Zero-latency URL hash embedded payload (never touches server logs)
+    const b64Data = btoa(unescape(encodeURIComponent(text)));
+    targetUrl = `${safeBaseUrl}/notebook.html#data=${b64Data}&type=${chosenType}`;
+
+    if (portalBadgeIcon) portalBadgeIcon.textContent = chosenType === 'code' ? '💻' : (chosenType === 'url' ? '🔗' : '📓');
+    if (portalFileNameBadge) portalFileNameBadge.textContent = chosenType === 'code' ? 'Code Snippet' : (chosenType === 'url' ? 'Beamed Link' : 'Notebook Note');
+    if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${text.length} chars • Instant)`;
+    if (qrScanInstruction) qrScanInstruction.textContent = 'Scan with Phone Camera or open link on PC to view Notebook';
+
+    if (portalRadarPill) {
+      portalRadarPill.className = 'portal-pill instant';
+    }
+    if (portalRadarDot) {
+      portalRadarDot.style.backgroundColor = '#10b981';
+      portalRadarDot.style.boxShadow = '0 0 8px #10b981';
+    }
+    if (portalRadarText) {
+      portalRadarText.textContent = '⚡ Instant Notebook Ready (Zero Latency)';
+    }
+  } else {
+    // Large text fallback: Stream over WebRTC PeerJS
+    const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).substring(2, 10);
+    currentPeerId = 'beam-' + randomSub;
+
+    targetUrl = `${safeBaseUrl}/notebook.html?peer=${currentPeerId}&type=${chosenType}`;
+
+    if (portalBadgeIcon) portalBadgeIcon.textContent = chosenType === 'code' ? '💻' : '📓';
+    if (portalFileNameBadge) portalFileNameBadge.textContent = chosenType === 'code' ? 'Large Code File' : 'Long Note Document';
+    if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${formatBytes(text.length)} • WebRTC)`;
+    if (qrScanInstruction) qrScanInstruction.textContent = 'Scan to stream directly into Notebook';
+
+    if (portalRadarPill) {
+      portalRadarPill.className = 'portal-pill';
+    }
+    if (portalRadarDot) {
+      portalRadarDot.style.backgroundColor = '';
+      portalRadarDot.style.boxShadow = '';
+    }
+    if (portalRadarText) {
+      portalRadarText.textContent = 'Awaiting device connection to stream...';
+    }
+  }
 
   portalUrlText.textContent = targetUrl;
 
@@ -573,7 +665,17 @@ async function startTextPortalSession(text) {
   }
 
   showStage('portal');
-  initPeerJsSession('text');
+
+  if (!isInstant) {
+    initPeerJsSession('text');
+  } else {
+    // In instant mode, destroy any lingering P2P listener
+    if (peer) {
+      try { peer.destroy(); } catch (e) {}
+      peer = null;
+    }
+    activeConnection = null;
+  }
 }
 
 // Copy link handler
@@ -1002,14 +1104,15 @@ function compareSemver(v1, v2) {
 }
 
 const BUILT_IN_LATEST_REGISTRY = {
-  version: '1.4.0',
+  version: '1.5.0',
   downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
-    'Universal Ephemeral Bridge: beam text, notes, URLs, and code directly to mobile clipboard',
-    'Automatic in-RAM Multi-file ZIP Bundling with JSZip',
-    'Full TURN Relay matrix for 100% reliable transfers across 4G/5G mobile firewalls',
-    'Context menu integration: right click any text/link/image to beam instantly',
-    'Apple/Android-style in-app OTA Updates Engine with 1-click reload'
+    '📓 Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
+    '⚡ Zero-Latency Instant Beaming: Scan and view without waiting for WebRTC connection or download confirmation',
+    '💻 Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code',
+    '🔗 Smart URL Web Cards: 1-click browser launcher and native mobile share integration',
+    '✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension',
+    '🛡️ 100% Simulator-Free Engine: Clean, fast, and frozen-free OTA update system'
   ]
 };
 
