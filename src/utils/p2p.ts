@@ -37,6 +37,32 @@ export interface PeerMessage {
   device?: string;
 }
 
+export const P2P_ICE_SERVERS: RTCIceServer[] = [
+  // Primary High-Speed Google STUN servers
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  // Twilio Global STUN
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  // OpenRelay Public TURN Relay (bypasses Symmetric NAT & 4G/5G mobile firewalls)
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 const CHUNK_SIZE = 64 * 1024; // 64 KB chunks
 
 export class P2PTransferManager {
@@ -84,12 +110,7 @@ export class P2PTransferManager {
         this.peer = new Peer(peerId, {
           debug: 1,
           config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun2.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
+            iceServers: P2P_ICE_SERVERS
           }
         });
 
@@ -187,8 +208,42 @@ export class P2PTransferManager {
     });
   }
 
-  private handleIncomingData(msg: PeerMessage) {
-    if (!msg || !msg.type) return;
+  private handleIncomingData(rawMsg: any) {
+    if (!rawMsg || !rawMsg.type) return;
+
+    let msg = rawMsg;
+
+    // Normalize different sender formats (header / chunk / complete vs FILE_START / FILE_CHUNK / FILE_END)
+    if (msg.type === 'header' && msg.payload) {
+      msg = {
+        type: 'FILE_START',
+        fileId: msg.fileId || msg.payload.id || 'file-' + Date.now(),
+        fileName: msg.payload.name,
+        fileSize: msg.payload.size,
+        fileMime: msg.payload.mimeType || 'application/octet-stream',
+        totalChunks: msg.payload.totalChunks
+      };
+    } else if (msg.type === 'chunk') {
+      let fId = msg.fileId;
+      if (!fId && this.incomingFiles.size > 0) {
+        fId = Array.from(this.incomingFiles.keys())[this.incomingFiles.size - 1];
+      }
+      msg = {
+        type: 'FILE_CHUNK',
+        fileId: fId,
+        chunkIndex: msg.chunkIndex,
+        data: msg.data
+      };
+    } else if (msg.type === 'complete') {
+      let fId = msg.fileId;
+      if (!fId && this.incomingFiles.size > 0) {
+        fId = Array.from(this.incomingFiles.keys())[this.incomingFiles.size - 1];
+      }
+      msg = {
+        type: 'FILE_END',
+        fileId: fId
+      };
+    }
 
     switch (msg.type) {
       case 'TEXT_MSG':

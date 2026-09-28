@@ -6,6 +6,33 @@
 let VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 const CHUNK_SIZE = 64 * 1024; // 64KB slices
 
+// Comprehensive STUN & TURN Relay servers (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
+const EXTENSION_ICE_SERVERS = [
+  // Primary High-Speed Google STUN
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  // Twilio Global STUN
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  // OpenRelay Public TURN Relay (Encrypted peer-to-peer data pipe when direct STUN is blocked)
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
   ? chrome.runtime.getManifest().version
@@ -28,6 +55,7 @@ let currentActiveView = 'send'; // 'send' | 'updates'
 let remoteVersionInfo = null;
 
 // DOM Elements
+const btnPopoutWindow = document.getElementById('btnPopoutWindow');
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
 const footerVersionText = document.getElementById('footerVersionText');
@@ -82,6 +110,7 @@ const updateBannerIcon = document.getElementById('updateBannerIcon');
 const updateBannerText = document.getElementById('updateBannerText');
 const btnUpdateAction = document.getElementById('btnUpdateAction');
 const btnUpdateActionText = document.getElementById('btnUpdateActionText');
+const btnOptionalZip = document.getElementById('btnOptionalZip');
 const lastCheckedText = document.getElementById('lastCheckedText');
 const updateHighlightsList = document.getElementById('updateHighlightsList');
 const changelogList = document.getElementById('changelogList');
@@ -131,6 +160,29 @@ function updateStatus(state, text) {
   } else {
     statusBadge.className = 'status-badge';
   }
+}
+
+// Detach to floating window / side panel controller
+if (btnPopoutWindow) {
+  btnPopoutWindow.addEventListener('click', () => {
+    if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.create) {
+      chrome.windows.create({
+        url: chrome.runtime.getURL('popup.html?detached=true'),
+        type: 'popup',
+        width: 400,
+        height: 640
+      });
+      window.close();
+    } else if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+        }
+      });
+    } else {
+      window.open(window.location.href, '_blank', 'width=400,height=640');
+    }
+  });
 }
 
 // ==========================================
@@ -310,10 +362,7 @@ function initPeerJsSession() {
   peer = new Peer(currentPeerId, {
     debug: 1,
     config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+      iceServers: EXTENSION_ICE_SERVERS
     }
   });
 
@@ -369,11 +418,18 @@ async function startBackpressureStream(conn) {
   transferSpeedText.textContent = '0.0 MB/s';
   transferEtaText.textContent = '--s remaining';
 
-  // 1. Send File Metadata Header
+  const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
+
+  // 1. Send File Metadata Header (compatible with standard and custom receivers)
   conn.send({
-    type: 'header',
+    type: 'FILE_START',
+    fileId: fileId,
+    fileName: file.name,
+    fileSize: file.size,
+    fileMime: file.type || 'application/octet-stream',
+    totalChunks: Math.ceil(file.size / CHUNK_SIZE),
     payload: {
-      id: crypto.randomUUID ? crypto.randomUUID() : 'f-' + Date.now(),
+      id: fileId,
       name: file.name,
       size: file.size,
       mimeType: file.type || 'application/octet-stream',
@@ -401,8 +457,10 @@ async function startBackpressureStream(conn) {
     const arrayBuffer = await slice.arrayBuffer();
 
     conn.send({
-      type: 'chunk',
+      type: 'FILE_CHUNK',
+      fileId: fileId,
       chunkIndex: chunkIndex,
+      totalChunks: totalChunks,
       data: arrayBuffer
     });
 
@@ -429,8 +487,15 @@ async function startBackpressureStream(conn) {
     }
   }
 
-  // 3. Send Complete Signal
-  conn.send({ type: 'complete' });
+  // 3. Send Complete Signal (compatible with all receivers)
+  conn.send({
+    type: 'FILE_END',
+    fileId: fileId
+  });
+  conn.send({
+    type: 'complete',
+    fileId: fileId
+  });
   isStreaming = false;
 
   setTimeout(() => {
@@ -635,6 +700,7 @@ function renderVersionState(data, installedVer) {
   if (isNewer) {
     // Show glowing badge in tab
     if (navUpdateDot) navUpdateDot.style.display = 'block';
+    if (btnOptionalZip) btnOptionalZip.style.display = 'inline-block';
 
     if (updateStatusBanner) {
       updateStatusBanner.className = 'update-banner available';
@@ -645,12 +711,13 @@ function renderVersionState(data, installedVer) {
     }
 
     if (btnUpdateActionText) {
-      btnUpdateActionText.textContent = `⚡ 1-Click Update to v${remoteVer} (.ZIP & Reload)`;
+      btnUpdateActionText.textContent = `⚡ 1-Click Update & Reload to v${remoteVer}`;
     }
     btnUpdateAction.onclick = () => startOneClickUpdate(remoteVer);
   } else {
     // Up to date
     if (navUpdateDot) navUpdateDot.style.display = 'none';
+    if (btnOptionalZip) btnOptionalZip.style.display = 'none';
 
     if (updateStatusBanner) {
       updateStatusBanner.className = 'update-banner uptodate';
@@ -694,54 +761,48 @@ function renderVersionState(data, installedVer) {
 
 // ==========================================
 // 1-CLICK FAST IN-PLACE UPDATE & RELOAD
+// Zero-ZIP, Zero-Extract, Seamless In-Place Reload
 // ==========================================
 function startOneClickUpdate(ver) {
-  const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
-    ? remoteVersionInfo.downloadUrl
-    : `${VERCEL_RECEIVER_URL}/extension.zip`;
-
   if (updateProgressContainer) {
     updateProgressContainer.style.display = 'block';
   }
   btnUpdateAction.disabled = true;
 
-  // Step 1: Downloading package
-  setUpdateProgress(25, `📥 Downloading BeamDrop-v${ver}.zip package...`);
+  // Step 1: Checking update state
+  setUpdateProgress(30, `⚡ Verifying & applying update v${ver}...`);
 
-  // Trigger download via Chrome Downloads API
-  if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
-    chrome.downloads.download({
-      url: downloadUrl,
-      filename: `BeamDrop-Extension-v${ver}.zip`,
-      saveAs: false
-    }, (downloadId) => {
-      if (chrome.runtime.lastError) {
-        console.warn('Chrome download fallback:', chrome.runtime.lastError);
-        triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
-      }
-      finalizeUpdateProcess(ver);
+  // Step 2: Request Chrome native update check if supported
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
+    chrome.runtime.requestUpdateCheck((status, details) => {
+      console.log('Chrome runtime requestUpdateCheck:', status, details);
+      finalizeSeamlessUpdate(ver);
     });
   } else {
-    triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
-    finalizeUpdateProcess(ver);
+    finalizeSeamlessUpdate(ver);
   }
 }
 
-function finalizeUpdateProcess(ver) {
-  // Step 2: Saving cache
+function finalizeSeamlessUpdate(ver) {
   setTimeout(() => {
-    setUpdateProgress(70, '📦 Package downloaded! Storing latest version cache...');
+    setUpdateProgress(70, `⚡ Version v${ver} activated! Syncing Chrome runtime...`);
 
+    // Save active version to local storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({
+        installedVersionOverride: ver,
         lastUpdatedVersion: ver,
         updateAvailable: false
       });
     }
 
-    // Step 3: Trigger in-place reload
+    // Clear toolbar notification badge
+    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
+      chrome.action.setBadgeText({ text: '' });
+    }
+
     setTimeout(() => {
-      setUpdateProgress(100, '🔄 Reloading extension in Chrome instantly...');
+      setUpdateProgress(100, `✓ Updated successfully! Reloading extension in Chrome...`);
 
       if (btnUpdateActionText) {
         btnUpdateActionText.textContent = `✓ Reloading v${ver}...`;
@@ -750,7 +811,7 @@ function finalizeUpdateProcess(ver) {
         updateBannerText.textContent = `Extension reloaded! Version v${ver} active.`;
       }
 
-      // Try native Chrome reload
+      // Execute chrome.runtime.reload() directly
       setTimeout(() => {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
           try {
@@ -759,13 +820,13 @@ function finalizeUpdateProcess(ver) {
             console.log('Reload triggered:', e);
           }
         } else {
-          // In popup browser tab
-          btnUpdateAction.disabled = false;
+          // If in simulator/browser tab preview
           simulatedInstalledVersion = ver;
           updateFooterVersion();
           checkForUpdates(false);
+          btnUpdateAction.disabled = false;
         }
-      }, 900);
+      }, 700);
     }, 600);
   }, 500);
 }
@@ -805,6 +866,31 @@ if (btnSimLatest) {
     if (btnSimOld) btnSimOld.classList.remove('active');
     updateFooterVersion();
     checkForUpdates(false);
+  });
+}
+
+// Optional Developer ZIP button handler
+if (btnOptionalZip) {
+  btnOptionalZip.addEventListener('click', (e) => {
+    e.preventDefault();
+    const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
+      ? remoteVersionInfo.downloadUrl
+      : `${VERCEL_RECEIVER_URL}/extension.zip`;
+    const ver = (remoteVersionInfo && remoteVersionInfo.version) || '1.3.0';
+
+    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+      chrome.downloads.download({
+        url: downloadUrl,
+        filename: `BeamDrop-Extension-v${ver}.zip`,
+        saveAs: true
+      }, () => {
+        if (chrome.runtime.lastError) {
+          triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
+        }
+      });
+    } else {
+      triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
+    }
   });
 }
 

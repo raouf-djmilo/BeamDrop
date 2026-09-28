@@ -26,6 +26,12 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["image"]
   });
 
+  chrome.contextMenus.create({
+    id: "beamdrop_open_sidepanel",
+    title: "BeamDrop: Open in Side Panel (Persistent)",
+    contexts: ["action"]
+  });
+
   // Setup periodic background check for updates (every 30 mins)
   chrome.alarms.create(UPDATE_ALARM_NAME, {
     periodInMinutes: 30,
@@ -45,6 +51,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Context Menu actions
 chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === "beamdrop_open_sidepanel") {
+    if (chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+        }
+      });
+    }
+    return;
+  }
+
   let contentToSend = "";
   if (info.menuItemId === "beamdrop_send_selection" && info.selectionText) {
     contentToSend = info.selectionText;
@@ -66,6 +83,19 @@ chrome.contextMenus.onClicked.addListener((info) => {
   }
 });
 
+// Background update available listener (Web Store / CRX auto-update)
+chrome.runtime.onUpdateAvailable.addListener((details) => {
+  console.log('Native update downloaded and waiting to install:', details.version);
+  chrome.action.setBadgeText({ text: 'NEW' });
+  chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' });
+  if (chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({
+      nativeUpdateReady: true,
+      latestVersion: details.version
+    });
+  }
+});
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'check_updates_now') {
@@ -75,6 +105,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'clear_update_badge') {
     chrome.action.setBadgeText({ text: '' });
     sendResponse({ cleared: true });
+  }
+  if (message.action === 'trigger_runtime_reload') {
+    setTimeout(() => {
+      if (chrome.runtime.reload) {
+        chrome.runtime.reload();
+      }
+    }, 100);
+    sendResponse({ reloading: true });
+  }
+  if (message.action === 'request_store_update_check') {
+    if (chrome.runtime.requestUpdateCheck) {
+      chrome.runtime.requestUpdateCheck((status, details) => {
+        sendResponse({ status, details });
+      });
+      return true;
+    } else {
+      sendResponse({ status: 'unsupported' });
+    }
   }
 });
 

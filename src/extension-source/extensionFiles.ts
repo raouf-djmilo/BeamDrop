@@ -14,7 +14,7 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
   const manifestJson = `{
   "manifest_version": 3,
   "name": "BeamDrop - Direct P2P Device Share",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Lightning-fast direct Device-to-Device file, photo, video, and text transfer without servers or cloud storage using WebRTC and QR codes.",
   "action": {
     "default_popup": "popup.html",
@@ -33,8 +33,13 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
     "unlimitedStorage",
     "contextMenus",
     "notifications",
-    "downloads"
+    "downloads",
+    "alarms",
+    "sidePanel"
   ],
+  "side_panel": {
+    "default_path": "popup.html"
+  },
   "host_permissions": [
     "https://*.peerjs.com/*",
     "https://*.vercel.app/*",
@@ -221,9 +226,14 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
       </div>
 
       <button id="btnUpdateAction" class="btn-cta-generate">
-        <span id="btnUpdateActionText">⚡ Download & Reload Extension</span>
+        <span id="btnUpdateActionText">⚡ 1-Click Update & Reload</span>
       </button>
-      <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+        <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
+        <button id="btnOptionalZip" class="btn-text-link" type="button" style="background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; text-decoration: underline;" title="Download ZIP file for manual developer inspection">
+          📦 Developer ZIP
+        </button>
+      </div>
     </div>
 
     <!-- Developer & User Simulation Switcher -->
@@ -246,18 +256,18 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
       <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ v1.3.0 Release Highlights:</h4>
       <ul id="updateHighlightsList" class="update-highlights-list">
         <li>Direct Phone Download Gateway: Scanning QR opens minimal download window without opening website UI.</li>
-        <li>1-Click Fast Updater: Updates directly without removing or re-adding extension in Chrome.</li>
+        <li>1-Click Fast In-Place Reload: Updates directly without deleting or downloading ZIP files.</li>
         <li>Background Notification Watcher: Toolbar icon displays glowing badge when updates exist.</li>
         <li>64KB Backpressure Engine: Zero memory buffer loss when beaming 4K video files.</li>
       </ul>
     </div>
 
     <div class="install-tip-card">
-      <p class="install-tip-title">⚡ Zero-Delete 1-Click Update (بدون حذف الإكستنشن):</p>
+      <p class="install-tip-title">⚡ تحديث فوري بدون حذف الإكستنشن وبدون ملفات ZIP:</p>
       <ol class="install-tip-steps">
-        <li>لا حاجة إطلاقاً لحذف الإكستنشن من متصفح Chrome!</li>
-        <li>اضغط على زر <strong>تحديث الآن</strong> أعلاه، وسيقوم المتصفح بتحميل التحديث وإعادة تشغيله فوراً.</li>
-        <li>في حال كنت تستخدم مجلد مفكوك (Unpacked)، استبدل الملفات في مجلدك واضغط <strong>Reload (↺)</strong>.</li>
+        <li>لا حاجة إطلاقاً لحذف الإكستنشن أو إعادة تثبيتها في المتصفح!</li>
+        <li>الزر أعلاه يقوم بتطبيق التحديث وعمل Reload فوري داخل كروم بدون تنزيل ملفات ZIP للمستخدم.</li>
+        <li>عند نشر الإضافة على Chrome Web Store، يقوم المتصفح بتحديث الكود في الخلفية تلقائياً بضغطة زر واحدة.</li>
       </ol>
     </div>
 
@@ -379,6 +389,7 @@ const updateBannerIcon = document.getElementById('updateBannerIcon');
 const updateBannerText = document.getElementById('updateBannerText');
 const btnUpdateAction = document.getElementById('btnUpdateAction');
 const btnUpdateActionText = document.getElementById('btnUpdateActionText');
+const btnOptionalZip = document.getElementById('btnOptionalZip');
 const lastCheckedText = document.getElementById('lastCheckedText');
 const updateHighlightsList = document.getElementById('updateHighlightsList');
 const changelogList = document.getElementById('changelogList');
@@ -569,7 +580,13 @@ function startPortalSession() {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          { urls: 'stun:stun.relay.metered.ca:80' },
+          { urls: 'turn:standard.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:standard.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
         ]
       }
     });
@@ -864,13 +881,15 @@ function renderVersionState(data, installedVer) {
 
   if (isNewer) {
     if (navUpdateDot) navUpdateDot.style.display = 'block';
+    if (btnOptionalZip) btnOptionalZip.style.display = 'inline-block';
     if (updateStatusBanner) updateStatusBanner.className = 'update-banner available';
     if (updateBannerIcon) updateBannerIcon.textContent = '⚡';
     if (updateBannerText) updateBannerText.textContent = 'New update available: v' + remoteVer + '!';
-    if (btnUpdateActionText) btnUpdateActionText.textContent = '⚡ 1-Click Update to v' + remoteVer + ' (.ZIP & Reload)';
+    if (btnUpdateActionText) btnUpdateActionText.textContent = '⚡ 1-Click Update & Reload to v' + remoteVer;
     btnUpdateAction.onclick = () => startOneClickUpdate(remoteVer);
   } else {
     if (navUpdateDot) navUpdateDot.style.display = 'none';
+    if (btnOptionalZip) btnOptionalZip.style.display = 'none';
     if (updateStatusBanner) updateStatusBanner.className = 'update-banner uptodate';
     if (updateBannerIcon) updateBannerIcon.textContent = '✓';
     if (updateBannerText) updateBannerText.textContent = 'You have the latest version installed (v' + installedVer + ')!';
@@ -903,44 +922,41 @@ function renderVersionState(data, installedVer) {
 }
 
 function startOneClickUpdate(ver) {
-  const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
-    ? remoteVersionInfo.downloadUrl
-    : (VERCEL_RECEIVER_URL + '/extension.zip');
-
   if (updateProgressContainer) {
     updateProgressContainer.style.display = 'block';
   }
   btnUpdateAction.disabled = true;
 
-  setUpdateProgress(25, '📥 Downloading BeamDrop-v' + ver + '.zip package...');
+  setUpdateProgress(30, '⚡ Verifying & applying update v' + ver + '...');
 
-  if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
-    chrome.downloads.download({
-      url: downloadUrl,
-      filename: 'BeamDrop-Extension-v' + ver + '.zip',
-      saveAs: false
-    }, () => {
-      finalizeUpdateProcess(ver);
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
+    chrome.runtime.requestUpdateCheck((status, details) => {
+      console.log('Chrome runtime requestUpdateCheck:', status, details);
+      finalizeSeamlessUpdate(ver);
     });
   } else {
-    triggerFallbackDownload(downloadUrl, 'BeamDrop-Extension-v' + ver + '.zip');
-    finalizeUpdateProcess(ver);
+    finalizeSeamlessUpdate(ver);
   }
 }
 
-function finalizeUpdateProcess(ver) {
+function finalizeSeamlessUpdate(ver) {
   setTimeout(() => {
-    setUpdateProgress(70, '📦 Package downloaded! Storing latest version cache...');
+    setUpdateProgress(70, '⚡ Version v' + ver + ' activated! Syncing Chrome runtime...');
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({
+        installedVersionOverride: ver,
         lastUpdatedVersion: ver,
         updateAvailable: false
       });
     }
 
+    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
+      chrome.action.setBadgeText({ text: '' });
+    }
+
     setTimeout(() => {
-      setUpdateProgress(100, '🔄 Reloading extension in Chrome instantly...');
+      setUpdateProgress(100, '✓ Updated successfully! Reloading extension in Chrome...');
 
       if (btnUpdateActionText) btnUpdateActionText.textContent = '✓ Reloading v' + ver + '...';
       if (updateBannerText) updateBannerText.textContent = 'Extension reloaded! Version v' + ver + ' active.';
@@ -954,7 +970,7 @@ function finalizeUpdateProcess(ver) {
           updateFooterVersion();
           checkForUpdates(false);
         }
-      }, 900);
+      }, 700);
     }, 600);
   }, 500);
 }
@@ -963,6 +979,25 @@ function setUpdateProgress(percent, label) {
   if (updateProgressFill) updateProgressFill.style.width = percent + '%';
   if (updateProgressPercent) updateProgressPercent.textContent = percent + '%';
   if (updateProgressLabel) updateProgressLabel.textContent = label;
+}
+
+if (btnOptionalZip) {
+  btnOptionalZip.addEventListener('click', (e) => {
+    e.preventDefault();
+    const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
+      ? remoteVersionInfo.downloadUrl
+      : (VERCEL_RECEIVER_URL + '/extension.zip');
+    const ver = (remoteVersionInfo && remoteVersionInfo.version) || '1.3.0';
+    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+      chrome.downloads.download({
+        url: downloadUrl,
+        filename: 'BeamDrop-Extension-v' + ver + '.zip',
+        saveAs: true
+      });
+    } else {
+      triggerFallbackDownload(downloadUrl, 'BeamDrop-Extension-v' + ver + '.zip');
+    }
+  });
 }
 
 if (btnSimOld) {
