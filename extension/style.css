@@ -1312,3 +1312,616 @@ img, svg {
   color: #34d399;
 }
 
+/* ==========================================================================
+   STAGE 6: NEARBY RADAR & DISCOVERY ENGINE (AirDrop / QuickShare Style)
+   ========================================================================== */
+.nav-nearby-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #38bdf8;
+  color: #030712;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+  margin-left: 2px;
+}
+
+.nearby-top-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.device-self-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.device-self-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.device-self-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-self-label {
+  font-size: 9.5px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.device-name-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.device-name-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 1px 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.device-name-input:focus {
+  background: rgba(2, 6, 23, 0.8);
+  border-color: #38bdf8;
+}
+
+.device-status-badge {
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.discovery-channels-bar {
+  display: flex;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.channel-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  color: #cbd5e1;
+}
+
+.channel-chip.active {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #38bdf8;
+}
+
+.chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.btn-scan-bt {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-scan-bt:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* Radar Visualizer Screen */
+.radar-visualizer-card {
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 14px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.radar-screen {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #0b1528 0%, #030712 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.8);
+  position: relative;
+  overflow: hidden;
+}
+
+.radar-grid-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.radar-grid-ring.r1 { width: 44px; height: 44px; }
+.radar-grid-ring.r2 { width: 88px; height: 88px; }
+.radar-grid-ring.r3 { width: 132px; height: 132px; }
+
+.radar-crosshair-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(56, 189, 248, 0.1);
+  transform: translateY(-50%);
+}
+
+.radar-crosshair-v {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(56, 189, 248, 0.1);
+  transform: translateX(-50%);
+}
+
+.radar-sweep-beam {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg at 50% 50%, rgba(56, 189, 248, 0.35) 0deg, rgba(56, 189, 248, 0) 55deg, transparent 60deg);
+  animation: radarSweepAnim 2.8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes radarSweepAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.radar-center-point {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #38bdf8;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px #38bdf8;
+  z-index: 5;
+}
+
+.center-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid #38bdf8;
+  animation: centerPulse 1.8s infinite ease-out;
+}
+
+@keyframes centerPulse {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Radar Blip */
+.radar-blip {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.radar-blip:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+}
+
+.radar-status-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.pulse-radar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+/* Nearby Devices Section */
+.nearby-devices-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nearby-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nearby-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-refresh-radar {
+  background: transparent;
+  border: none;
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-refresh-radar:hover {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.nearby-devices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.nearby-device-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 8px 10px;
+  transition: all 0.2s ease;
+}
+
+.nearby-device-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.device-avatar-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.device-online-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 1.5px solid #0f172a;
+}
+
+.device-details-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.device-name-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-protocol-badge {
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.device-protocol-badge.wifi {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.device-protocol-badge.bt {
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.device-sub-info {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.btn-beam-device {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.btn-beam-device:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.nearby-empty-state {
+  text-align: center;
+  padding: 18px 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px dashed rgba(51, 65, 85, 0.6);
+  border-radius: 12px;
+}
+
+.nearby-empty-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.nearby-empty-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.nearby-empty-sub {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   INCOMING TRANSFER MODAL (AirDrop Acceptance Handshake)
+   ========================================================================== */
+.incoming-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(14px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.incoming-modal-card {
+  width: 100%;
+  max-width: 320px;
+  background: #0b1120;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 20px;
+  padding: 20px 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.15);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.incoming-pulse-glow {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(56, 189, 248, 0.1));
+  border: 1.5px solid #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+}
+
+.incoming-avatar {
+  font-size: 28px;
+}
+
+.incoming-badge-pill {
+  font-size: 9.5px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.incoming-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.incoming-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+  margin-bottom: 12px;
+}
+
+.incoming-object-card {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.incoming-obj-icon {
+  font-size: 24px;
+}
+
+.incoming-obj-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.incoming-obj-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.incoming-obj-size {
+  font-size: 10px;
+  color: #38bdf8;
+  font-family: ui-monospace, monospace;
+}
+
+.incoming-modal-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.btn-modal-decline {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #475569;
+  color: #f87171;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-modal-decline:hover {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: #f87171;
+}
+
+.btn-modal-accept {
+  flex: 1.4;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: #ffffff;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  transition: all 0.15s ease;
+}
+
+.btn-modal-accept:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.6);
+  transform: translateY(-1px);
+}
+
+

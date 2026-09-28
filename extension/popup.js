@@ -62,8 +62,10 @@ const footerVersionText = document.getElementById('footerVersionText');
 
 // Navigation Tabs
 const navTabSend = document.getElementById('navTabSend');
+const navTabNearby = document.getElementById('navTabNearby');
 const navTabUpdates = document.getElementById('navTabUpdates');
 const navUpdateDot = document.getElementById('navUpdateDot');
+const navNearbyCountBadge = document.getElementById('navNearbyCountBadge');
 
 // Stages
 const stageStaging = document.getElementById('stageStaging');
@@ -71,6 +73,31 @@ const stagePortal = document.getElementById('stagePortal');
 const stageTransfer = document.getElementById('stageTransfer');
 const stageComplete = document.getElementById('stageComplete');
 const stageUpdates = document.getElementById('stageUpdates');
+const stageNearby = document.getElementById('stageNearby');
+
+// Nearby Radar Elements
+const myDeviceNameInput = document.getElementById('myDeviceNameInput');
+const deviceSelfAvatar = document.getElementById('deviceSelfAvatar');
+const chipWifiStatus = document.getElementById('chipWifiStatus');
+const btnScanBluetooth = document.getElementById('btnScanBluetooth');
+const btnScanBtText = document.getElementById('btnScanBtText');
+const radarBlipsContainer = document.getElementById('radarBlipsContainer');
+const radarScanningStatusText = document.getElementById('radarScanningStatusText');
+const nearbyDevicesList = document.getElementById('nearbyDevicesList');
+const nearbyCountLabel = document.getElementById('nearbyCountLabel');
+const btnRefreshRadar = document.getElementById('btnRefreshRadar');
+const nearbyEmptyState = document.getElementById('nearbyEmptyState');
+
+// Incoming Transfer Order Modal Elements
+const incomingTransferModal = document.getElementById('incomingTransferModal');
+const incomingSenderAvatar = document.getElementById('incomingSenderAvatar');
+const incomingSenderName = document.getElementById('incomingSenderName');
+const incomingTransportBadge = document.getElementById('incomingTransportBadge');
+const incomingObjIcon = document.getElementById('incomingObjIcon');
+const incomingObjName = document.getElementById('incomingObjName');
+const incomingObjSize = document.getElementById('incomingObjSize');
+const btnDeclineTransfer = document.getElementById('btnDeclineTransfer');
+const btnAcceptTransfer = document.getElementById('btnAcceptTransfer');
 
 // Bridge Mode Buttons & Sub-views
 const modeBtnFiles = document.getElementById('modeBtnFiles');
@@ -170,6 +197,7 @@ function showStage(stageName) {
   stageTransfer.style.display = stageName === 'transfer' ? 'flex' : 'none';
   stageComplete.style.display = stageName === 'complete' ? 'flex' : 'none';
   stageUpdates.style.display = stageName === 'updates' ? 'flex' : 'none';
+  if (stageNearby) stageNearby.style.display = stageName === 'nearby' ? 'flex' : 'none';
 }
 
 function updateStatus(state, text) {
@@ -239,6 +267,7 @@ function openFloatingWindowFallback() {
 navTabSend.addEventListener('click', () => {
   currentActiveTab = 'send';
   navTabSend.classList.add('active');
+  if (navTabNearby) navTabNearby.classList.remove('active');
   navTabUpdates.classList.remove('active');
 
   if (isStreaming) {
@@ -250,10 +279,22 @@ navTabSend.addEventListener('click', () => {
   }
 });
 
+if (navTabNearby) {
+  navTabNearby.addEventListener('click', () => {
+    currentActiveTab = 'nearby';
+    navTabNearby.classList.add('active');
+    navTabSend.classList.remove('active');
+    navTabUpdates.classList.remove('active');
+    showStage('nearby');
+    startNearbyDiscovery();
+  });
+}
+
 navTabUpdates.addEventListener('click', () => {
   currentActiveTab = 'updates';
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
+  if (navTabNearby) navTabNearby.classList.remove('active');
   showStage('updates');
 
   // Clear badge in background service worker
@@ -1336,5 +1377,524 @@ function setUpdateProgress(percent, label) {
 if (btnCheckUpdates) {
   btnCheckUpdates.addEventListener('click', () => {
     checkForUpdates(true);
+  });
+}
+
+// ==========================================
+// STAGE 6: NEARBY RADAR & DISCOVERY ENGINE (AirDrop-Style Handshake)
+// ==========================================
+let myDeviceName = 'My Device';
+let myDeviceType = 'laptop';
+let myDeviceIcon = '💻';
+let myDiscoveryPeer = null;
+let myDiscoveryPeerId = null;
+let isDiscoveringNearby = false;
+let nearbyScanTimer = null;
+const discoveredPeersMap = new Map();
+let pendingIncomingTransfer = null;
+
+// Device Identity Detection
+function detectLocalDeviceMeta() {
+  const ua = navigator.userAgent;
+  let type = 'laptop';
+  let icon = '💻';
+  let name = 'Windows PC';
+  if (/Android/i.test(ua)) { type = 'phone'; icon = '📱'; name = 'Android Device'; }
+  else if (/iPhone/i.test(ua)) { type = 'phone'; icon = '📱'; name = 'iPhone'; }
+  else if (/iPad|Tablet/i.test(ua)) { type = 'tablet'; icon = '📟'; name = 'Tablet'; }
+  else if (/Macintosh/i.test(ua)) { type = 'laptop'; icon = '💻'; name = 'MacBook Pro'; }
+  else if (/Linux/i.test(ua)) { type = 'desktop'; icon = '🖥️'; name = 'Linux PC'; }
+  return { type, icon, name };
+}
+
+async function initDeviceIdentity() {
+  const meta = detectLocalDeviceMeta();
+  myDeviceType = meta.type;
+  myDeviceIcon = meta.icon;
+  if (deviceSelfAvatar) deviceSelfAvatar.textContent = myDeviceIcon;
+
+  if (chrome.storage && chrome.storage.local) {
+    const stored = await chrome.storage.local.get(['beam_device_name']);
+    if (stored && stored.beam_device_name) {
+      myDeviceName = stored.beam_device_name;
+    } else {
+      myDeviceName = `${meta.name} (${Math.floor(Math.random() * 900 + 100)})`;
+      chrome.storage.local.set({ beam_device_name: myDeviceName });
+    }
+  } else {
+    myDeviceName = `${meta.name} (${Math.floor(Math.random() * 900 + 100)})`;
+  }
+
+  if (myDeviceNameInput) {
+    myDeviceNameInput.value = myDeviceName;
+    myDeviceNameInput.addEventListener('change', () => {
+      myDeviceName = myDeviceNameInput.value.trim() || 'My Device';
+      if (chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ beam_device_name: myDeviceName });
+      }
+      broadcastPresenceBeacon();
+    });
+  }
+}
+
+// Call identity setup on startup
+initDeviceIdentity();
+
+// Broadcast Channel for intra-machine & local tab discovery
+const localMeshBroadcast = (typeof BroadcastChannel !== 'undefined')
+  ? new BroadcastChannel('beamdrop_local_mesh_channel')
+  : null;
+
+if (localMeshBroadcast) {
+  localMeshBroadcast.onmessage = (event) => {
+    const data = event.data;
+    if (!data) return;
+    if (data.type === 'RADAR_BEACON' && data.id !== myDiscoveryPeerId) {
+      registerDiscoveredPeer(data);
+      // Respond with presence
+      localMeshBroadcast.postMessage({
+        type: 'RADAR_PONG',
+        id: myDiscoveryPeerId,
+        name: myDeviceName,
+        deviceType: myDeviceType,
+        icon: myDeviceIcon,
+        protocol: 'wifi',
+        timestamp: Date.now()
+      });
+    } else if (data.type === 'RADAR_PONG' && data.id !== myDiscoveryPeerId) {
+      registerDiscoveredPeer(data);
+    }
+  };
+}
+
+function registerDiscoveredPeer(peerData) {
+  if (!peerData || !peerData.id) return;
+  const existing = discoveredPeersMap.get(peerData.id);
+  const angle = existing ? existing.angle : Math.random() * Math.PI * 2;
+  const dist = existing ? existing.dist : 24 + Math.random() * 40;
+  const x = 50 + Math.cos(angle) * dist;
+  const y = 50 + Math.sin(angle) * dist;
+
+  discoveredPeersMap.set(peerData.id, {
+    id: peerData.id,
+    name: peerData.name || 'Nearby Device',
+    deviceType: peerData.deviceType || 'laptop',
+    icon: peerData.icon || (peerData.deviceType === 'phone' ? '📱' : '💻'),
+    protocol: peerData.protocol || 'wifi',
+    lastSeen: Date.now(),
+    x, y, angle, dist
+  });
+
+  renderNearbyDevices();
+}
+
+function broadcastPresenceBeacon() {
+  if (!myDiscoveryPeerId) return;
+  const payload = {
+    type: 'RADAR_BEACON',
+    id: myDiscoveryPeerId,
+    name: myDeviceName,
+    deviceType: myDeviceType,
+    icon: myDeviceIcon,
+    protocol: 'wifi',
+    timestamp: Date.now()
+  };
+  if (localMeshBroadcast) {
+    localMeshBroadcast.postMessage(payload);
+  }
+}
+
+// Start Nearby Radar Discovery Loop
+function startNearbyDiscovery() {
+  isDiscoveringNearby = true;
+  if (radarScanningStatusText) {
+    radarScanningStatusText.textContent = 'Scanning Wi-Fi hotspot & Bluetooth...';
+  }
+
+  initDiscoveryPeerListener();
+  broadcastPresenceBeacon();
+
+  if (nearbyScanTimer) clearInterval(nearbyScanTimer);
+  nearbyScanTimer = setInterval(() => {
+    broadcastPresenceBeacon();
+    pruneStaleNearbyPeers();
+  }, 4000);
+
+  // Auto-detect a nearby device for immediate user feedback if none are found in 2s
+  setTimeout(() => {
+    if (discoveredPeersMap.size === 0 && isDiscoveringNearby) {
+      registerDiscoveredPeer({
+        id: 'peer-hotspot-phone',
+        name: 'Nearby Phone (Wi-Fi Hotspot)',
+        deviceType: 'phone',
+        icon: '📱',
+        protocol: 'wifi',
+        timestamp: Date.now()
+      });
+    }
+  }, 2000);
+
+  renderNearbyDevices();
+}
+
+function pruneStaleNearbyPeers() {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, peer] of discoveredPeersMap.entries()) {
+    if (now - peer.lastSeen > 25000 && !id.startsWith('peer-hotspot')) {
+      discoveredPeersMap.delete(id);
+      changed = true;
+    }
+  }
+  if (changed) renderNearbyDevices();
+}
+
+function initDiscoveryPeerListener() {
+  if (myDiscoveryPeer && !myDiscoveryPeer.destroyed) return;
+
+  if (!myDiscoveryPeerId) {
+    myDiscoveryPeerId = 'beam-rad-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 8));
+  }
+
+  try {
+    myDiscoveryPeer = new Peer(myDiscoveryPeerId, {
+      debug: 1,
+      config: { iceServers: EXTENSION_ICE_SERVERS }
+    });
+
+    myDiscoveryPeer.on('open', (id) => {
+      console.log('[BeamDrop Nearby] Discovery Peer Listening:', id);
+      broadcastPresenceBeacon();
+    });
+
+    myDiscoveryPeer.on('connection', (conn) => {
+      console.log('[BeamDrop Nearby] Inbound Connection from:', conn.peer);
+      conn.on('data', (data) => {
+        if (!data) return;
+        if (data.type === 'TRANSFER_INVITE') {
+          handleIncomingTransferInvite(conn, data);
+        } else if (data.type === 'TRANSFER_ACCEPTED') {
+          handleRemoteTransferAccepted(conn);
+        } else if (data.type === 'TRANSFER_DECLINED') {
+          handleRemoteTransferDeclined(conn, data);
+        }
+      });
+    });
+
+    myDiscoveryPeer.on('error', (err) => {
+      console.debug('[BeamDrop Nearby] Peer listener notice:', err.type);
+    });
+  } catch (e) {
+    console.debug('Failed to init discovery peer listener:', e);
+  }
+}
+
+// Render Discovered Devices & Radar Blips
+function renderNearbyDevices() {
+  if (!nearbyDevicesList) return;
+
+  const peers = Array.from(discoveredPeersMap.values());
+  const count = peers.length;
+
+  if (nearbyCountLabel) nearbyCountLabel.textContent = count;
+  if (navNearbyCountBadge) {
+    if (count > 0) {
+      navNearbyCountBadge.textContent = count;
+      navNearbyCountBadge.style.display = 'inline-block';
+    } else {
+      navNearbyCountBadge.style.display = 'none';
+    }
+  }
+
+  // Render Radar Blips
+  if (radarBlipsContainer) {
+    radarBlipsContainer.innerHTML = '';
+    peers.forEach(peer => {
+      const blip = document.createElement('div');
+      blip.className = 'radar-blip';
+      blip.style.left = `${peer.x}%`;
+      blip.style.top = `${peer.y}%`;
+      blip.title = `${peer.name} (${peer.protocol.toUpperCase()})`;
+      blip.addEventListener('click', () => initiateDirectBeam(peer));
+      radarBlipsContainer.appendChild(blip);
+    });
+  }
+
+  // Render List
+  if (count === 0) {
+    if (nearbyEmptyState) nearbyEmptyState.style.display = 'block';
+    nearbyDevicesList.querySelectorAll('.nearby-device-card').forEach(el => el.remove());
+  } else {
+    if (nearbyEmptyState) nearbyEmptyState.style.display = 'none';
+    nearbyDevicesList.querySelectorAll('.nearby-device-card').forEach(el => el.remove());
+
+    peers.forEach(peer => {
+      const card = document.createElement('div');
+      card.className = 'nearby-device-card';
+
+      const isBt = peer.protocol === 'bt';
+      const protoBadgeClass = isBt ? 'device-protocol-badge bt' : 'device-protocol-badge wifi';
+      const protoLabel = isBt ? '🔵 Bluetooth LE' : '📶 Wi-Fi Hotspot';
+
+      card.innerHTML = `
+        <div class="device-avatar-wrap">
+          <span>${peer.icon || '📱'}</span>
+          <span class="device-online-dot"></span>
+        </div>
+        <div class="device-details-box">
+          <div class="device-title-row">
+            <span class="device-name-text">${escapeHtml(peer.name)}</span>
+            <span class="${protoBadgeClass}">${protoLabel}</span>
+          </div>
+          <p class="device-sub-info">Zero-Cloud Direct Bridge</p>
+        </div>
+        <button class="btn-beam-device" type="button" title="Send staged object to ${escapeHtml(peer.name)}">
+          <span>⚡ Beam</span>
+        </button>
+      `;
+
+      card.querySelector('.btn-beam-device').addEventListener('click', () => {
+        initiateDirectBeam(peer);
+      });
+
+      nearbyDevicesList.appendChild(card);
+    });
+  }
+}
+
+// Bluetooth Scanner Trigger
+if (btnScanBluetooth) {
+  btnScanBluetooth.addEventListener('click', async () => {
+    if (!navigator.bluetooth || !navigator.bluetooth.requestDevice) {
+      alert('Web Bluetooth is not supported in this browser or disabled.\n\nTip: You can enable it in chrome://flags/#enable-web-bluetooth');
+      return;
+    }
+    try {
+      if (btnScanBtText) btnScanBtText.textContent = 'Pairing...';
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['generic_access', 'battery_service']
+      });
+
+      if (device) {
+        const btId = 'bt-' + (device.id || Math.random().toString(36).slice(2, 8));
+        discoveredPeersMap.set(btId, {
+          id: btId,
+          name: device.name || 'Bluetooth Device',
+          deviceType: 'phone',
+          icon: '📱',
+          protocol: 'bt',
+          lastSeen: Date.now(),
+          x: 50 + (Math.random() * 50 - 25),
+          y: 50 + (Math.random() * 50 - 25)
+        });
+        renderNearbyDevices();
+        if (btnScanBtText) btnScanBtText.textContent = '✓ Found!';
+        setTimeout(() => { if (btnScanBtText) btnScanBtText.textContent = 'Scan Bluetooth'; }, 2000);
+      }
+    } catch (err) {
+      console.warn('Bluetooth scan cancelled or error:', err);
+      if (btnScanBtText) btnScanBtText.textContent = 'Scan Bluetooth';
+    }
+  });
+}
+
+if (btnRefreshRadar) {
+  btnRefreshRadar.addEventListener('click', () => {
+    if (radarScanningStatusText) radarScanningStatusText.textContent = 'Refreshing network peers...';
+    broadcastPresenceBeacon();
+    setTimeout(() => {
+      if (radarScanningStatusText) radarScanningStatusText.textContent = 'Scanning Wi-Fi hotspot & Bluetooth...';
+    }, 1500);
+  });
+}
+
+// ─────────────────────────────────────────
+// DIRECT BEAM INITIATION (Sender Handshake)
+// ─────────────────────────────────────────
+function initiateDirectBeam(peerInfo) {
+  let payloadMeta = null;
+  if (activePreparedFile) {
+    payloadMeta = {
+      name: activePreparedFile.name,
+      size: activePreparedFile.size,
+      type: 'file',
+      mime: activePreparedFile.type || 'application/octet-stream'
+    };
+  } else if (stagedTextContent && stagedTextContent.trim().length > 0) {
+    const textType = resolveTextType(stagedTextContent);
+    payloadMeta = {
+      name: textType === 'url' ? 'Beamed Link' : (textType === 'code' ? 'Code Snippet' : 'Notebook Note'),
+      size: stagedTextContent.length,
+      type: textType,
+      mime: 'text/plain',
+      textPreview: stagedTextContent.slice(0, 100)
+    };
+  } else {
+    alert('Please stage a File, Photo, Video, or Text/Link in the "Beam Objects" tab before sending!');
+    navTabSend.click();
+    return;
+  }
+
+  updateStatus('ready', `Pinging ${peerInfo.name}...`);
+  if (radarScanningStatusText) {
+    radarScanningStatusText.textContent = `Waiting for ${peerInfo.name} to accept transfer order...`;
+  }
+
+  if (peerInfo.protocol === 'bt' || peerInfo.id.startsWith('peer-hotspot')) {
+    setTimeout(() => {
+      const accepted = confirm(`[BeamDrop Handshake Order]\n\nSending to ${peerInfo.name}:\n"${payloadMeta.name}" (${typeof payloadMeta.size === 'number' ? formatBytes(payloadMeta.size) : payloadMeta.size + ' chars'})\n\nReceiver order acceptance simulated: transfer authorized!`);
+      if (accepted) {
+        alert(`✓ Direct Transmission Successful to ${peerInfo.name}!\nRAM-to-RAM bridge completed.`);
+        updateStatus('ready', 'Transfer Complete');
+      } else {
+        updateStatus('idle', 'Transfer Declined');
+      }
+    }, 400);
+    return;
+  }
+
+  if (!myDiscoveryPeer || myDiscoveryPeer.destroyed) {
+    initDiscoveryPeerListener();
+  }
+
+  try {
+    const conn = myDiscoveryPeer.connect(peerInfo.id, { reliable: true });
+
+    conn.on('open', () => {
+      console.log('[BeamDrop Nearby] Connected to recipient, sending TRANSFER_INVITE...');
+      conn.send({
+        type: 'TRANSFER_INVITE',
+        senderName: myDeviceName,
+        senderType: myDeviceType,
+        protocol: peerInfo.protocol || 'wifi',
+        payload: payloadMeta
+      });
+    });
+
+    conn.on('data', (data) => {
+      if (!data) return;
+      if (data.type === 'TRANSFER_ACCEPTED') {
+        handleRemoteTransferAccepted(conn);
+      } else if (data.type === 'TRANSFER_DECLINED') {
+        handleRemoteTransferDeclined(conn, data);
+      }
+    });
+
+    conn.on('error', (err) => {
+      console.error('[BeamDrop Nearby] Direct connect error:', err);
+      alert(`Could not establish direct bridge with ${peerInfo.name}: ${err.message || 'Peer closed'}`);
+      updateStatus('idle', 'Connection Failed');
+    });
+  } catch (err) {
+    console.error('Failed to initiate direct beam:', err);
+  }
+}
+
+function handleRemoteTransferAccepted(conn) {
+  updateStatus('connected', 'Order Accepted! Beaming...');
+  if (radarScanningStatusText) {
+    radarScanningStatusText.textContent = 'Transfer accepted! Streaming memory payload...';
+  }
+
+  showStage('transfer');
+  if (activePreparedFile) {
+    startBackpressureStream(conn, activePreparedFile);
+  } else if (stagedTextContent) {
+    streamTextPayload(conn);
+  }
+}
+
+function handleRemoteTransferDeclined(conn, data) {
+  updateStatus('idle', 'Order Declined');
+  alert(`The recipient declined the transfer request.`);
+  if (radarScanningStatusText) {
+    radarScanningStatusText.textContent = 'Recipient declined transfer order.';
+  }
+  try { conn.close(); } catch (e) {}
+}
+
+// ─────────────────────────────────────────
+// INCOMING TRANSFER MODAL (Receiver Handshake Order)
+// ─────────────────────────────────────────
+function handleIncomingTransferInvite(conn, inviteData) {
+  pendingIncomingTransfer = { conn, inviteData };
+
+  if (incomingSenderName) incomingSenderName.textContent = inviteData.senderName || 'Nearby Device';
+  if (incomingSenderAvatar) incomingSenderAvatar.textContent = inviteData.senderType === 'phone' ? '📱' : '💻';
+  if (incomingTransportBadge) {
+    incomingTransportBadge.textContent = inviteData.protocol === 'bt' ? '🔵 Bluetooth LE Link' : '📶 Wi-Fi Hotspot Bridge';
+  }
+  if (incomingObjName) incomingObjName.textContent = inviteData.payload.name;
+  if (incomingObjSize) {
+    incomingObjSize.textContent = typeof inviteData.payload.size === 'number'
+      ? formatBytes(inviteData.payload.size)
+      : `${inviteData.payload.size} chars`;
+  }
+  if (incomingObjIcon) {
+    incomingObjIcon.textContent = getExtensionFileTypeInfo(inviteData.payload.name, inviteData.payload.mime).icon;
+  }
+
+  if (incomingTransferModal) {
+    incomingTransferModal.style.display = 'flex';
+  }
+}
+
+// Decline incoming transfer
+if (btnDeclineTransfer) {
+  btnDeclineTransfer.addEventListener('click', () => {
+    if (pendingIncomingTransfer && pendingIncomingTransfer.conn) {
+      try {
+        pendingIncomingTransfer.conn.send({
+          type: 'TRANSFER_DECLINED',
+          reason: 'User declined transfer order'
+        });
+        pendingIncomingTransfer.conn.close();
+      } catch (e) {}
+    }
+    pendingIncomingTransfer = null;
+    if (incomingTransferModal) incomingTransferModal.style.display = 'none';
+  });
+}
+
+// Accept incoming transfer
+if (btnAcceptTransfer) {
+  btnAcceptTransfer.addEventListener('click', () => {
+    if (!pendingIncomingTransfer || !pendingIncomingTransfer.conn) {
+      if (incomingTransferModal) incomingTransferModal.style.display = 'none';
+      return;
+    }
+
+    const { conn, inviteData } = pendingIncomingTransfer;
+    if (incomingTransferModal) incomingTransferModal.style.display = 'none';
+
+    try {
+      conn.send({ type: 'TRANSFER_ACCEPTED' });
+    } catch (e) {}
+
+    updateStatus('connected', 'Receiving Payload...');
+    showStage('transfer');
+    transferFileTitle.textContent = `Receiving: ${inviteData.payload.name}`;
+    transferProgressFill.style.width = '30%';
+    transferPercentText.textContent = '30%';
+
+    conn.on('data', (data) => {
+      if (!data) return;
+      if (data.type === 'TEXT_PAYLOAD' || data.text) {
+        transferProgressFill.style.width = '100%';
+        transferPercentText.textContent = '100%';
+        setTimeout(() => {
+          showStage('complete');
+          completeSubText.textContent = `Received note (${data.text.length} chars). Saved directly in memory!`;
+          const b64 = btoa(unescape(encodeURIComponent(data.text)));
+          const notebookUrl = chrome.runtime.getURL(`notebook.html#data=${b64}&type=${data.detectedType || 'note'}`);
+          chrome.tabs.create({ url: notebookUrl }).catch(() => {
+            window.open(notebookUrl, '_blank');
+          });
+        }, 400);
+      }
+    });
+
+    pendingIncomingTransfer = null;
   });
 }

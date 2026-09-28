@@ -47,6 +47,16 @@
       </svg>
       <span>Beam Objects</span>
     </button>
+    <button id="navTabNearby" class="nav-tab">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"></circle>
+        <circle cx="12" cy="12" r="5"></circle>
+        <circle cx="12" cy="12" r="1.5"></circle>
+        <path d="m4.93 4.93 4.24 4.24"></path>
+      </svg>
+      <span>Nearby Radar</span>
+      <span id="navNearbyCountBadge" class="nav-nearby-pill" style="display: none;">0</span>
+    </button>
     <button id="navTabUpdates" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
@@ -367,13 +377,126 @@
 
   </main>
 
+  <!-- STAGE 6: NEARBY RADAR (Wi-Fi LAN & Bluetooth Discovery) -->
+  <main id="stageNearby" class="stage-container" style="display: none;">
+    
+    <!-- Top Identity & Discovery Controls -->
+    <div class="nearby-top-card">
+      <div class="device-self-identity">
+        <div class="device-self-avatar" id="deviceSelfAvatar">💻</div>
+        <div class="device-self-meta">
+          <div class="device-self-label">My Device Name:</div>
+          <div class="device-name-input-row">
+            <input id="myDeviceNameInput" type="text" class="device-name-input" value="Chrome Windows" spellcheck="false" title="Click to rename your discoverable device">
+            <span class="device-status-badge">Visible</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discovery Transports Bar -->
+      <div class="discovery-channels-bar">
+        <div class="channel-chip active" id="chipWifiStatus" title="Local Wi-Fi Subnet &amp; Hotspot Mesh Active">
+          <span class="chip-dot"></span>
+          <span>📶 Wi-Fi Hotspot Mesh</span>
+        </div>
+        <button class="channel-chip btn-scan-bt" id="btnScanBluetooth" type="button" title="Scan for nearby Bluetooth LE devices">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline>
+          </svg>
+          <span id="btnScanBtText">Scan Bluetooth</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Interactive Radar Visualizer Screen -->
+    <div class="radar-visualizer-card">
+      <div class="radar-screen">
+        <div class="radar-grid-ring r1"></div>
+        <div class="radar-grid-ring r2"></div>
+        <div class="radar-grid-ring r3"></div>
+        <div class="radar-crosshair-h"></div>
+        <div class="radar-crosshair-v"></div>
+        <div class="radar-sweep-beam"></div>
+
+        <!-- Center User Blip -->
+        <div class="radar-center-point" title="You (This Device)">
+          <div class="center-pulse"></div>
+        </div>
+
+        <!-- Dynamic Radar Device Blips -->
+        <div id="radarBlipsContainer"></div>
+      </div>
+
+      <div class="radar-status-caption">
+        <span class="pulse-radar-dot"></span>
+        <span id="radarScanningStatusText">Scanning Wi-Fi hotspot &amp; Bluetooth...</span>
+      </div>
+    </div>
+
+    <!-- Discovered Nearby Devices Section -->
+    <div class="nearby-devices-section">
+      <div class="nearby-section-header">
+        <span class="nearby-section-title">Discovered Devices (<span id="nearbyCountLabel">0</span>)</span>
+        <button id="btnRefreshRadar" class="btn-refresh-radar" type="button" title="Rescan network">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <!-- Devices List Container -->
+      <div id="nearbyDevicesList" class="nearby-devices-list">
+        <div class="nearby-empty-state" id="nearbyEmptyState">
+          <div class="nearby-empty-icon">📡</div>
+          <p class="nearby-empty-title">Searching for Nearby Devices</p>
+          <p class="nearby-empty-sub">
+            Connect devices to the same Wi-Fi or Mobile Hotspot, or open BeamDrop on a phone or laptop nearby.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- INCOMING TRANSFER ORDER MODAL (AirDrop-Style Acceptance Modal) -->
+  <div id="incomingTransferModal" class="incoming-modal-backdrop" style="display: none;">
+    <div class="incoming-modal-card">
+      <div class="incoming-pulse-glow">
+        <div class="incoming-avatar" id="incomingSenderAvatar">📱</div>
+      </div>
+      
+      <span class="incoming-badge-pill" id="incomingTransportBadge">📶 Wi-Fi Hotspot Bridge</span>
+      <h3 class="incoming-title" id="incomingSenderName">Sender Device</h3>
+      <p class="incoming-desc">wants to beam an object directly to you:</p>
+
+      <div class="incoming-object-card">
+        <div class="incoming-obj-icon" id="incomingObjIcon">📄</div>
+        <div class="incoming-obj-info">
+          <div class="incoming-obj-name" id="incomingObjName">Filename.ext</div>
+          <div class="incoming-obj-size" id="incomingObjSize">0 KB</div>
+        </div>
+      </div>
+
+      <!-- Accept / Decline Action Buttons -->
+      <div class="incoming-modal-actions">
+        <button id="btnDeclineTransfer" class="btn-modal-decline" type="button">
+          <span>✕ Decline</span>
+        </button>
+        <button id="btnAcceptTransfer" class="btn-modal-accept" type="button">
+          <span>✓ Accept &amp; Receive</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="app-footer">
     <div class="footer-left">
       <span class="secure-dot"></span>
-      <span id="footerVersionText">v1.4.0</span>
+      <span id="footerVersionText">v1.5.0</span>
       <span>•</span>
-      <span>Direct P2P Bridge</span>
+      <span>Universal AirDrop &amp; P2P Bridge</span>
     </div>
     <span>Zero Cloud Storage</span>
   </footer>
