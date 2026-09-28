@@ -2,8 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/download", "destination": "/index.html" },
-    { "source": "/dl", "destination": "/index.html" },
+    { "source": "/download", "destination": "/download.html" },
+    { "source": "/dl", "destination": "/download.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

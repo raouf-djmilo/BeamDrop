@@ -8,7 +8,6 @@ import {
   Music,
   Image as ImageIcon,
   Radio,
-  ExternalLink,
   ShieldCheck,
   RefreshCw,
   Eye,
@@ -23,15 +22,13 @@ interface DirectDownloadPortalProps {
   expectedFileName?: string;
   expectedFileSize?: number;
   expectedFileMime?: string;
-  onSwitchToFullApp?: () => void;
 }
 
 export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   peerId,
   expectedFileName = '',
   expectedFileSize = 0,
-  expectedFileMime = '',
-  onSwitchToFullApp
+  expectedFileMime = ''
 }) => {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -43,7 +40,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const transferManager = useMemo(() => new P2PTransferManager(), []);
   const autoTriggeredRef = useRef(false);
 
-  // Fallback initial metadata from URL query
+  // Metadata from URL query or incoming stream
   const displayName = downloadedFile?.name || currentFile?.name || expectedFileName || 'Shared File';
   const displaySize = downloadedFile?.size || currentFile?.size || expectedFileSize || 0;
   const displayMime = downloadedFile?.type || currentFile?.type || expectedFileMime || 'application/octet-stream';
@@ -51,7 +48,9 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   useEffect(() => {
     let isMounted = true;
 
-    // Hook up transfer events
+    // Set page title to the file name directly
+    document.title = `Download ${displayName}`;
+
     transferManager.onConnected = () => {
       if (!isMounted) return;
       setConnectionStatus('connected');
@@ -93,7 +92,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     };
 
     // Initialize WebRTC client
-    const myReceiverId = 'receiver-' + Math.random().toString(36).substring(2, 9);
+    const myReceiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
     transferManager
       .init(myReceiverId)
       .then(() => {
@@ -115,7 +114,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       isMounted = false;
       transferManager.destroy();
     };
-  }, [peerId, transferManager]);
+  }, [peerId, transferManager, displayName]);
 
   const triggerBrowserDownload = (url: string, filename: string) => {
     const a = document.createElement('a');
@@ -137,15 +136,15 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     const cat = getFileCategory(mime, name);
     switch (cat) {
       case 'image':
-        return <ImageIcon className="w-8 h-8 text-emerald-400" />;
+        return <ImageIcon className="w-10 h-10 text-emerald-400" />;
       case 'video':
-        return <Film className="w-8 h-8 text-purple-400" />;
+        return <Film className="w-10 h-10 text-purple-400" />;
       case 'audio':
-        return <Music className="w-8 h-8 text-pink-400" />;
+        return <Music className="w-10 h-10 text-pink-400" />;
       case 'archive':
-        return <FileArchive className="w-8 h-8 text-amber-400" />;
+        return <FileArchive className="w-10 h-10 text-amber-400" />;
       default:
-        return <FileText className="w-8 h-8 text-cyan-400" />;
+        return <FileText className="w-10 h-10 text-cyan-400" />;
     }
   };
 
@@ -153,105 +152,59 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const isVideo = displayMime.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(displayName);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-6 font-sans selection:bg-cyan-500 selection:text-white">
-      {/* Minimal Top Brand Bar */}
-      <div className="max-w-md w-full mx-auto flex items-center justify-between py-2">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white">
-            <Download className="w-4 h-4" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-white flex items-center space-x-1.5">
-              <span>BeamDrop</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/40">
-                DIRECT DOWNLOAD
-              </span>
-            </h1>
-          </div>
-        </div>
-
-        {/* Connection status tag */}
-        <div
-          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-            connectionStatus === 'connected'
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-              : connectionStatus === 'error'
-              ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-              : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-          }`}
-        >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected'
-                ? 'bg-emerald-400'
-                : connectionStatus === 'error'
-                ? 'bg-rose-400'
-                : 'bg-amber-400 animate-ping'
-            }`}
-          />
-          <span className="text-[11px]">
-            {connectionStatus === 'connected'
-              ? 'Direct Link Active'
-              : connectionStatus === 'error'
-              ? 'Connection Error'
-              : 'Connecting...'}
-          </span>
-        </div>
-      </div>
-
-      {/* Main Direct Download Card */}
-      <main className="max-w-md w-full mx-auto my-auto py-6">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl relative overflow-hidden space-y-6">
-          {/* Subtle glow effect */}
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-cyan-500 selection:text-white">
+      {/* Centered Isolated Direct Download Box */}
+      <main className="max-w-md w-full mx-auto">
+        <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-2xl relative overflow-hidden space-y-6 text-center">
+          {/* Subtle Ambient Light */}
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Card Header & File Identity */}
-          <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shrink-0 shadow-inner">
-              {downloadedFile?.previewUrl && isImage ? (
-                <img
-                  src={downloadedFile.previewUrl}
-                  alt={displayName}
-                  className="w-full h-full object-cover rounded-2xl"
-                />
-              ) : (
-                getFileCategoryIcon(displayMime, displayName)
-              )}
-            </div>
+          {/* Large File Icon */}
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shadow-lg relative">
+            <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/30 animate-pulse pointer-events-none" />
+            {downloadedFile?.previewUrl && isImage ? (
+              <img
+                src={downloadedFile.previewUrl}
+                alt={displayName}
+                className="w-full h-full object-cover rounded-3xl"
+              />
+            ) : (
+              getFileCategoryIcon(displayMime, displayName)
+            )}
+          </div>
 
-            <div className="flex-1 min-w-0">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">
-                Incoming File
+          {/* File Name & Specs */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-800/40 inline-block">
+              Direct File Download
+            </span>
+            <h1 className="text-xl font-bold text-white break-words max-w-full pt-1" title={displayName}>
+              {displayName}
+            </h1>
+            <div className="flex items-center justify-center space-x-2 text-xs text-slate-400 font-mono pt-0.5">
+              {displaySize > 0 && <span className="font-semibold text-slate-200">{formatBytes(displaySize)}</span>}
+              {displaySize > 0 && <span>•</span>}
+              <span className="text-emerald-400 flex items-center space-x-1">
+                <ShieldCheck className="w-3.5 h-3.5 inline" />
+                <span>Encrypted P2P Link</span>
               </span>
-              <h2 className="text-base font-bold text-white truncate max-w-full mt-0.5" title={displayName}>
-                {displayName}
-              </h2>
-              <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono mt-1">
-                {displaySize > 0 && <span>{formatBytes(displaySize)}</span>}
-                {displaySize > 0 && <span>•</span>}
-                <span className="text-emerald-400 flex items-center space-x-1">
-                  <ShieldCheck className="w-3.5 h-3.5 inline" />
-                  <span>Direct Encrypted P2P</span>
-                </span>
-              </div>
             </div>
           </div>
 
-          {/* STATE 1: Receiving Stream in Progress */}
+          {/* Real-time Streaming Progress Bar */}
           {currentFile && (
-            <div className="bg-cyan-950/40 border border-cyan-500/40 rounded-2xl p-4 space-y-3">
+            <div className="bg-cyan-950/40 border border-cyan-500/40 rounded-2xl p-4 space-y-3 text-left">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-cyan-300 font-semibold flex items-center space-x-1.5">
                   <Radio className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
-                  <span>Streaming directly to your device...</span>
+                  <span>Streaming directly into device memory...</span>
                 </span>
                 <span className="font-mono text-cyan-400 font-bold">
                   {formatSpeed(currentFile.speed)}
                 </span>
               </div>
 
-              {/* Real-time streaming progress track */}
               <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-cyan-500/30">
                 <div
                   className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 rounded-full transition-all duration-150"
@@ -268,144 +221,117 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
             </div>
           )}
 
-          {/* STATE 2: Waiting for stream or connecting */}
+          {/* Waiting for stream connection state */}
           {!currentFile && !downloadedFile && connectionStatus !== 'error' && (
-            <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 text-center space-y-3">
-              <div className="w-12 h-12 mx-auto rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <RefreshCw className="w-5 h-5 animate-spin" />
+            <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 text-center space-y-2">
+              <div className="w-8 h-8 mx-auto rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <RefreshCw className="w-4 h-4 animate-spin" />
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white">
-                  {connectionStatus === 'connected'
-                    ? 'Connected to PC! Initiating download...'
-                    : 'Connecting directly to Desktop...'}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Keep this window open. The file will stream directly from the PC without uploading to any server.
-                </p>
-              </div>
+              <p className="text-xs text-slate-300">
+                {connectionStatus === 'connected'
+                  ? 'Connected! Starting direct file download...'
+                  : 'Establishing direct device-to-device connection...'}
+              </p>
             </div>
           )}
 
-          {/* STATE 3: Error connecting */}
+          {/* Error Message */}
           {connectionStatus === 'error' && (
-            <div className="bg-rose-950/40 border border-rose-500/40 rounded-2xl p-5 text-center space-y-3">
-              <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" />
-              <div>
-                <h3 className="text-sm font-semibold text-rose-200">Connection Failed</h3>
-                <p className="text-xs text-rose-300/80 mt-1 max-w-xs mx-auto">
-                  {errorMessage || 'Could not establish direct WebRTC session with the PC. Please verify both devices are online and rescan.'}
-                </p>
-              </div>
+            <div className="bg-rose-950/40 border border-rose-500/40 rounded-2xl p-4 text-center space-y-2">
+              <AlertCircle className="w-7 h-7 text-rose-400 mx-auto" />
+              <p className="text-xs text-rose-200">
+                {errorMessage || 'Connection failed. Please rescan the QR code.'}
+              </p>
               <button
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors"
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold"
               >
-                Retry Connection
+                Retry
               </button>
             </div>
           )}
 
-          {/* STATE 4: Transfer Complete -> Native Download Banner & Big Button */}
+          {/* Complete Success Alert */}
           {downloadedFile && (
-            <div className="space-y-4">
-              <div className="bg-emerald-950/50 border border-emerald-500/40 rounded-2xl p-4 flex items-center space-x-3 text-xs">
-                <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
-                <div className="flex-1">
-                  <p className="font-bold text-white text-sm">Download Finished!</p>
-                  <p className="text-slate-300 text-[11px] mt-0.5">
-                    File has been sent directly to your phone's downloads folder.
-                  </p>
-                </div>
+            <div className="bg-emerald-950/50 border border-emerald-500/40 rounded-2xl p-3.5 flex items-center space-x-3 text-xs text-left">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="font-bold text-white">Saved to Downloads!</p>
+                <p className="text-slate-300 text-[11px]">
+                  File has been downloaded directly to your phone.
+                </p>
               </div>
+            </div>
+          )}
 
-              {/* Big Prominent Save / Download Button (in case browser blocked auto-download) */}
+          {/* Giant Primary Download Action Button */}
+          <button
+            onClick={handleManualDownloadClick}
+            disabled={!downloadedFile}
+            className="w-full py-4 px-6 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-cyan-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Download className="w-5 h-5" />
+            <span>
+              {downloadedFile
+                ? `Save Again (${formatBytes(downloadedFile.size)})`
+                : currentFile
+                ? `Downloading (${formatBytes(displaySize)})...`
+                : `Download File (${formatBytes(displaySize)})`}
+            </span>
+          </button>
+
+          {/* Instant Media Preview if photo or video */}
+          {downloadedFile && isImage && downloadedFile.previewUrl && (
+            <div className="space-y-2 pt-1">
               <button
-                onClick={handleManualDownloadClick}
-                className="w-full py-4 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-cyan-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
+                onClick={() => setShowPreview(!showPreview)}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
               >
-                <Download className="w-5 h-5" />
-                <span>
-                  {downloadTriggered
-                    ? `Save Again (${formatBytes(downloadedFile.size)})`
-                    : `Tap to Download (${formatBytes(downloadedFile.size)})`}
-                </span>
+                <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{showPreview ? 'Hide Photo' : 'Preview Photo'}</span>
               </button>
 
-              {/* Image / Video Instant Preview Button */}
-              {isImage && downloadedFile.previewUrl && (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition-colors"
-                  >
-                    <Eye className="w-4 h-4 text-cyan-400" />
-                    <span>{showPreview ? 'Hide Photo Preview' : 'View Photo on Device'}</span>
-                  </button>
-
-                  {showPreview && (
-                    <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black/60 max-h-72 flex items-center justify-center p-2">
-                      <img
-                        src={downloadedFile.previewUrl}
-                        alt={downloadedFile.name}
-                        className="max-h-64 max-w-full rounded-xl object-contain shadow-lg"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {isVideo && downloadedFile.downloadUrl && (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition-colors"
-                  >
-                    <Film className="w-4 h-4 text-purple-400" />
-                    <span>{showPreview ? 'Hide Video Player' : 'Play Video on Phone'}</span>
-                  </button>
-
-                  {showPreview && (
-                    <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black max-h-72">
-                      <video
-                        controls
-                        playsInline
-                        src={downloadedFile.downloadUrl}
-                        className="w-full max-h-64 object-contain"
-                      />
-                    </div>
-                  )}
+              {showPreview && (
+                <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black/60 max-h-72 flex items-center justify-center p-2">
+                  <img
+                    src={downloadedFile.previewUrl}
+                    alt={downloadedFile.name}
+                    className="max-h-64 max-w-full rounded-xl object-contain shadow-lg"
+                  />
                 </div>
               )}
             </div>
           )}
 
-          {/* Privacy & Zero-Cloud Guarantee Tag */}
-          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-            <div className="flex items-center space-x-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>Zero Servers</span>
+          {downloadedFile && isVideo && downloadedFile.downloadUrl && (
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => setShowPreview(!showPreview)}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+              >
+                <Film className="w-3.5 h-3.5 text-purple-400" />
+                <span>{showPreview ? 'Hide Video' : 'Play Video'}</span>
+              </button>
+
+              {showPreview && (
+                <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black max-h-72">
+                  <video
+                    controls
+                    playsInline
+                    src={downloadedFile.downloadUrl}
+                    className="w-full max-h-64 object-contain"
+                  />
+                </div>
+              )}
             </div>
-            <span>•</span>
-            <div>Zero Cloud Storage</div>
-            <span>•</span>
-            <div>Direct RAM Stream</div>
-          </div>
+          )}
+
+          {/* Minimal Privacy Guarantee Tag */}
+          <p className="text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-800/80">
+            🔒 Direct Device-to-Device Stream • Zero Cloud Storage
+          </p>
         </div>
       </main>
-
-      {/* Subtle Link to Full App if user wants it */}
-      <footer className="max-w-md w-full mx-auto text-center py-4">
-        {onSwitchToFullApp && (
-          <button
-            onClick={onSwitchToFullApp}
-            className="text-xs text-slate-500 hover:text-cyan-400 transition-colors inline-flex items-center space-x-1 cursor-pointer"
-          >
-            <span>Need to send files back to PC? Open BeamDrop Full Web App</span>
-            <ExternalLink className="w-3 h-3 ml-0.5" />
-          </button>
-        )}
-      </footer>
     </div>
   );
 };

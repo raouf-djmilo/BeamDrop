@@ -13,64 +13,47 @@ import { SplitSimulator } from './components/SplitSimulator';
 import { DirectDownloadPortal } from './components/DirectDownloadPortal';
 
 export default function App() {
+  // Synchronously evaluate URL params BEFORE initial render
+  const urlSearchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const initialPeer = urlSearchParams ? (urlSearchParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '')) : '';
+  const initialName = urlSearchParams ? decodeURIComponent(urlSearchParams.get('name') || urlSearchParams.get('file') || '') : '';
+  const initialSize = urlSearchParams ? parseInt(urlSearchParams.get('size') || '0', 10) : 0;
+  const initialMime = urlSearchParams ? decodeURIComponent(urlSearchParams.get('mime') || '') : '';
+  const initialMode = urlSearchParams ? urlSearchParams.get('mode') : null;
+  const pathIsDownload = typeof window !== 'undefined' && (window.location.pathname.startsWith('/download') || window.location.pathname.startsWith('/dl'));
+
+  const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full');
+
   const [activeTab, setActiveTab] = useState<'sender' | 'receiver' | 'extension' | 'simulator'>('sender');
   const [peerId, setPeerId] = useState<string>('');
-  const [urlPeerId, setUrlPeerId] = useState<string>('');
-  const [urlFileName, setUrlFileName] = useState<string>('');
-  const [urlFileSize, setUrlFileSize] = useState<number>(0);
-  const [urlFileMime, setUrlFileMime] = useState<string>('');
-  const [isDirectDownloadMode, setIsDirectDownloadMode] = useState<boolean>(false);
-  const [forceFullApp, setForceFullApp] = useState<boolean>(false);
+  const [urlPeerId, setUrlPeerId] = useState<string>(initialPeer);
+  const [urlFileName, setUrlFileName] = useState<string>(initialName);
+  const [urlFileSize, setUrlFileSize] = useState<number>(initialSize);
+  const [urlFileMime, setUrlFileMime] = useState<string>(initialMime);
+  const [isDirectDownloadMode, setIsDirectDownloadMode] = useState<boolean>(isDirectDownload || pathIsDownload);
   const [statusMessage, setStatusMessage] = useState<string>('Initializing WebRTC...');
 
   // Single shared instance of P2PTransferManager for the main web app
   const transferManager = useMemo(() => new P2PTransferManager(), []);
 
   useEffect(() => {
-    // 1. Detect URL params from QR scan or direct link
-    const params = new URLSearchParams(window.location.search);
-    const peerParam = params.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
-    const nameParam = params.get('name') || params.get('file') || '';
-    const sizeParam = parseInt(params.get('size') || '0', 10);
-    const mimeParam = params.get('mime') || '';
-    const modeParam = params.get('mode');
-    const pathIsDownload = window.location.pathname.startsWith('/download') || window.location.pathname.startsWith('/dl');
+    // If not in direct download mode, initialize web app peer
+    if (!isDirectDownloadMode) {
+      transferManager.onStatusChange = (status) => {
+        setStatusMessage(status);
+      };
 
-    if (peerParam) {
-      setUrlPeerId(peerParam);
-      setUrlFileName(nameParam);
-      setUrlFileSize(sizeParam);
-      setUrlFileMime(mimeParam);
+      transferManager.init().then((id) => {
+        setPeerId(id);
+      }).catch((err) => {
+        console.error('Failed to init peer:', err);
+      });
 
-      // If user scanned a QR code to download a file, enter Direct Download mode immediately!
-      // This bypasses the full website interface completely, giving a direct download dialog.
-      if (modeParam !== 'app' && modeParam !== 'full' && (pathIsDownload || nameParam || params.has('peer'))) {
-        setIsDirectDownloadMode(true);
-        return;
-      }
-
-      if (modeParam === 'receive') {
-        setActiveTab('receiver');
-      }
-    } else if (modeParam === 'receive' || pathIsDownload) {
-      setActiveTab('receiver');
+      return () => {
+        transferManager.destroy();
+      };
     }
-
-    // 2. Initialize P2P Peer for the main website sender/receiver
-    transferManager.onStatusChange = (status) => {
-      setStatusMessage(status);
-    };
-
-    transferManager.init().then((id) => {
-      setPeerId(id);
-    }).catch((err) => {
-      console.error('Failed to init peer:', err);
-    });
-
-    return () => {
-      transferManager.destroy();
-    };
-  }, [transferManager]);
+  }, [transferManager, isDirectDownloadMode]);
 
   const receiverBaseUrl = typeof window !== 'undefined'
     ? (window.location.hostname.includes('vercel.app') || window.location.hostname === 'localhost'
@@ -79,16 +62,15 @@ export default function App() {
     : 'https://beam-drop-mu.vercel.app';
 
   // DIRECT DOWNLOAD GATEWAY:
-  // When a user scans the QR code on mobile, this screen is displayed directly.
-  // It gives an immediate direct download prompt and progress card, without loading the website UI.
-  if (isDirectDownloadMode && urlPeerId && !forceFullApp) {
+  // If user opened a QR code or /download link, show ONLY the pure direct file download card!
+  // No header, no tabs, no website navigation, no website footer.
+  if (isDirectDownloadMode && urlPeerId) {
     return (
       <DirectDownloadPortal
         peerId={urlPeerId}
         expectedFileName={urlFileName}
         expectedFileSize={urlFileSize}
         expectedFileMime={urlFileMime}
-        onSwitchToFullApp={() => setForceFullApp(true)}
       />
     );
   }
