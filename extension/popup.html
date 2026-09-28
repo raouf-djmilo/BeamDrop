@@ -28,6 +28,23 @@
     </div>
   </header>
 
+  <!-- Navigation Tabs -->
+  <nav class="app-nav">
+    <button id="navTabSend" class="nav-tab active">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <span>Beam Files</span>
+    </button>
+    <button id="navTabUpdates" class="nav-tab">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Updates</span>
+      <span id="navUpdateDot" class="nav-update-dot" style="display: none;"></span>
+    </button>
+  </nav>
+
   <!-- STAGE 1: File Staging & Upload -->
   <main id="stageStaging" class="stage-container">
     <div id="dropZone" class="drop-zone">
@@ -60,26 +77,31 @@
 
     <!-- Primary CTA Button -->
     <button id="btnGenerateQr" class="btn-cta-generate" disabled>
-      <span>⚡ Generate QR Code</span>
+      <span>⚡ Generate Direct Download QR</span>
     </button>
   </main>
 
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
+      <div class="portal-file-badge">
+        <span id="portalFileNameBadge" class="portal-filename">file.zip</span>
+        <span id="portalFileSizeBadge" class="portal-filesize">0 MB</span>
+      </div>
+
       <div class="qr-box-200">
         <canvas id="qrcodeCanvas" width="184" height="184"></canvas>
       </div>
 
       <div class="radar-row">
         <span class="radar-ping"></span>
-        <span class="radar-text">Ready for scan... Open camera on phone</span>
+        <span class="radar-text">Scan with phone camera to download directly</span>
       </div>
-      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/?peer=...</p>
+      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
 
       <div class="qr-actions-row">
         <button id="btnCopyLink" class="btn-secondary">
-          <span id="copyLinkText">Copy Link</span>
+          <span id="copyLinkText">Copy Download Link</span>
         </button>
         <button id="btnCancelPortal" class="btn-secondary" style="color: #f87171;">
           Cancel / New Upload
@@ -91,14 +113,14 @@
   <!-- STAGE 3: High-Performance Streaming & Auto-Transfer -->
   <main id="stageTransfer" class="stage-container" style="display: none;">
     <div class="transfer-live-card">
-      <p id="transferFileTitle" class="transfer-file-title">Sending file...</p>
+      <p id="transferFileTitle" class="transfer-file-title">Streaming file to phone...</p>
       <div class="progress-track">
         <div id="transferProgressFill" class="progress-fill" style="width: 0%"></div>
       </div>
       <div class="transfer-metrics-row">
         <span id="transferPercentText">0%</span>
         <span id="transferSpeedText" class="speed-tag">0 MB/s</span>
-        <span id="transferEtaText">Streaming...</span>
+        <span id="transferEtaText">Streaming directly to device...</span>
       </div>
     </div>
   </main>
@@ -107,11 +129,68 @@
   <main id="stageComplete" class="stage-container" style="display: none;">
     <div class="complete-card">
       <div class="complete-icon">✓</div>
-      <h3 class="complete-title">Transfer Complete!</h3>
-      <p class="complete-sub">File streamed directly and saved to your device.</p>
+      <h3 class="complete-title">File Streamed Successfully!</h3>
+      <p class="complete-sub">Sent directly to phone RAM and saved to Downloads.</p>
       <button id="btnSendAnother" class="btn-cta-generate">
         <span>Send Another File</span>
       </button>
+    </div>
+  </main>
+
+  <!-- STAGE 5: Updates & Version History System -->
+  <main id="stageUpdates" class="stage-container" style="display: none;">
+    <!-- Version Comparison Card -->
+    <div class="version-hero-card">
+      <div class="version-hero-header">
+        <div>
+          <span class="version-label">Current Version</span>
+          <p id="installedVerText" class="version-val">v1.2.0</p>
+        </div>
+        <div class="version-arrow">→</div>
+        <div>
+          <span class="version-label">Latest Cloud Release</span>
+          <p id="remoteVerText" class="version-val text-cyan-400">v1.2.0</p>
+        </div>
+      </div>
+
+      <div id="updateStatusBanner" class="update-banner uptodate">
+        <span id="updateBannerIcon">✓</span>
+        <span id="updateBannerText">You have the latest version installed!</span>
+      </div>
+
+      <!-- Action Button (Updates if available, or manual check) -->
+      <button id="btnUpdateAction" class="btn-cta-generate">
+        <span id="btnUpdateActionText">🔄 Check for Updates Now</span>
+      </button>
+      <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
+    </div>
+
+    <!-- What's New Highlights (shown when update available or current features) -->
+    <div id="updateHighlightsBox" class="update-highlights-box">
+      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ Release Highlights:</h4>
+      <ul id="updateHighlightsList" class="update-highlights-list">
+        <li>Direct Phone Download: Scanning QR immediately triggers native browser download.</li>
+        <li>1-Click Update System: In-extension Updates tab with OTA version checker.</li>
+        <li>Backpressure Streaming: Zero-loss RAM buffer control for large video files.</li>
+      </ul>
+    </div>
+
+    <!-- Quick Reload Guide Notice -->
+    <div class="install-tip-card">
+      <p class="install-tip-title">💡 How to apply updates in Chrome:</p>
+      <ol class="install-tip-steps">
+        <li>Click <strong>Download Update (.ZIP)</strong> above.</li>
+        <li>Extract the ZIP over your BeamDrop folder.</li>
+        <li>In <code>chrome://extensions/</code>, click <strong>Reload (↺)</strong>.</li>
+      </ol>
+    </div>
+
+    <!-- Changelog Timeline -->
+    <div class="changelog-section">
+      <h4 class="changelog-header">Release History & Changelog</h4>
+      <div id="changelogList" class="changelog-timeline">
+        <!-- Rendered dynamically by popup.js -->
+      </div>
     </div>
   </main>
 
@@ -119,7 +198,9 @@
   <footer class="app-footer">
     <div class="footer-left">
       <span class="secure-dot"></span>
-      <span>P2P Encrypted</span>
+      <span id="footerVersionText">v1.2.0</span>
+      <span>•</span>
+      <span>Direct P2P Encrypted</span>
     </div>
     <span>Zero Cloud Storage</span>
   </footer>

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BeamDrop — Direct File Download</title>
+  <script src="/libs/peerjs.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      background-color: #0b0f19;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      line-height: 1.4;
+      overflow-x: hidden;
+    }
+    .top-bar {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #06b6d4, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35);
+      color: white;
+    }
+    .brand-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    .pill-direct {
+      font-size: 9px;
+      font-family: ui-monospace, monospace;
+      color: #38bdf8;
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+    }
+    .status-badge.connected {
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+    .card-wrap {
+      width: 100%;
+      max-width: 440px;
+      margin: auto;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 20px -5px rgba(6, 182, 212, 0.15);
+      position: relative;
+    }
+    .file-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .file-icon-box {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+    .file-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-label {
+      font-size: 10px;
+      font-family: ui-monospace, monospace;
+      color: #38bdf8;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .file-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 2px 0;
+    }
+    .file-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      font-family: ui-monospace, monospace;
+    }
+    .stream-box {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .stream-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #0f172a;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #06b6d4, #3b82f6);
+      width: 0%;
+      transition: width 0.15s ease;
+      border-radius: 9999px;
+    }
+    .stream-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #94a3b8;
+      font-family: ui-monospace, monospace;
+    }
+    .btn-download {
+      width: 100%;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      border: none;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+      transition: all 0.15s ease;
+      margin-top: 10px;
+    }
+    .btn-download:active {
+      transform: scale(0.98);
+    }
+    .btn-download:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .success-alert {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .footer-guarantee {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #64748b;
+      font-family: ui-monospace, monospace;
+    }
+    .bottom-link {
+      max-width: 440px;
+      margin: 10px auto 0 auto;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .bottom-link a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="brand-row">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <div>
+        <span class="brand-name">BeamDrop</span>
+        <span class="pill-direct">DIRECT DOWNLOAD</span>
+      </div>
+    </div>
+    <div id="statusBadge" class="status-badge">
+      <span class="dot"></span>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- Main Card -->
+  <main class="card-wrap">
+    <div class="file-header">
+      <div id="fileIconBox" class="file-icon-box">📦</div>
+      <div class="file-meta">
+        <span class="file-label">Direct Download Portal</span>
+        <h2 id="fileNameText" class="file-title">Incoming File...</h2>
+        <p id="fileSizeText" class="file-sub">Connecting directly to PC RAM...</p>
+      </div>
+    </div>
+
+    <!-- Live Stream Container -->
+    <div id="streamBox" class="stream-box">
+      <div class="stream-meta">
+        <span id="streamStateText" style="color: #38bdf8;">Establishing P2P link...</span>
+        <span id="streamSpeedText" style="color: #06b6d4; font-family: ui-monospace, monospace;">0 MB/s</span>
+      </div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div class="stream-details">
+        <span id="progressPctText">0% Complete</span>
+        <span id="bytesTransferredText">0 MB / 0 MB</span>
+      </div>
+    </div>
+
+    <!-- Success Banner -->
+    <div id="successBanner" class="success-alert">
+      <span>✓</span>
+      <div>
+        <strong>Download Complete!</strong>
+        <p style="font-weight: 400; opacity: 0.9;">File has been saved directly to your device.</p>
+      </div>
+    </div>
+
+    <!-- Big Action Button -->
+    <button id="btnAction" class="btn-download" disabled>
+      <span>Waiting for direct connection...</span>
+    </button>
+
+    <div class="footer-guarantee">
+      <span>Zero Cloud Storage</span>
+      <span>•</span>
+      <span>RAM Streaming</span>
+      <span>•</span>
+      <span>End-to-End Encrypted</span>
+    </div>
+  </main>
+
+  <div class="bottom-link">
+    <p>BeamDrop P2P Engine • <a href="/">Open Full App</a></p>
+  </div>
+
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const peerId = urlParams.get('peer') || window.location.hash.replace('#', '');
+      const expectedName = urlParams.get('name') || urlParams.get('file') || 'Shared File';
+      const expectedSize = parseInt(urlParams.get('size') || '0', 10);
+      const expectedMime = urlParams.get('mime') || '';
+
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+      const fileNameText = document.getElementById('fileNameText');
+      const fileSizeText = document.getElementById('fileSizeText');
+      const fileIconBox = document.getElementById('fileIconBox');
+      const streamStateText = document.getElementById('streamStateText');
+      const streamSpeedText = document.getElementById('streamSpeedText');
+      const progressFill = document.getElementById('progressFill');
+      const progressPctText = document.getElementById('progressPctText');
+      const bytesTransferredText = document.getElementById('bytesTransferredText');
+      const successBanner = document.getElementById('successBanner');
+      const btnAction = document.getElementById('btnAction');
+
+      fileNameText.textContent = expectedName;
+      if (expectedSize > 0) {
+        fileSizeText.textContent = formatBytes(expectedSize) + ' • Direct P2P Stream';
+      }
+
+      // Set icon based on extension or mime
+      if (expectedName.match(/\.(jpg|jpeg|png|webp|gif)$/i) || expectedMime.startsWith('image/')) {
+        fileIconBox.textContent = '🖼️';
+      } else if (expectedName.match(/\.(mp4|webm|mov|mkv)$/i) || expectedMime.startsWith('video/')) {
+        fileIconBox.textContent = '🎬';
+      } else if (expectedName.match(/\.(zip|rar|7z|tar|gz)$/i)) {
+        fileIconBox.textContent = '📦';
+      } else if (expectedName.match(/\.(mp3|wav|flac|m4a)$/i) || expectedMime.startsWith('audio/')) {
+        fileIconBox.textContent = '🎵';
+      } else {
+        fileIconBox.textContent = '📄';
+      }
+
+      if (!peerId) {
+        statusText.textContent = 'No Peer ID';
+        streamStateText.textContent = 'Please scan a valid BeamDrop QR code.';
+        return;
+      }
+
+      let peer = null;
+      let connection = null;
+      let currentDownloadUrl = null;
+      let currentCompletedName = expectedName;
+      const chunksMap = new Map();
+
+      function updateConnectionStatus(isConnected, text) {
+        statusText.textContent = text;
+        if (isConnected) {
+          statusBadge.classList.add('connected');
+        } else {
+          statusBadge.classList.remove('connected');
+        }
+      }
+
+      function initP2P() {
+        const myId = 'receiver-' + Math.random().toString(36).substring(2, 9);
+        peer = new Peer(myId, {
+          debug: 1,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+          }
+        });
+
+        peer.on('open', function() {
+          updateConnectionStatus(false, 'Connecting to PC...');
+          streamStateText.textContent = 'Connecting to Desktop...';
+          connection = peer.connect(peerId, { reliable: true });
+          setupConnection(connection);
+        });
+
+        peer.on('error', function(err) {
+          console.error('Peer error:', err);
+          updateConnectionStatus(false, 'Connection error');
+          streamStateText.textContent = 'Could not connect. Please rescan.';
+        });
+      }
+
+      function setupConnection(conn) {
+        conn.on('open', function() {
+          updateConnectionStatus(true, 'Connected!');
+          streamStateText.textContent = 'Connected! Waiting for stream to start...';
+          btnAction.disabled = true;
+          btnAction.innerHTML = '<span>Streaming from PC...</span>';
+        });
+
+        conn.on('data', function(msg) {
+          handleData(msg);
+        });
+
+        conn.on('close', function() {
+          updateConnectionStatus(false, 'Disconnected');
+        });
+      }
+
+      function handleData(msg) {
+        if (!msg || !msg.type) return;
+
+        if (msg.type === 'FILE_START') {
+          fileNameText.textContent = msg.fileName;
+          fileSizeText.textContent = formatBytes(msg.fileSize) + ' • Live Direct Stream';
+          streamStateText.textContent = 'Streaming file directly into RAM...';
+          chunksMap.set(msg.fileId, {
+            name: msg.fileName,
+            size: msg.fileSize,
+            mime: msg.fileMime || 'application/octet-stream',
+            chunks: [],
+            receivedBytes: 0,
+            lastTime: Date.now(),
+            lastBytes: 0
+          });
+        } else if (msg.type === 'FILE_CHUNK') {
+          const entry = chunksMap.get(msg.fileId);
+          if (!entry) return;
+
+          entry.chunks.push(msg.data);
+          entry.receivedBytes += msg.data.byteLength;
+
+          const pct = Math.min(100, Math.round((entry.receivedBytes / entry.size) * 100));
+          progressFill.style.width = pct + '%';
+          progressPctText.textContent = pct + '% Complete';
+          bytesTransferredText.textContent = formatBytes(entry.receivedBytes) + ' / ' + formatBytes(entry.size);
+
+          const now = Date.now();
+          const elapsed = (now - entry.lastTime) / 1000;
+          if (elapsed >= 0.2) {
+            const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
+            streamSpeedText.textContent = formatBytes(speed) + '/s';
+            entry.lastTime = now;
+            entry.lastBytes = entry.receivedBytes;
+          }
+        } else if (msg.type === 'FILE_END') {
+          const entry = chunksMap.get(msg.fileId);
+          if (!entry) return;
+
+          const blob = new Blob(entry.chunks, { type: entry.mime });
+          currentDownloadUrl = URL.createObjectURL(blob);
+          currentCompletedName = entry.name;
+
+          // Trigger Instant Download
+          triggerAutoDownload(currentDownloadUrl, currentCompletedName);
+
+          // Update UI
+          progressFill.style.width = '100%';
+          progressPctText.textContent = '100% Complete';
+          streamStateText.textContent = '✓ Transfer completed successfully!';
+          successBanner.style.display = 'flex';
+
+          btnAction.disabled = false;
+          btnAction.innerHTML = '<span>📥 Save to Downloads (' + formatBytes(entry.size) + ')</span>';
+          btnAction.onclick = function() {
+            triggerAutoDownload(currentDownloadUrl, currentCompletedName);
+          };
+
+          chunksMap.delete(msg.fileId);
+        }
+      }
+
+      function triggerAutoDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      }
+
+      initP2P();
+    })();
+  </script>
+</body>
+</html>

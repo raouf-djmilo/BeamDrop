@@ -56,9 +56,58 @@ img, svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #1e293b;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+/* Navigation Tabs */
+.app-nav {
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+
+.nav-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-tab.active {
+  background: #1e293b;
+  color: #38bdf8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.nav-update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: pulseDot 1.4s infinite ease-in-out;
 }
 
 .brand-group {
@@ -320,6 +369,36 @@ img, svg {
   text-align: center;
 }
 
+.portal-file-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.portal-filename {
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.portal-filesize {
+  font-family: ui-monospace, monospace;
+  color: #38bdf8;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
 .qr-box-200 {
   width: 200px;
   height: 200px;
@@ -480,6 +559,222 @@ img, svg {
   font-size: 11px;
   color: #94a3b8;
   margin-bottom: 16px;
+}
+
+/* ==========================================================================
+   STAGE 5: Updates & Version History System
+   ========================================================================== */
+.version-hero-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 14px;
+  text-align: center;
+}
+
+.version-hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #1e293b;
+  margin-bottom: 10px;
+}
+
+.version-label {
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.version-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f1f5f9;
+  font-family: ui-monospace, monospace;
+  margin-top: 2px;
+}
+
+.version-val.text-cyan-400 {
+  color: #38bdf8;
+}
+
+.version-arrow {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.update-banner.uptodate {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.update-banner.available {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+.update-last-checked {
+  font-size: 10px;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+  margin-top: 8px;
+}
+
+.update-highlights-box {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.update-highlights-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.update-highlights-list {
+  padding-left: 16px;
+  font-size: 11px;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.install-tip-card {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px dashed #334155;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.install-tip-title {
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.install-tip-steps {
+  padding-left: 16px;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+}
+
+.install-tip-steps code {
+  color: #38bdf8;
+  background: #0f172a;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+}
+
+.changelog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changelog-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.changelog-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changelog-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.changelog-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.changelog-tag {
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.changelog-tag.major {
+  background: rgba(6, 182, 212, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+
+.changelog-tag.minor {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.changelog-tag.initial {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.changelog-date {
+  font-size: 9px;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+}
+
+.changelog-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.changelog-items {
+  padding-left: 14px;
+  font-size: 10.5px;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.3;
 }
 
 /* App Footer */

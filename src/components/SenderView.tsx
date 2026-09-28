@@ -56,7 +56,14 @@ export const SenderView: React.FC<SenderViewProps> = ({
     ? receiverBaseUrl
     : 'https://beam-drop-mu.vercel.app';
 
-  const receiverUrl = `${targetBaseUrl}/?peer=${transferManager.myPeerId}&mode=receive`;
+  const firstFile = stagedFiles[0];
+  const fileParams = firstFile
+    ? `&name=${encodeURIComponent(firstFile.name)}&size=${firstFile.size}&mime=${encodeURIComponent(firstFile.type || '')}`
+    : '';
+
+  const receiverUrl = activeTab === 'files' && firstFile
+    ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}${fileParams}`
+    : `${targetBaseUrl}/?peer=${transferManager.myPeerId}&mode=receive`;
 
   const qrValue = directQrMode && textPayload.trim() && textPayload.length < 500
     ? textPayload.trim()

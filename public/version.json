@@ -1,0 +1,50 @@
+{
+  "name": "BeamDrop",
+  "version": "1.2.0",
+  "releaseDate": "2026-09-28",
+  "minSupportedVersion": "1.0.0",
+  "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
+  "githubUrl": "https://github.com",
+  "highlights": [
+    "⚡ Direct Download QR Gateway: Phone browser directly triggers file download dialog without opening full website",
+    "🔄 Over-The-Air Update Engine: In-extension Updates tab with 1-click update check and package download",
+    "📦 Dynamic Staging & Backpressure: Prevents buffer saturation when streaming 4K video or large archives",
+    "🛡️ Manifest V3 CSP Compliant: 100% offline self-contained CSS, Canvas QR engine, and local scripts"
+  ],
+  "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2026-09-28",
+      "type": "major",
+      "title": "Direct Download Gateway & OTA Update System",
+      "changes": [
+        "Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file",
+        "Dedicated Updates Tab in extension with live GitHub/Vercel release check",
+        "Automatic version comparison & 1-click update ZIP package download",
+        "Complete release history timeline with detailed changelogs"
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-09-28",
+      "type": "minor",
+      "title": "Staging Area & Flow Control",
+      "changes": [
+        "Multi-file staging container before generating QR code",
+        "64KB chunk backpressure control to prevent buffer saturation",
+        "Fixed logo sizing and offline pure CSS rendering"
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-09-27",
+      "type": "initial",
+      "title": "Initial Manifest V3 Launch",
+      "changes": [
+        "Manifest V3 Chrome Extension release",
+        "Direct Device-to-Device WebRTC DataChannel transfer",
+        "Zero cloud storage and zero database"
+      ]
+    }
+  ]
+}

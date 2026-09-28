@@ -232,6 +232,84 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
           </div>
         </div>
       </div>
+
+      {/* Release History & OTA Update Engine */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div className="space-y-1">
+            <div className="inline-flex items-center space-x-2 text-xs font-mono text-cyan-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>OVER-THE-AIR (OTA) VERSION REGISTRY</span>
+            </div>
+            <h3 className="text-lg font-bold text-white">Release Timeline & In-Extension Update Engine</h3>
+            <p className="text-xs text-slate-400">
+              The Chrome Extension automatically pings your GitHub / Vercel cloud registry to notify users of new versions.
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3 shrink-0">
+            <div className="px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
+              Latest: <span className="text-cyan-400 font-bold">v1.2.0</span>
+            </div>
+            <a
+              href="/version.json"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-medium transition-colors flex items-center space-x-1"
+            >
+              <span>View version.json</span>
+              <ExternalLink className="w-3 h-3 ml-0.5" />
+            </a>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-950/80 border border-cyan-500/30 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/40">
+                v1.2.0 (CURRENT)
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
+            </div>
+            <h4 className="text-xs font-bold text-white">Direct Download & OTA Updates</h4>
+            <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
+              <li>Direct phone download dialog upon scanning QR.</li>
+              <li>Updates tab inside extension with live cloud check.</li>
+              <li>1-click update ZIP package download.</li>
+            </ul>
+          </div>
+
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                v1.1.0
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
+            </div>
+            <h4 className="text-xs font-bold text-slate-200">Staging Area & Flow Control</h4>
+            <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
+              <li>Multi-file staging before generating QR code.</li>
+              <li>Backpressure streaming for large files.</li>
+              <li>Offline glassmorphism UI & strict 380px sizing.</li>
+            </ul>
+          </div>
+
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/40">
+                v1.0.0
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">2026-09-27</span>
+            </div>
+            <h4 className="text-xs font-bold text-slate-200">Initial Launch</h4>
+            <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
+              <li>Manifest V3 Chrome Extension architecture.</li>
+              <li>RAM-to-RAM WebRTC DataChannel transfer.</li>
+              <li>Zero database, zero storage, high privacy.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

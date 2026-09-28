@@ -1,10 +1,15 @@
 /**
  * BeamDrop Chrome Extension - Popup Controller (Manifest V3)
- * Dynamic Staging -> Generate QR -> Backpressure Stream -> Reset
+ * Dynamic Staging -> Direct Download QR -> Backpressure Stream -> OTA Updates Engine
  */
 
 const VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 const CHUNK_SIZE = 64 * 1024; // 64KB slices
+
+// Current Installed Version from Manifest
+const INSTALLED_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+  ? chrome.runtime.getManifest().version
+  : '1.2.0';
 
 // State
 let stagedFiles = [];
@@ -12,16 +17,25 @@ let peer = null;
 let activeConnection = null;
 let currentPeerId = null;
 let isStreaming = false;
+let currentActiveView = 'send'; // 'send' | 'updates'
+let remoteVersionInfo = null;
 
 // DOM Elements
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
+const footerVersionText = document.getElementById('footerVersionText');
+
+// Navigation Elements
+const navTabSend = document.getElementById('navTabSend');
+const navTabUpdates = document.getElementById('navTabUpdates');
+const navUpdateDot = document.getElementById('navUpdateDot');
 
 // Stages
 const stageStaging = document.getElementById('stageStaging');
 const stagePortal = document.getElementById('stagePortal');
 const stageTransfer = document.getElementById('stageTransfer');
 const stageComplete = document.getElementById('stageComplete');
+const stageUpdates = document.getElementById('stageUpdates');
 
 // Stage 1 Elements
 const dropZone = document.getElementById('dropZone');
@@ -35,6 +49,8 @@ const btnRemoveFile = document.getElementById('btnRemoveFile');
 const btnGenerateQr = document.getElementById('btnGenerateQr');
 
 // Stage 2 Elements
+const portalFileNameBadge = document.getElementById('portalFileNameBadge');
+const portalFileSizeBadge = document.getElementById('portalFileSizeBadge');
 const qrcodeCanvas = document.getElementById('qrcodeCanvas');
 const portalUrlText = document.getElementById('portalUrlText');
 const btnCopyLink = document.getElementById('btnCopyLink');
@@ -51,11 +67,32 @@ const transferEtaText = document.getElementById('transferEtaText');
 // Stage 4 Elements
 const btnSendAnother = document.getElementById('btnSendAnother');
 
+// Stage 5 (Updates) Elements
+const installedVerText = document.getElementById('installedVerText');
+const remoteVerText = document.getElementById('remoteVerText');
+const updateStatusBanner = document.getElementById('updateStatusBanner');
+const updateBannerIcon = document.getElementById('updateBannerIcon');
+const updateBannerText = document.getElementById('updateBannerText');
+const btnUpdateAction = document.getElementById('btnUpdateAction');
+const btnUpdateActionText = document.getElementById('btnUpdateActionText');
+const lastCheckedText = document.getElementById('lastCheckedText');
+const updateHighlightsList = document.getElementById('updateHighlightsList');
+const changelogList = document.getElementById('changelogList');
+
+// Set footer version
+if (footerVersionText) {
+  footerVersionText.textContent = 'v' + INSTALLED_VERSION;
+}
+if (installedVerText) {
+  installedVerText.textContent = 'v' + INSTALLED_VERSION;
+}
+
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
   stagePortal.style.display = stageName === 'portal' ? 'flex' : 'none';
   stageTransfer.style.display = stageName === 'transfer' ? 'flex' : 'none';
   stageComplete.style.display = stageName === 'complete' ? 'flex' : 'none';
+  stageUpdates.style.display = stageName === 'updates' ? 'flex' : 'none';
 }
 
 function updateStatus(state, text) {
@@ -69,6 +106,34 @@ function updateStatus(state, text) {
     statusBadge.className = 'status-badge';
   }
 }
+
+// ==========================================
+// NAVIGATION CONTROLLER
+// ==========================================
+navTabSend.addEventListener('click', () => {
+  currentActiveView = 'send';
+  navTabSend.classList.add('active');
+  navTabUpdates.classList.remove('active');
+
+  // Resume staging or current transfer stage
+  if (isStreaming) {
+    showStage('transfer');
+  } else if (currentPeerId && activeConnection) {
+    showStage('portal');
+  } else if (stagedFiles.length > 0) {
+    showStage('staging');
+  } else {
+    showStage('staging');
+  }
+});
+
+navTabUpdates.addEventListener('click', () => {
+  currentActiveView = 'updates';
+  navTabUpdates.classList.add('active');
+  navTabSend.classList.remove('active');
+  showStage('updates');
+  checkForUpdates(false);
+});
 
 // ==========================================
 // STAGE 1: Staging & File Selection
@@ -141,7 +206,7 @@ function stageSelectedFiles(files) {
 }
 
 // ==========================================
-// STAGE 2: Generate QR Code Portal
+// STAGE 2: Generate Direct Download QR Code Portal
 // ==========================================
 btnGenerateQr.addEventListener('click', () => {
   if (stagedFiles.length === 0) return;
@@ -158,8 +223,22 @@ function startPortalSession() {
     : Math.random().toString(36).substring(2, 10);
   currentPeerId = 'beam-' + randomSub;
 
-  const targetUrl = `${VERCEL_RECEIVER_URL}/?peer=${currentPeerId}`;
+  const first = stagedFiles[0];
+  const fileNameEnc = encodeURIComponent(first ? first.name : 'file');
+  const fileSizeEnc = first ? first.size : 0;
+  const fileMimeEnc = encodeURIComponent(first ? (first.type || 'application/octet-stream') : '');
+
+  // DIRECT DOWNLOAD PATH:
+  const targetUrl = `${VERCEL_RECEIVER_URL}/download?peer=${currentPeerId}&name=${fileNameEnc}&size=${fileSizeEnc}&mime=${fileMimeEnc}`;
   portalUrlText.textContent = targetUrl;
+
+  if (portalFileNameBadge && first) {
+    portalFileNameBadge.textContent = stagedFiles.length > 1 ? `${first.name} (+${stagedFiles.length - 1} more)` : first.name;
+  }
+  if (portalFileSizeBadge && first) {
+    const totalSize = stagedFiles.reduce((acc, f) => acc + f.size, 0);
+    portalFileSizeBadge.textContent = formatBytes(totalSize);
+  }
 
   // Render QR Code directly to canvas
   if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
@@ -206,7 +285,6 @@ function setupConnection(conn) {
   updateStatus('connected', 'Phone Connected!');
 
   conn.on('open', () => {
-    // When phone opens DataChannel, immediately transition to Stage 3 and stream!
     startStreamingStagedFiles();
   });
 
@@ -219,10 +297,10 @@ function setupConnection(conn) {
 }
 
 btnCopyLink.addEventListener('click', () => {
-  const targetUrl = `${VERCEL_RECEIVER_URL}/?peer=${currentPeerId}`;
+  const targetUrl = portalUrlText.textContent || `${VERCEL_RECEIVER_URL}/download?peer=${currentPeerId}`;
   navigator.clipboard.writeText(targetUrl);
   copyLinkText.textContent = 'Copied!';
-  setTimeout(() => { copyLinkText.textContent = 'Copy Link'; }, 2000);
+  setTimeout(() => { copyLinkText.textContent = 'Copy Download Link'; }, 2000);
 });
 
 btnCancelPortal.addEventListener('click', () => {
@@ -237,7 +315,7 @@ async function startStreamingStagedFiles() {
   isStreaming = true;
 
   showStage('transfer');
-  updateStatus('connected', 'Streaming File...');
+  updateStatus('connected', 'Streaming File to Phone...');
 
   for (const file of stagedFiles) {
     await streamFile(file);
@@ -245,7 +323,7 @@ async function startStreamingStagedFiles() {
 
   isStreaming = false;
   showStage('complete');
-  updateStatus('connected', 'Transfer Complete');
+  updateStatus('connected', 'Download Complete');
 }
 
 async function streamFile(file) {
@@ -263,12 +341,10 @@ async function streamFile(file) {
   });
 
   let sentBytes = 0;
-  let startTime = Date.now();
   let lastTime = Date.now();
   let lastBytes = 0;
 
   for (let i = 0; i < totalChunks; i++) {
-    // Check connection liveness
     if (!activeConnection) break;
 
     const start = i * CHUNK_SIZE;
@@ -302,7 +378,7 @@ async function streamFile(file) {
       lastBytes = sentBytes;
     }
 
-    // BACKPRESSURE CONTROL: Check bufferedAmount before sending next chunk
+    // BACKPRESSURE CONTROL
     const dataChannel = activeConnection.dataChannel;
     if (dataChannel) {
       while (dataChannel.bufferedAmount > 1024 * 1024) {
@@ -310,7 +386,6 @@ async function streamFile(file) {
       }
     }
 
-    // Yield execution
     if (i % 8 === 0) {
       await new Promise(r => setTimeout(r, 4));
     }
@@ -349,6 +424,201 @@ function resetToStaging() {
   updateStatus('idle', 'Ready');
 }
 
+// ==========================================
+// STAGE 5: OVER-THE-AIR (OTA) UPDATES ENGINE
+// ==========================================
+
+function compareSemver(v1, v2) {
+  const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+async function checkForUpdates(manual = false) {
+  if (manual && btnUpdateActionText) {
+    btnUpdateActionText.textContent = 'Checking server...';
+  }
+
+  try {
+    const targetEndpoint = `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`;
+    const resp = await fetch(targetEndpoint, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const data = await resp.json();
+    remoteVersionInfo = data;
+    renderVersionState(data);
+  } catch (err) {
+    console.warn('Could not fetch remote version.json, using fallback registry:', err);
+    // Built-in fallback registry
+    const fallback = {
+      version: '1.2.0',
+      releaseDate: '2026-09-28',
+      downloadUrl: `${VERCEL_RECEIVER_URL}/extension.zip`,
+      highlights: [
+        '⚡ Direct Download QR Gateway: Phone triggers download without opening website UI',
+        '🔄 Over-The-Air Update Engine: In-extension Updates tab with 1-click update check and download',
+        '📦 Dynamic Staging & Backpressure flow control'
+      ],
+      changelog: [
+        {
+          version: '1.2.0',
+          date: '2026-09-28',
+          type: 'major',
+          title: 'Direct Download Gateway & OTA Update System',
+          changes: [
+            'Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file',
+            'Dedicated Updates Tab in extension with live GitHub/Vercel release check',
+            'Automatic version comparison & 1-click update ZIP package download'
+          ]
+        },
+        {
+          version: '1.1.0',
+          date: '2026-09-28',
+          type: 'minor',
+          title: 'Staging Area & Flow Control',
+          changes: [
+            'Multi-file staging container before generating QR code',
+            '64KB chunk backpressure control to prevent buffer saturation'
+          ]
+        }
+      ]
+    };
+    remoteVersionInfo = fallback;
+    renderVersionState(fallback);
+  } finally {
+    if (lastCheckedText) {
+      lastCheckedText.textContent = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+  }
+}
+
+function renderVersionState(data) {
+  const remoteVer = data.version || '1.2.0';
+  if (remoteVerText) remoteVerText.textContent = 'v' + remoteVer;
+  if (installedVerText) installedVerText.textContent = 'v' + INSTALLED_VERSION;
+
+  const isNewer = compareSemver(remoteVer, INSTALLED_VERSION) > 0;
+
+  if (isNewer) {
+    // Show glowing badge in tab
+    if (navUpdateDot) navUpdateDot.style.display = 'block';
+
+    if (updateStatusBanner) {
+      updateStatusBanner.className = 'update-banner available';
+    }
+    if (updateBannerIcon) updateBannerIcon.textContent = '⚡';
+    if (updateBannerText) {
+      updateBannerText.textContent = `New update available: v${remoteVer}!`;
+    }
+
+    if (btnUpdateActionText) {
+      btnUpdateActionText.textContent = `⚡ Download Update v${remoteVer} (.ZIP)`;
+    }
+    btnUpdateAction.onclick = downloadExtensionUpdate;
+  } else {
+    // Up to date
+    if (navUpdateDot) navUpdateDot.style.display = 'none';
+
+    if (updateStatusBanner) {
+      updateStatusBanner.className = 'update-banner uptodate';
+    }
+    if (updateBannerIcon) updateBannerIcon.textContent = '✓';
+    if (updateBannerText) {
+      updateBannerText.textContent = `You have the latest version installed (v${INSTALLED_VERSION})!`;
+    }
+
+    if (btnUpdateActionText) {
+      btnUpdateActionText.textContent = '🔄 Check for Updates Now';
+    }
+    btnUpdateAction.onclick = () => checkForUpdates(true);
+  }
+
+  // Render Highlights
+  if (updateHighlightsList && data.highlights) {
+    updateHighlightsList.innerHTML = data.highlights
+      .map(item => `<li>${escapeHtml(item)}</li>`)
+      .join('');
+  }
+
+  // Render Changelog
+  if (changelogList && data.changelog) {
+    changelogList.innerHTML = data.changelog
+      .map(entry => `
+        <div class="changelog-card">
+          <div class="changelog-card-header">
+            <span class="changelog-tag ${entry.type || 'minor'}">v${entry.version}</span>
+            <span class="changelog-date">${entry.date}</span>
+          </div>
+          <p class="changelog-title">${escapeHtml(entry.title)}</p>
+          <ul class="changelog-items">
+            ${(entry.changes || []).map(ch => `<li>${escapeHtml(ch)}</li>`).join('')}
+          </ul>
+        </div>
+      `)
+      .join('');
+  }
+}
+
+function downloadExtensionUpdate() {
+  const ver = remoteVersionInfo ? remoteVersionInfo.version : '1.2.0';
+  const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
+    ? remoteVersionInfo.downloadUrl
+    : `${VERCEL_RECEIVER_URL}/extension.zip`;
+
+  btnUpdateActionText.textContent = 'Preparing update package...';
+
+  // Use Chrome downloads API if available
+  if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+    chrome.downloads.download({
+      url: downloadUrl,
+      filename: `BeamDrop-Extension-v${ver}.zip`,
+      saveAs: false
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Chrome download error, using fallback:', chrome.runtime.lastError);
+        triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
+      } else {
+        notifyDownloadSuccess(ver);
+      }
+    });
+  } else {
+    triggerFallbackDownload(downloadUrl, `BeamDrop-Extension-v${ver}.zip`);
+    notifyDownloadSuccess(ver);
+  }
+}
+
+function triggerFallbackDownload(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function notifyDownloadSuccess(ver) {
+  if (btnUpdateActionText) {
+    btnUpdateActionText.textContent = `✓ v${ver} Downloaded! Click Reload in Chrome`;
+  }
+  if (updateBannerText) {
+    updateBannerText.textContent = 'ZIP saved to Downloads! Extract & reload in chrome://extensions';
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
@@ -357,6 +627,9 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// Start on Stage 1
+// Initial update check on startup (runs silently in background)
+checkForUpdates(false);
+
+// Start on Stage 1 (Staging)
 showStage('staging');
 updateStatus('idle', 'Ready');
