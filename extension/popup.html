@@ -9,17 +9,17 @@
   <script src="peerjs.min.js"></script>
 </head>
 <body>
-  <!-- Header -->
+  <!-- Header with Brand & Live Status -->
   <header class="app-header">
-    <div class="brand-group">
-      <div class="logo-box">
-        <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
       </div>
       <div>
         <h1 class="brand-title">BeamDrop</h1>
-        <p class="brand-sub">DIRECT P2P STREAM</p>
+        <p class="brand-sub">Direct Device-to-Device</p>
       </div>
     </div>
     <div id="statusBadge" class="status-badge">
@@ -28,51 +28,56 @@
     </div>
   </header>
 
-  <!-- Navigation Tabs -->
+  <!-- Sub-Navigation Bar: Send vs Updates -->
   <nav class="app-nav">
     <button id="navTabSend" class="nav-tab active">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
       </svg>
       <span>Beam Files</span>
     </button>
     <button id="navTabUpdates" class="nav-tab">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
       </svg>
       <span>Updates</span>
       <span id="navUpdateDot" class="nav-update-dot" style="display: none;"></span>
     </button>
   </nav>
 
-  <!-- STAGE 1: File Staging & Upload -->
+  <!-- STAGE 1: File Staging Area -->
   <main id="stageStaging" class="stage-container">
+    <!-- Drag & Drop Zone -->
     <div id="dropZone" class="drop-zone">
-      <input type="file" id="fileInput" class="hidden-input" accept="*/*" multiple />
-      <div class="drop-icon-circle">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      <input type="file" id="fileInput" multiple style="display: none;">
+      <div class="drop-icon-wrapper">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
       </div>
-      <p class="drop-title">Drop ANY file, video, photo, or ZIP</p>
-      <p class="drop-sub">Direct RAM stream • No size limits • Zero cloud</p>
+      <p class="drop-primary">Choose files or drop here</p>
+      <p class="drop-secondary">Photos, 4K Videos, ZIPs, Docs</p>
     </div>
 
-    <!-- Staged File Preview Card -->
+    <!-- Staged File Card -->
     <div id="stagedCard" class="staged-card" style="display: none;">
-      <div class="thumb-wrapper">
-        <img id="thumbImg" class="thumb-img" alt="preview" style="display: none;" />
-        <div id="thumbIcon" class="thumb-icon">📦</div>
+      <div class="staged-preview">
+        <img id="thumbImg" class="thumb-img" alt="Preview" style="display: none;">
+        <span id="thumbIcon" class="thumb-icon">📄</span>
       </div>
       <div class="staged-info">
-        <p id="stagedFileName" class="staged-name">archive.zip</p>
-        <div class="staged-meta">
-          <span id="stagedFileSize">0 MB</span>
-          <span>•</span>
-          <span style="color: #38bdf8;">Ready to Beam</span>
-        </div>
+        <p id="stagedFileName" class="staged-name">filename.ext</p>
+        <p id="stagedFileSize" class="staged-size">0 KB</p>
       </div>
-      <button id="btnRemoveFile" class="btn-trash" title="Remove File">✕</button>
+      <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
 
     <!-- Primary CTA Button -->
@@ -84,53 +89,62 @@
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
-      <div class="portal-file-badge">
-        <span id="portalFileNameBadge" class="portal-filename">file.zip</span>
-        <span id="portalFileSizeBadge" class="portal-filesize">0 MB</span>
+      <!-- Staged File Info Badge on top of QR -->
+      <div id="portalFileBadge" class="portal-file-badge">
+        <span class="portal-badge-icon">📦</span>
+        <span id="portalFileNameBadge" class="portal-badge-name">file.ext</span>
+        <span id="portalFileSizeBadge" class="portal-badge-size">(0 KB)</span>
       </div>
 
       <div class="qr-box-200">
-        <canvas id="qrcodeCanvas" width="184" height="184"></canvas>
+        <canvas id="qrcodeCanvas"></canvas>
       </div>
-
-      <div class="radar-row">
-        <span class="radar-ping"></span>
-        <span class="radar-text">Scan with phone camera to download directly</span>
+      <p class="qr-scan-instruction">Scan with your phone to download directly</p>
+      <div class="portal-pill">
+        <span class="radar-dot"></span>
+        <span>Awaiting phone connection...</span>
       </div>
       <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
+    </div>
 
-      <div class="qr-actions-row">
-        <button id="btnCopyLink" class="btn-secondary">
-          <span id="copyLinkText">Copy Download Link</span>
-        </button>
-        <button id="btnCancelPortal" class="btn-secondary" style="color: #f87171;">
-          Cancel / New Upload
-        </button>
-      </div>
+    <div class="action-row">
+      <button id="btnCopyLink" class="btn-action-outline">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span id="copyLinkText">Copy Link</span>
+      </button>
+      <button id="btnCancelPortal" class="btn-action-danger">Cancel</button>
     </div>
   </main>
 
-  <!-- STAGE 3: High-Performance Streaming & Auto-Transfer -->
+  <!-- STAGE 3: Live P2P Streaming Transfer -->
   <main id="stageTransfer" class="stage-container" style="display: none;">
-    <div class="transfer-live-card">
-      <p id="transferFileTitle" class="transfer-file-title">Streaming file to phone...</p>
-      <div class="progress-track">
-        <div id="transferProgressFill" class="progress-fill" style="width: 0%"></div>
+    <div class="transfer-card">
+      <div class="transfer-header-row">
+        <span class="pulsing-radar"></span>
+        <h3 id="transferFileTitle" class="transfer-title">Streaming file...</h3>
       </div>
+
+      <div class="progress-container">
+        <div id="transferProgressFill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+
       <div class="transfer-metrics-row">
         <span id="transferPercentText">0%</span>
-        <span id="transferSpeedText" class="speed-tag">0 MB/s</span>
-        <span id="transferEtaText">Streaming directly to device...</span>
+        <span id="transferSpeedText" class="speed-tag">0.0 MB/s</span>
+        <span id="transferEtaText">--s remaining</span>
       </div>
     </div>
   </main>
 
-  <!-- STAGE 4: Completion & Reset -->
+  <!-- STAGE 4: Transfer Complete -->
   <main id="stageComplete" class="stage-container" style="display: none;">
     <div class="complete-card">
       <div class="complete-icon">✓</div>
-      <h3 class="complete-title">File Streamed Successfully!</h3>
-      <p class="complete-sub">Sent directly to phone RAM and saved to Downloads.</p>
+      <h3 class="complete-title">Transfer Complete!</h3>
+      <p class="complete-sub">Direct P2P transmission finished without servers.</p>
       <button id="btnSendAnother" class="btn-cta-generate">
         <span>Send Another File</span>
       </button>
@@ -149,40 +163,87 @@
         <div class="version-arrow">→</div>
         <div>
           <span class="version-label">Latest Cloud Release</span>
-          <p id="remoteVerText" class="version-val text-cyan-400">v1.2.0</p>
+          <p id="remoteVerText" class="version-val text-cyan-400">v1.3.0</p>
         </div>
       </div>
 
-      <div id="updateStatusBanner" class="update-banner uptodate">
-        <span id="updateBannerIcon">✓</span>
-        <span id="updateBannerText">You have the latest version installed!</span>
+      <div id="updateStatusBanner" class="update-banner available">
+        <span id="updateBannerIcon">⚡</span>
+        <span id="updateBannerText">Checking latest release...</span>
+      </div>
+
+      <!-- Live Update Progress Animation (hidden until updating) -->
+      <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
+        <div class="update-progress-header">
+          <span id="updateProgressLabel">⚡ Updating & Reloading in Chrome...</span>
+          <span id="updateProgressPercent" class="font-mono">0%</span>
+        </div>
+        <div class="update-progress-bar">
+          <div id="updateProgressFill" class="update-progress-fill" style="width: 0%;"></div>
+        </div>
       </div>
 
       <!-- Action Button (Updates if available, or manual check) -->
       <button id="btnUpdateAction" class="btn-cta-generate">
-        <span id="btnUpdateActionText">🔄 Check for Updates Now</span>
+        <span id="btnUpdateActionText">⚡ Download & Reload Extension</span>
       </button>
       <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
     </div>
 
+    <!-- Developer & Testing Switcher: Toggle between old and new state -->
+    <div class="sim-switcher-box">
+      <div class="sim-switcher-header">
+        <span class="sim-tag">🧪 Test Update Simulator:</span>
+        <span class="text-xs text-slate-400">Test how users see updates</span>
+      </div>
+      <div class="sim-buttons-row">
+        <button id="btnSimOld" class="sim-btn active" title="Simulate a user having old v1.2.0 installed">
+          <span>Old User (v1.2.0)</span>
+        </button>
+        <button id="btnSimLatest" class="sim-btn" title="Simulate having latest v1.3.0 installed">
+          <span>Latest (v1.3.0)</span>
+        </button>
+      </div>
+    </div>
+
     <!-- What's New Highlights (shown when update available or current features) -->
     <div id="updateHighlightsBox" class="update-highlights-box">
-      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ Release Highlights:</h4>
+      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ v1.3.0 Release Highlights:</h4>
       <ul id="updateHighlightsList" class="update-highlights-list">
-        <li>Direct Phone Download: Scanning QR immediately triggers native browser download.</li>
-        <li>1-Click Update System: In-extension Updates tab with OTA version checker.</li>
-        <li>Backpressure Streaming: Zero-loss RAM buffer control for large video files.</li>
+        <li>Direct Phone Download Gateway: Scanning QR opens minimal download window with zero website UI.</li>
+        <li>1-Click Fast Updater: Updates directly without deleting or removing extension from Chrome.</li>
+        <li>Background Notification Watcher: Toolbar icon displays glowing badge when updates exist.</li>
+        <li>64KB Backpressure Engine: Zero memory buffer loss when beaming 4K video files.</li>
       </ul>
     </div>
 
-    <!-- Quick Reload Guide Notice -->
+    <!-- Zero-Delete Fast Update Guidance -->
     <div class="install-tip-card">
-      <p class="install-tip-title">💡 How to apply updates in Chrome:</p>
+      <p class="install-tip-title">⚡ Zero-Delete 1-Click Update (بدون حذف الإكستنشن):</p>
       <ol class="install-tip-steps">
-        <li>Click <strong>Download Update (.ZIP)</strong> above.</li>
-        <li>Extract the ZIP over your BeamDrop folder.</li>
-        <li>In <code>chrome://extensions/</code>, click <strong>Reload (↺)</strong>.</li>
+        <li>لا حاجة إطلاقاً لحذف الإكستنشن من متصفح Chrome!</li>
+        <li>اضغط على زر <strong>تحديث الآن</strong> أعلاه، وسيقوم المتصفح بتحميل التحديث وإعادة تشغيله فوراً.</li>
+        <li>في حال كنت تستخدم مجلد مفكوك (Unpacked)، استبدل الملفات في مجلدك واضغط <strong>Reload (↺)</strong>.</li>
       </ol>
+    </div>
+
+    <!-- Collapsible Update Source & GitHub Settings -->
+    <div class="source-settings-card">
+      <button id="toggleSourceSettingsBtn" class="source-toggle-btn" type="button">
+        <span>⚙️ Cloud Server & GitHub Source</span>
+        <span id="sourceToggleIcon">▼</span>
+      </button>
+      <div id="sourceSettingsBody" class="source-settings-body" style="display: none;">
+        <label class="source-label">Cloud Deployment URL:</label>
+        <input id="serverUrlInput" type="text" class="source-input" value="https://beam-drop-mu.vercel.app">
+        
+        <label class="source-label" style="margin-top: 6px;">GitHub Repository (owner/repo):</label>
+        <input id="githubRepoInput" type="text" class="source-input" placeholder="e.g. username/beam-drop">
+
+        <button id="btnSaveSourceSettings" class="btn-save-settings">
+          💾 Save & Check Now
+        </button>
+      </div>
     </div>
 
     <!-- Changelog Timeline -->

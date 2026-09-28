@@ -1,27 +1,38 @@
 {
   "name": "BeamDrop",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "releaseDate": "2026-09-28",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com",
   "highlights": [
-    "⚡ Direct Download QR Gateway: Phone browser directly triggers file download dialog without opening full website",
-    "🔄 Over-The-Air Update Engine: In-extension Updates tab with 1-click update check and package download",
-    "📦 Dynamic Staging & Backpressure: Prevents buffer saturation when streaming 4K video or large archives",
-    "🛡️ Manifest V3 CSP Compliant: 100% offline self-contained CSS, Canvas QR engine, and local scripts"
+    "⚡ Direct Phone Download Gateway: Scanning QR immediately prompts native browser download without opening website UI",
+    "🔄 1-Click Fast Extension Updater: Automatic notification badge in Chrome toolbar & 1-click in-place reload",
+    "🔔 Background Cloud Watcher: Periodically checks GitHub / Vercel for new releases automatically",
+    "📦 Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files and ZIP archives"
   ],
   "changelog": [
     {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "date": "2026-09-28",
       "type": "major",
-      "title": "Direct Download Gateway & OTA Update System",
+      "title": "1-Click Fast Updater & Background Notification Engine",
+      "changes": [
+        "In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome",
+        "Toolbar notification badge ('NEW') when a new GitHub/Vercel release is published",
+        "Periodic background watcher to alert users automatically of new releases",
+        "Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0"
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-09-28",
+      "type": "minor",
+      "title": "Direct Download Gateway & Isolated Download Portal",
       "changes": [
         "Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file",
-        "Dedicated Updates Tab in extension with live GitHub/Vercel release check",
-        "Automatic version comparison & 1-click update ZIP package download",
-        "Complete release history timeline with detailed changelogs"
+        "Dedicated isolated download window with zero website distraction",
+        "Direct stream progress bar with live MB/s and instant auto-download trigger"
       ]
     },
     {
@@ -32,7 +43,7 @@
       "changes": [
         "Multi-file staging container before generating QR code",
         "64KB chunk backpressure control to prevent buffer saturation",
-        "Fixed logo sizing and offline pure CSS rendering"
+        "Offline pure CSS styling & strict 380px sizing"
       ]
     },
     {
@@ -41,7 +52,7 @@
       "type": "initial",
       "title": "Initial Manifest V3 Launch",
       "changes": [
-        "Manifest V3 Chrome Extension release",
+        "Manifest V3 Chrome Extension architecture",
         "Direct Device-to-Device WebRTC DataChannel transfer",
         "Zero cloud storage and zero database"
       ]

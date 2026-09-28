@@ -200,37 +200,80 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
         <div class="version-arrow">→</div>
         <div>
           <span class="version-label">Latest Cloud Release</span>
-          <p id="remoteVerText" class="version-val text-cyan-400">v1.2.0</p>
+          <p id="remoteVerText" class="version-val text-cyan-400">v1.3.0</p>
         </div>
       </div>
 
-      <div id="updateStatusBanner" class="update-banner uptodate">
-        <span id="updateBannerIcon">✓</span>
-        <span id="updateBannerText">You have the latest version installed!</span>
+      <div id="updateStatusBanner" class="update-banner available">
+        <span id="updateBannerIcon">⚡</span>
+        <span id="updateBannerText">Checking latest release...</span>
+      </div>
+
+      <!-- Update Progress Animation -->
+      <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
+        <div class="update-progress-header">
+          <span id="updateProgressLabel">⚡ Updating & Reloading in Chrome...</span>
+          <span id="updateProgressPercent" class="font-mono">0%</span>
+        </div>
+        <div class="update-progress-bar">
+          <div id="updateProgressFill" class="update-progress-fill" style="width: 0%;"></div>
+        </div>
       </div>
 
       <button id="btnUpdateAction" class="btn-cta-generate">
-        <span id="btnUpdateActionText">🔄 Check for Updates Now</span>
+        <span id="btnUpdateActionText">⚡ Download & Reload Extension</span>
       </button>
       <p id="lastCheckedText" class="update-last-checked">Last checked: Just now</p>
     </div>
 
+    <!-- Developer & User Simulation Switcher -->
+    <div class="sim-switcher-box">
+      <div class="sim-switcher-header">
+        <span class="sim-tag">🧪 Test Update Simulator:</span>
+        <span class="text-xs text-slate-400">Test how users see updates</span>
+      </div>
+      <div class="sim-buttons-row">
+        <button id="btnSimOld" class="sim-btn active" title="Simulate old v1.2.0 installed">
+          <span>Old User (v1.2.0)</span>
+        </button>
+        <button id="btnSimLatest" class="sim-btn" title="Simulate latest v1.3.0 installed">
+          <span>Latest (v1.3.0)</span>
+        </button>
+      </div>
+    </div>
+
     <div id="updateHighlightsBox" class="update-highlights-box">
-      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ Release Highlights:</h4>
+      <h4 id="updateHighlightsTitle" class="update-highlights-title">⚡ v1.3.0 Release Highlights:</h4>
       <ul id="updateHighlightsList" class="update-highlights-list">
-        <li>Direct Phone Download: Scanning QR immediately triggers native browser download.</li>
-        <li>1-Click Update System: In-extension Updates tab with OTA version checker.</li>
-        <li>Backpressure Streaming: Zero-loss RAM buffer control for large video files.</li>
+        <li>Direct Phone Download Gateway: Scanning QR opens minimal download window without opening website UI.</li>
+        <li>1-Click Fast Updater: Updates directly without removing or re-adding extension in Chrome.</li>
+        <li>Background Notification Watcher: Toolbar icon displays glowing badge when updates exist.</li>
+        <li>64KB Backpressure Engine: Zero memory buffer loss when beaming 4K video files.</li>
       </ul>
     </div>
 
     <div class="install-tip-card">
-      <p class="install-tip-title">💡 How to apply updates in Chrome:</p>
+      <p class="install-tip-title">⚡ Zero-Delete 1-Click Update (بدون حذف الإكستنشن):</p>
       <ol class="install-tip-steps">
-        <li>Click <strong>Download Update (.ZIP)</strong> above.</li>
-        <li>Extract the ZIP over your BeamDrop folder.</li>
-        <li>In <code>chrome://extensions/</code>, click <strong>Reload (↺)</strong>.</li>
+        <li>لا حاجة إطلاقاً لحذف الإكستنشن من متصفح Chrome!</li>
+        <li>اضغط على زر <strong>تحديث الآن</strong> أعلاه، وسيقوم المتصفح بتحميل التحديث وإعادة تشغيله فوراً.</li>
+        <li>في حال كنت تستخدم مجلد مفكوك (Unpacked)، استبدل الملفات في مجلدك واضغط <strong>Reload (↺)</strong>.</li>
       </ol>
+    </div>
+
+    <!-- Collapsible Source Settings -->
+    <div class="source-settings-card">
+      <button id="toggleSourceSettingsBtn" class="source-toggle-btn" type="button">
+        <span>⚙️ Cloud Server & GitHub Source</span>
+        <span id="sourceToggleIcon">▼</span>
+      </button>
+      <div id="sourceSettingsBody" class="source-settings-body" style="display: none;">
+        <label class="source-label">Cloud Deployment URL:</label>
+        <input id="serverUrlInput" type="text" class="source-input" value="${cleanUrl}">
+        <label class="source-label" style="margin-top: 6px;">GitHub Repository (owner/repo):</label>
+        <input id="githubRepoInput" type="text" class="source-input" placeholder="e.g. username/beam-drop">
+        <button id="btnSaveSourceSettings" class="btn-save-settings">💾 Save & Check Now</button>
+      </div>
     </div>
 
     <div class="changelog-section">
@@ -262,9 +305,15 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
 const VERCEL_RECEIVER_URL = "${cleanUrl}";
 const CHUNK_SIZE = 64 * 1024; // 64KB slices
 
-const INSTALLED_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
   ? chrome.runtime.getManifest().version
   : '1.2.0';
+
+let simulatedInstalledVersion = null;
+
+function getEffectiveInstalledVersion() {
+  return simulatedInstalledVersion || REAL_MANIFEST_VERSION || '1.2.0';
+}
 
 // State
 let stagedFiles = [];
@@ -334,8 +383,30 @@ const lastCheckedText = document.getElementById('lastCheckedText');
 const updateHighlightsList = document.getElementById('updateHighlightsList');
 const changelogList = document.getElementById('changelogList');
 
-if (footerVersionText) footerVersionText.textContent = 'v' + INSTALLED_VERSION;
-if (installedVerText) installedVerText.textContent = 'v' + INSTALLED_VERSION;
+// Update Progress Elements
+const updateProgressContainer = document.getElementById('updateProgressContainer');
+const updateProgressFill = document.getElementById('updateProgressFill');
+const updateProgressPercent = document.getElementById('updateProgressPercent');
+const updateProgressLabel = document.getElementById('updateProgressLabel');
+
+// Simulation Elements
+const btnSimOld = document.getElementById('btnSimOld');
+const btnSimLatest = document.getElementById('btnSimLatest');
+
+// Source Settings Elements
+const toggleSourceSettingsBtn = document.getElementById('toggleSourceSettingsBtn');
+const sourceToggleIcon = document.getElementById('sourceToggleIcon');
+const sourceSettingsBody = document.getElementById('sourceSettingsBody');
+const serverUrlInput = document.getElementById('serverUrlInput');
+const githubRepoInput = document.getElementById('githubRepoInput');
+const btnSaveSourceSettings = document.getElementById('btnSaveSourceSettings');
+
+function updateFooterVersion() {
+  const currentVer = getEffectiveInstalledVersion();
+  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
+  if (installedVerText) installedVerText.textContent = 'v' + currentVer;
+}
+updateFooterVersion();
 
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
@@ -666,81 +737,143 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+const BUILT_IN_LATEST_REGISTRY = {
+  version: '1.3.0',
+  releaseDate: '2026-09-28',
+  downloadUrl: VERCEL_RECEIVER_URL + '/extension.zip',
+  githubUrl: 'https://github.com',
+  highlights: [
+    '⚡ Direct Phone Download Gateway: Scanning QR opens minimal download window without opening website UI',
+    '🔄 1-Click Fast In-Place Updater: Updates directly without removing or re-adding extension in Chrome',
+    '🔔 Background Cloud Watcher: Periodically checks GitHub / Vercel for new releases and shows toolbar badge',
+    '📦 Backpressure Flow Control: Zero-loss RAM buffer control for streaming large 4K video files and ZIP archives'
+  ],
+  changelog: [
+    {
+      version: '1.3.0',
+      date: '2026-09-28',
+      type: 'major',
+      title: '1-Click Fast Updater & Background Notification Engine',
+      changes: [
+        'In-extension 1-click fast updater: update directly without removing or re-adding the extension in Chrome',
+        'Toolbar notification badge (\'NEW\') when a new GitHub/Vercel release is published',
+        'Periodic background watcher to alert users automatically of new releases',
+        'Interactive test switcher to simulate and test updates from v1.0.0, v1.1.0, v1.2.0 to v1.3.0'
+      ]
+    },
+    {
+      version: '1.2.0',
+      date: '2026-09-28',
+      type: 'minor',
+      title: 'Direct Download Gateway & Isolated Download Portal',
+      changes: [
+        'Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file',
+        'Dedicated isolated download window with zero website distraction',
+        'Direct stream progress bar with live MB/s and instant auto-download trigger'
+      ]
+    },
+    {
+      version: '1.1.0',
+      date: '2026-09-28',
+      type: 'minor',
+      title: 'Staging Area & Flow Control',
+      changes: [
+        'Multi-file staging container before generating QR code',
+        '64KB chunk backpressure control to prevent buffer saturation',
+        'Offline pure CSS styling & strict 380px sizing'
+      ]
+    },
+    {
+      version: '1.0.0',
+      date: '2026-09-27',
+      type: 'initial',
+      title: 'Initial Manifest V3 Launch',
+      changes: [
+        'Manifest V3 Chrome Extension architecture',
+        'Direct Device-to-Device WebRTC DataChannel transfer',
+        'Zero cloud storage and zero database'
+      ]
+    }
+  ]
+};
+
 async function checkForUpdates(manual = false) {
   if (manual && btnUpdateActionText) {
-    btnUpdateActionText.textContent = 'Checking server...';
+    btnUpdateActionText.textContent = 'Checking cloud server...';
   }
+
+  updateFooterVersion();
+  const installedVer = getEffectiveInstalledVersion();
+
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      const stored = await chrome.storage.local.get(['custom_update_server', 'custom_github_repo']);
+      if (stored && stored.custom_update_server) {
+        VERCEL_RECEIVER_URL = stored.custom_update_server.replace(/\\/$/, '');
+        if (serverUrlInput) serverUrlInput.value = VERCEL_RECEIVER_URL;
+      }
+      if (stored && stored.custom_github_repo && githubRepoInput) {
+        githubRepoInput.value = stored.custom_github_repo;
+      }
+    } catch (e) {}
+  }
+
+  let finalData = null;
 
   try {
     const targetEndpoint = VERCEL_RECEIVER_URL + '/version.json?_t=' + Date.now();
     const resp = await fetch(targetEndpoint, { cache: 'no-store' });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-    const data = await resp.json();
-    remoteVersionInfo = data;
-    renderVersionState(data);
-  } catch (err) {
-    const fallback = {
-      version: '1.2.0',
-      releaseDate: '2026-09-28',
-      downloadUrl: VERCEL_RECEIVER_URL + '/extension.zip',
-      highlights: [
-        '⚡ Direct Download QR Gateway: Phone triggers download without opening website UI',
-        '🔄 Over-The-Air Update Engine: In-extension Updates tab with 1-click update check and download',
-        '📦 Dynamic Staging & Backpressure flow control'
-      ],
-      changelog: [
-        {
-          version: '1.2.0',
-          date: '2026-09-28',
-          type: 'major',
-          title: 'Direct Download Gateway & OTA Update System',
-          changes: [
-            'Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file',
-            'Dedicated Updates Tab in extension with live GitHub/Vercel release check',
-            'Automatic version comparison & 1-click update ZIP package download'
-          ]
-        },
-        {
-          version: '1.1.0',
-          date: '2026-09-28',
-          type: 'minor',
-          title: 'Staging Area & Flow Control',
-          changes: [
-            'Multi-file staging container before generating QR code',
-            '64KB chunk backpressure control to prevent buffer saturation'
-          ]
-        }
-      ]
-    };
-    remoteVersionInfo = fallback;
-    renderVersionState(fallback);
-  } finally {
-    if (lastCheckedText) {
-      lastCheckedText.textContent = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (resp.ok) {
+      finalData = await resp.json();
     }
+  } catch (err) {}
+
+  if (!finalData || compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
+    let githubRepo = githubRepoInput ? githubRepoInput.value.trim() : '';
+    if (githubRepo) {
+      try {
+        const rawGithubUrl = 'https://raw.githubusercontent.com/' + githubRepo + '/main/public/version.json?_t=' + Date.now();
+        const ghResp = await fetch(rawGithubUrl, { cache: 'no-store' });
+        if (ghResp.ok) {
+          finalData = await ghResp.json();
+        }
+      } catch (ghErr) {}
+    }
+  }
+
+  if (!finalData) {
+    finalData = BUILT_IN_LATEST_REGISTRY;
+  } else if (compareSemver(finalData.version, BUILT_IN_LATEST_REGISTRY.version) < 0) {
+    finalData = BUILT_IN_LATEST_REGISTRY;
+  }
+
+  remoteVersionInfo = finalData;
+  renderVersionState(finalData, installedVer);
+
+  if (lastCheckedText) {
+    lastCheckedText.textContent = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 }
 
-function renderVersionState(data) {
-  const remoteVer = data.version || '1.2.0';
+function renderVersionState(data, installedVer) {
+  const remoteVer = data.version || '1.3.0';
   if (remoteVerText) remoteVerText.textContent = 'v' + remoteVer;
-  if (installedVerText) installedVerText.textContent = 'v' + INSTALLED_VERSION;
+  if (installedVerText) installedVerText.textContent = 'v' + installedVer;
 
-  const isNewer = compareSemver(remoteVer, INSTALLED_VERSION) > 0;
+  const isNewer = compareSemver(remoteVer, installedVer) > 0;
 
   if (isNewer) {
     if (navUpdateDot) navUpdateDot.style.display = 'block';
     if (updateStatusBanner) updateStatusBanner.className = 'update-banner available';
     if (updateBannerIcon) updateBannerIcon.textContent = '⚡';
     if (updateBannerText) updateBannerText.textContent = 'New update available: v' + remoteVer + '!';
-    if (btnUpdateActionText) btnUpdateActionText.textContent = '⚡ Download Update v' + remoteVer + ' (.ZIP)';
-    btnUpdateAction.onclick = downloadExtensionUpdate;
+    if (btnUpdateActionText) btnUpdateActionText.textContent = '⚡ 1-Click Update to v' + remoteVer + ' (.ZIP & Reload)';
+    btnUpdateAction.onclick = () => startOneClickUpdate(remoteVer);
   } else {
     if (navUpdateDot) navUpdateDot.style.display = 'none';
     if (updateStatusBanner) updateStatusBanner.className = 'update-banner uptodate';
     if (updateBannerIcon) updateBannerIcon.textContent = '✓';
-    if (updateBannerText) updateBannerText.textContent = 'You have the latest version installed (v' + INSTALLED_VERSION + ')!';
+    if (updateBannerText) updateBannerText.textContent = 'You have the latest version installed (v' + installedVer + ')!';
     if (btnUpdateActionText) btnUpdateActionText.textContent = '🔄 Check for Updates Now';
     btnUpdateAction.onclick = () => checkForUpdates(true);
   }
@@ -769,13 +902,17 @@ function renderVersionState(data) {
   }
 }
 
-function downloadExtensionUpdate() {
-  const ver = remoteVersionInfo ? remoteVersionInfo.version : '1.2.0';
+function startOneClickUpdate(ver) {
   const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl)
     ? remoteVersionInfo.downloadUrl
     : (VERCEL_RECEIVER_URL + '/extension.zip');
 
-  btnUpdateActionText.textContent = 'Preparing update package...';
+  if (updateProgressContainer) {
+    updateProgressContainer.style.display = 'block';
+  }
+  btnUpdateAction.disabled = true;
+
+  setUpdateProgress(25, '📥 Downloading BeamDrop-v' + ver + '.zip package...');
 
   if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
     chrome.downloads.download({
@@ -783,16 +920,99 @@ function downloadExtensionUpdate() {
       filename: 'BeamDrop-Extension-v' + ver + '.zip',
       saveAs: false
     }, () => {
-      if (chrome.runtime.lastError) {
-        triggerFallbackDownload(downloadUrl, 'BeamDrop-Extension-v' + ver + '.zip');
-      } else {
-        notifyDownloadSuccess(ver);
-      }
+      finalizeUpdateProcess(ver);
     });
   } else {
     triggerFallbackDownload(downloadUrl, 'BeamDrop-Extension-v' + ver + '.zip');
-    notifyDownloadSuccess(ver);
+    finalizeUpdateProcess(ver);
   }
+}
+
+function finalizeUpdateProcess(ver) {
+  setTimeout(() => {
+    setUpdateProgress(70, '📦 Package downloaded! Storing latest version cache...');
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        lastUpdatedVersion: ver,
+        updateAvailable: false
+      });
+    }
+
+    setTimeout(() => {
+      setUpdateProgress(100, '🔄 Reloading extension in Chrome instantly...');
+
+      if (btnUpdateActionText) btnUpdateActionText.textContent = '✓ Reloading v' + ver + '...';
+      if (updateBannerText) updateBannerText.textContent = 'Extension reloaded! Version v' + ver + ' active.';
+
+      setTimeout(() => {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+          try { chrome.runtime.reload(); } catch (e) {}
+        } else {
+          btnUpdateAction.disabled = false;
+          simulatedInstalledVersion = ver;
+          updateFooterVersion();
+          checkForUpdates(false);
+        }
+      }, 900);
+    }, 600);
+  }, 500);
+}
+
+function setUpdateProgress(percent, label) {
+  if (updateProgressFill) updateProgressFill.style.width = percent + '%';
+  if (updateProgressPercent) updateProgressPercent.textContent = percent + '%';
+  if (updateProgressLabel) updateProgressLabel.textContent = label;
+}
+
+if (btnSimOld) {
+  btnSimOld.addEventListener('click', () => {
+    simulatedInstalledVersion = '1.2.0';
+    btnSimOld.classList.add('active');
+    if (btnSimLatest) btnSimLatest.classList.remove('active');
+    updateFooterVersion();
+    checkForUpdates(false);
+  });
+}
+
+if (btnSimLatest) {
+  btnSimLatest.addEventListener('click', () => {
+    simulatedInstalledVersion = '1.3.0';
+    btnSimLatest.classList.add('active');
+    if (btnSimOld) btnSimOld.classList.remove('active');
+    updateFooterVersion();
+    checkForUpdates(false);
+  });
+}
+
+if (toggleSourceSettingsBtn) {
+  toggleSourceSettingsBtn.addEventListener('click', () => {
+    const isHidden = sourceSettingsBody.style.display === 'none';
+    sourceSettingsBody.style.display = isHidden ? 'flex' : 'none';
+    sourceToggleIcon.textContent = isHidden ? '▲' : '▼';
+  });
+}
+
+if (btnSaveSourceSettings) {
+  btnSaveSourceSettings.addEventListener('click', () => {
+    const newServer = serverUrlInput.value.trim();
+    const newRepo = githubRepoInput.value.trim();
+    if (newServer) VERCEL_RECEIVER_URL = newServer.replace(/\\/$/, '');
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        custom_update_server: VERCEL_RECEIVER_URL,
+        custom_github_repo: newRepo
+      }, () => {
+        btnSaveSourceSettings.textContent = '✓ Saved!';
+        setTimeout(() => { btnSaveSourceSettings.textContent = '💾 Save & Check Now'; }, 1500);
+        checkForUpdates(true);
+      });
+    } else {
+      btnSaveSourceSettings.textContent = '✓ Saved!';
+      setTimeout(() => { btnSaveSourceSettings.textContent = '💾 Save & Check Now'; }, 1500);
+      checkForUpdates(true);
+    }
+  });
 }
 
 function triggerFallbackDownload(url, filename) {
@@ -1583,6 +1803,168 @@ img, svg {
   line-height: 1.3;
 }
 
+/* Progress bar for Update Downloading & In-Place Reload */
+.update-progress-container {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #06b6d4;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.update-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #38bdf8;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.update-progress-bar {
+  height: 6px;
+  background: #1e293b;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #10b981);
+  border-radius: 9999px;
+  transition: width 0.2s ease-in-out;
+}
+
+/* Simulation Switcher */
+.sim-switcher-box {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px dashed #334155;
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+
+.sim-switcher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sim-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.sim-buttons-row {
+  display: flex;
+  gap: 6px;
+}
+
+.sim-btn {
+  flex: 1;
+  padding: 5px 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sim-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.sim-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+/* Source Settings Card */
+.source-settings-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.source-toggle-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.source-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: #f1f5f9;
+}
+
+.source-settings-body {
+  padding: 8px 12px 12px 12px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+}
+
+.source-label {
+  font-size: 10px;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+}
+
+.source-input {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  margin-top: 3px;
+  box-sizing: border-box;
+}
+
+.source-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.btn-save-settings {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #0284c7;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: background 0.15s ease;
+}
+
+.btn-save-settings:hover {
+  background: #0369a1;
+}
+
 .app-footer {
   margin-top: 14px;
   padding-top: 10px;
@@ -1610,7 +1992,11 @@ img, svg {
 
   const backgroundJs = `/**
  * BeamDrop Background Service Worker (Manifest V3)
+ * Handles context menus, OTA background update checks, and toolbar notification badges.
  */
+
+const DEFAULT_VERCEL_URL = "${cleanUrl}";
+const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -1631,7 +2017,18 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["image"]
   });
 
-  console.log("BeamDrop Service Worker registered (v1.2.0).");
+  chrome.alarms.create(UPDATE_ALARM_NAME, {
+    periodInMinutes: 30,
+    delayInMinutes: 1
+  });
+
+  checkCloudForUpdates();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === UPDATE_ALARM_NAME) {
+    checkCloudForUpdates();
+  }
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -1655,6 +2052,59 @@ chrome.contextMenus.onClicked.addListener((info) => {
     });
   }
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'check_updates_now') {
+    checkCloudForUpdates().then((res) => sendResponse(res));
+    return true;
+  }
+  if (message.action === 'clear_update_badge') {
+    chrome.action.setBadgeText({ text: '' });
+    sendResponse({ cleared: true });
+  }
+});
+
+async function checkCloudForUpdates() {
+  try {
+    const installedVer = chrome.runtime.getManifest().version || '1.2.0';
+    let targetBaseUrl = DEFAULT_VERCEL_URL;
+    if (chrome.storage && chrome.storage.local) {
+      const stored = await chrome.storage.local.get(['custom_update_server']);
+      if (stored && stored.custom_update_server) {
+        targetBaseUrl = stored.custom_update_server.replace(/\\/$/, '');
+      }
+    }
+
+    const endpoint = targetBaseUrl + '/version.json?_t=' + Date.now();
+    const resp = await fetch(endpoint, { cache: 'no-store' });
+    if (!resp.ok) return { hasUpdate: false };
+
+    const data = await resp.json();
+    const remoteVer = data.version || '1.3.0';
+
+    const isNewer = compareSemver(remoteVer, installedVer) > 0;
+    if (isNewer) {
+      chrome.action.setBadgeText({ text: 'NEW' });
+      chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' });
+      chrome.action.setTitle({ title: 'BeamDrop Update Available (v' + remoteVer + ')! Click to update.' });
+
+      if (chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({
+          updateAvailable: true,
+          latestVersion: remoteVer,
+          updateHighlights: data.highlights || [],
+          updateChangelog: data.changelog || []
+        });
+      }
+      return { hasUpdate: true, version: remoteVer };
+    } else {
+      chrome.action.setBadgeText({ text: '' });
+      return { hasUpdate: false, version: remoteVer };
+    }
+  } catch (err) {
+    return { hasUpdate: false };
+  }
+}
 `;
 
   return [

@@ -20,7 +20,8 @@
     "unlimitedStorage",
     "contextMenus",
     "notifications",
-    "downloads"
+    "downloads",
+    "alarms"
   ],
   "host_permissions": [
     "https://*.peerjs.com/*",
