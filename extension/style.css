@@ -1402,6 +1402,38 @@ img, svg {
   font-family: ui-monospace, monospace;
 }
 
+.telemetry-pin-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.telemetry-pin-wrap:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3);
+}
+
+.telemetry-pin-input {
+  width: 32px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  color: #38bdf8;
+  text-align: center;
+  padding: 0;
+}
+
+.telemetry-pin-input::placeholder {
+  color: #64748b;
+}
+
 .nearby-top-card {
   background: rgba(15, 23, 42, 0.7);
   border: 1px solid #1e293b;

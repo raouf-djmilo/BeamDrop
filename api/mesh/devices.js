@@ -10,7 +10,8 @@ export default function handler(req, res) {
     return res.status(204).end();
   }
 
-  const roomHash = getClientNetworkHash(req);
+  const roomPin = req.query?.pin || '';
+  const roomHash = getClientNetworkHash(req, roomPin);
   const now = Date.now();
 
   const activeInRoom = [];

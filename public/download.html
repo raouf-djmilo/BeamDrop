@@ -892,10 +892,44 @@
       let activeFileName = expectedName;
       let isCompleted = false;
       const chunksMap = new Map();
+      let wakeLock = null;
+
+      async function requestWakeLock() {
+        try {
+          if ('wakeLock' in navigator && !wakeLock) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', function() { wakeLock = null; });
+          }
+        } catch (e) {}
+      }
+
+      async function releaseWakeLock() {
+        try {
+          if (wakeLock) {
+            await wakeLock.release();
+            wakeLock = null;
+          }
+        } catch (e) {}
+      }
+
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && chunksMap.size > 0) {
+          requestWakeLock();
+        }
+      });
 
       function initP2P() {
         const receiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
-        peer = new Peer(receiverId, { debug: 1, config: { iceServers: ICE_SERVERS } });
+        peer = new Peer(receiverId, {
+          debug: 0,
+          logFunction: function(_lvl) {
+            const args = Array.prototype.slice.call(arguments, 1);
+            const msg = args.map(function(a) { return (a && a.message) || String(a); }).join(' ');
+            if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
+            if (_lvl <= 1) console.warn('[BeamDrop Receiver]', msg);
+          },
+          config: { iceServers: ICE_SERVERS }
+        });
 
         peer.on('open', function() {
           transferStatusText.textContent = 'Connecting to sender...';
@@ -903,10 +937,41 @@
           setupConnection(connection);
         });
 
+        peer.on('disconnected', function() {
+          if (peer && !peer.destroyed) {
+            try { peer.reconnect(); } catch (e) {}
+          }
+        });
+
         peer.on('error', function(err) {
-          console.error('Peer error:', err);
-          transferStatusText.textContent = 'Connection error. Please rescan QR.';
-          btnDownloadText.textContent    = 'Connection Failed';
+          const errMsg = String(err && (err.message || err.type || err) || '');
+          const errType = String(err && err.type || '');
+
+          if (
+            errType === 'network' ||
+            errType === 'server-error' ||
+            errType === 'socket-error' ||
+            errType === 'socket-closed' ||
+            errType === 'lost-connection' ||
+            errMsg.includes('Lost connection') ||
+            errMsg.includes('socket')
+          ) {
+            console.warn('Signaling server notice (auto-reconnecting):', errMsg || errType);
+            if (peer && !peer.destroyed && peer.disconnected) {
+              try { peer.reconnect(); } catch (e) {}
+            }
+            return;
+          }
+
+          if (errType === 'peer-unavailable') {
+            transferStatusText.textContent = 'Waiting for sender to connect...';
+            return;
+          }
+
+          console.warn('Peer notice:', err);
+          if (!connection || !connection.open) {
+            transferStatusText.textContent = 'Connection notice. Please check sender.';
+          }
         });
       }
 
@@ -925,6 +990,7 @@
         conn.on('data', function(msg) { handleIncomingData(msg); });
 
         conn.on('close', function() {
+          releaseWakeLock();
           if (!isCompleted) {
             transferStatusText.textContent = 'Sender disconnected';
           }
@@ -949,6 +1015,7 @@
 
         // ─ Binary File Chunks ─
         if (msg.type === 'FILE_START') {
+          requestWakeLock();
           activeFileName = msg.fileName;
           fileNameHeading.textContent = msg.fileName;
           fileSizeLabel.textContent   = formatBytes(msg.fileSize) + ' • Streaming to RAM';
@@ -1017,6 +1084,9 @@
           }
 
           chunksMap.delete(msg.fileId);
+          if (chunksMap.size === 0) {
+            releaseWakeLock();
+          }
         }
       }
 

@@ -59,6 +59,31 @@
     }
   }
 
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) {}
+  }
+
+  async function releaseWakeLock() {
+    try {
+      if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && incomingFiles.size > 0) {
+      requestWakeLock();
+    }
+  });
+
   function initReceiver() {
     if (!targetPeerId) {
       updateStatus('waiting', 'No sender peer provided in URL');
@@ -70,7 +95,12 @@
     const myPeerId = 'receiver-' + Math.random().toString(36).substring(2, 8);
 
     peer = new Peer(myPeerId, {
-      debug: 1,
+      debug: 0,
+      logFunction: (_lvl, ...args) => {
+        const msg = args.map(a => (a && a.message) || String(a)).join(' ');
+        if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
+        if (_lvl <= 1) console.warn('[BeamDrop Receiver]', ...args);
+      },
       config: {
         iceServers: ICE_SERVERS
       }
@@ -81,9 +111,41 @@
       connectToSender(targetPeerId);
     });
 
+    peer.on('disconnected', () => {
+      if (peer && !peer.destroyed) {
+        try { peer.reconnect(); } catch (e) {}
+      }
+    });
+
     peer.on('error', (err) => {
-      console.error('Peer error:', err);
-      updateStatus('error', 'Connection failed: ' + err.type);
+      const errMsg = String(err?.message || err?.type || err || '');
+      const errType = String(err?.type || '');
+
+      if (
+        errType === 'network' ||
+        errType === 'server-error' ||
+        errType === 'socket-error' ||
+        errType === 'socket-closed' ||
+        errType === 'lost-connection' ||
+        errMsg.includes('Lost connection') ||
+        errMsg.includes('socket')
+      ) {
+        console.warn('Signaling server notice (auto-reconnecting):', errMsg || errType);
+        if (peer && !peer.destroyed && peer.disconnected) {
+          try { peer.reconnect(); } catch (e) {}
+        }
+        return;
+      }
+
+      if (errType === 'peer-unavailable') {
+        updateStatus('connecting', 'Waiting for sender to connect...');
+        return;
+      }
+
+      console.warn('Peer event:', err);
+      if (!connection || !connection.open) {
+        updateStatus('error', 'Connection status: ' + errType);
+      }
     });
   }
 
@@ -103,6 +165,7 @@
     });
 
     connection.on('close', () => {
+      releaseWakeLock();
       updateStatus('connecting', 'Sender Disconnected');
     });
   }
@@ -120,6 +183,7 @@
     }
 
     if (msg.type === 'FILE_START') {
+      requestWakeLock();
       if (transferArea) transferArea.style.display = 'block';
       if (downloadSuccessCard) downloadSuccessCard.style.display = 'none';
 
@@ -178,6 +242,9 @@
       }
 
       incomingFiles.delete(msg.fileId);
+      if (incomingFiles.size === 0) {
+        releaseWakeLock();
+      }
     }
   }
 

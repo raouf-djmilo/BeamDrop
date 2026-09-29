@@ -19,6 +19,24 @@ export default defineConfig(() => {
       {
         name: 'cors-and-upgrade-plugin',
         configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url && (req.url === "/api/ip" || req.url.startsWith("/api/ip?") || req.url.startsWith("/api/ip/"))) {
+              res.setHeader("Access-Control-Allow-Origin", "*");
+              res.setHeader("Content-Type", "application/json");
+              const rawIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "127.0.0.1").toString().split(",")[0].trim();
+              const cleanIp = rawIp.replace("::ffff:", "");
+              let hash = 0;
+              for (let i = 0; i < cleanIp.length; i++) {
+                hash = (hash << 5) - hash + cleanIp.charCodeAt(i);
+                hash |= 0;
+              }
+              const roomHash = "room-" + Math.abs(hash).toString(36).slice(0, 8);
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, ip: cleanIp, roomHash }));
+              return;
+            }
+            next();
+          });
           const meshPeers = new Map<string, any>();
           const meshOrders = new Map<string, any>();
 
@@ -42,14 +60,37 @@ export default defineConfig(() => {
               return;
             }
 
+            // 0. Client IP and Room Hash Endpoint (/api/ip)
+            if (req.url && (req.url === '/api/ip' || req.url.startsWith('/api/ip?') || req.url.startsWith('/api/ip/'))) {
+              res.setHeader('Content-Type', 'application/json');
+              const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim();
+              const cleanIp = rawIp.replace('::ffff:', '');
+              let hash = 0;
+              for (let i = 0; i < cleanIp.length; i++) {
+                hash = (hash << 5) - hash + cleanIp.charCodeAt(i);
+                hash |= 0;
+              }
+              const roomHash = 'room-' + Math.abs(hash).toString(36).slice(0, 8);
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                success: true,
+                ip: cleanIp,
+                roomHash
+              }));
+              return;
+            }
+
             // 1. Mesh Device Announcement & Heartbeat
             if (req.url?.startsWith('/api/mesh/announce') && req.method === 'POST') {
               res.setHeader('Content-Type', 'application/json');
               const data = await parseJsonBody(req);
+              const u = new URL(req.url, 'http://localhost');
+              const pin = (data?.pin || u.searchParams.get('pin') || '').toString().trim();
               if (data && data.id) {
                 const remoteIp = (req.socket?.remoteAddress || '127.0.0.1').replace('::ffff:', '');
                 meshPeers.set(data.id, {
                   ...data,
+                  pin,
                   ip: data.ip || (remoteIp === '127.0.0.1' ? '127.0.0.1' : remoteIp),
                   lastSeen: Date.now()
                 });
@@ -66,12 +107,19 @@ export default defineConfig(() => {
             // 2. Mesh Active Devices List
             if (req.url?.startsWith('/api/mesh/devices')) {
               res.setHeader('Content-Type', 'application/json');
+              const u = new URL(req.url, 'http://localhost');
+              const pin = (u.searchParams.get('pin') || '').toString().trim();
               const now = Date.now();
+              const filtered = [];
               for (const [id, peer] of meshPeers.entries()) {
-                if (now - peer.lastSeen > 35000) meshPeers.delete(id);
+                if (now - peer.lastSeen > 35000) {
+                  meshPeers.delete(id);
+                } else if (!pin || (peer.pin && peer.pin === pin)) {
+                  filtered.push(peer);
+                }
               }
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, devices: Array.from(meshPeers.values()) }));
+              res.end(JSON.stringify({ success: true, devices: filtered }));
               return;
             }
 

@@ -43,6 +43,42 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
   const [previewModalFile, setPreviewModalFile] = useState<TransferFile | null>(null);
   const [incomingOrderModal, setIncomingOrderModal] = useState<any>(null);
 
+  // Screen Wake Lock to prevent phone sleep during file transfer
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => {
+          wakeLockRef.current = null;
+        });
+      }
+    } catch (e) {}
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && currentIncomingFile) {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      releaseWakeLock();
+    };
+  }, [currentIncomingFile]);
+
   // Return beam message from phone to PC
   const [replyText, setReplyText] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -102,6 +138,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
   // Hook into transferManager events
   useEffect(() => {
     transferManager.onFileReceiveStart = (file) => {
+      requestWakeLock();
       setCurrentIncomingFile(file);
       playChime('connect');
     };
@@ -115,6 +152,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
     transferManager.onFileReceiveComplete = (completedFile) => {
       playChime('complete');
       setCurrentIncomingFile(null);
+      releaseWakeLock();
       setReceivedFiles((prev) => [completedFile, ...prev]);
 
       // Auto trigger download if enabled

@@ -10,13 +10,14 @@ export default function handler(req, res) {
     return res.status(204).end();
   }
 
-  const roomHash = getClientNetworkHash(req);
-  const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim().replace('::ffff:', '');
-
   let data = req.body;
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch (e) { data = {}; }
   }
+
+  const roomPin = (data && data.pin) || req.query?.pin || '';
+  const roomHash = getClientNetworkHash(req, roomPin);
+  const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim().replace('::ffff:', '');
 
   if (data && data.id) {
     meshPeers.set(data.id, {

@@ -405,6 +405,10 @@
       <div class="telemetry-tags">
         <span id="telemetryModeTag" class="telemetry-pill">WI-FI LAN</span>
         <span id="telemetrySubnetTag" class="telemetry-sub-pill">Detecting Subnet...</span>
+        <div class="telemetry-pin-wrap" title="Private Room PIN: Set 4-digit PIN to isolate on public Wi-Fi (Cafes/Offices)">
+          <span style="font-size: 10px;">🔒</span>
+          <input type="text" id="radarRoomPinInput" class="telemetry-pin-input" placeholder="PIN" maxlength="4" spellcheck="false">
+        </div>
       </div>
     </div>
 
@@ -459,7 +463,7 @@
 
       <div class="radar-status-caption">
         <span class="pulse-radar-dot"></span>
-        <span id="radarScanningStatusText">Spider Engine scanning Wi-Fi &amp; Hotspot...</span>
+        <span id="radarScanningStatusText">Active Mesh: discovering phones &amp; PCs on same Wi-Fi...</span>
       </div>
     </div>
 
@@ -487,9 +491,9 @@
       <div id="nearbyDevicesList" class="nearby-devices-list">
         <div class="nearby-empty-state" id="nearbyEmptyState">
           <div class="nearby-empty-icon">📡</div>
-          <p class="nearby-empty-title">Scanning Local Wi-Fi Subnet</p>
+          <p class="nearby-empty-title">Active Wi-Fi Mesh Discovery</p>
           <p class="nearby-empty-sub">
-            Connected phones (Android &amp; iPhone), PCs, and Hotspot devices appear here automatically.
+            Open <strong>https://beam-drop-mu.vercel.app</strong> on your iPhone or Android (same Wi-Fi) to appear here instantly!
           </p>
         </div>
       </div>

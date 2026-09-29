@@ -60,6 +60,13 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     };
 
     transferManager.onStatusChange = (status) => {
+      if (
+        status.toLowerCase().includes('disconnected') ||
+        status.toLowerCase().includes('reconnecting') ||
+        status.toLowerCase().includes('waiting')
+      ) {
+        return;
+      }
       if (status.toLowerCase().includes('error') || status.toLowerCase().includes('failed')) {
         setConnectionStatus('error');
         setErrorMessage(status);

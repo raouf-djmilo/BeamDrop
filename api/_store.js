@@ -12,7 +12,7 @@ if (!global.__BEAMDROP_MESH_ORDERS__) {
 export const meshPeers = global.__BEAMDROP_MESH_PEERS__;
 export const meshOrders = global.__BEAMDROP_MESH_ORDERS__;
 
-export function getClientNetworkHash(req) {
+export function getClientNetworkHash(req, optionalPin = '') {
   const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
   const cleanIp = rawIp.replace('::ffff:', '');
 
@@ -21,5 +21,7 @@ export function getClientNetworkHash(req) {
     hash = (hash << 5) - hash + cleanIp.charCodeAt(i);
     hash |= 0;
   }
-  return 'room-' + Math.abs(hash).toString(36).slice(0, 8);
+  const baseRoom = 'room-' + Math.abs(hash).toString(36).slice(0, 8);
+  const pin = (optionalPin || req.query?.pin || '').toString().trim();
+  return pin ? `${baseRoom}-pin-${pin}` : baseRoom;
 }

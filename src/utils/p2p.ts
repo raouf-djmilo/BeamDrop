@@ -95,6 +95,8 @@ export class P2PTransferManager {
 
   // Sending state
   private isSending: boolean = false;
+  private reconnectTimer: any = null;
+  private heartbeatTimer: any = null;
 
   constructor() {}
 
@@ -108,7 +110,17 @@ export class P2PTransferManager {
 
       try {
         this.peer = new Peer(peerId, {
-          debug: 1,
+          debug: 0,
+          logFunction: (_logLevel: number, ...args: any[]) => {
+            const str = args.map(a => (a && a.message) || String(a)).join(' ');
+            if (str.includes('Lost connection') || str.includes('socket') || str.includes('disconnected')) {
+              // Harmless signaling socket reconnect notice - handled by auto-reconnect
+              return;
+            }
+            if (_logLevel <= 1) {
+              console.warn('[BeamDrop P2P Notice]', ...args);
+            }
+          },
           config: {
             iceServers: P2P_ICE_SERVERS
           }
@@ -118,6 +130,7 @@ export class P2PTransferManager {
           this.myPeerId = id;
           this.isConnecting = false;
           this.onStatusChange?.('Ready for connection');
+          this.startHeartbeat();
           resolve(id);
         });
 
@@ -125,22 +138,47 @@ export class P2PTransferManager {
           this.setupConnection(conn);
         });
 
-        this.peer.on('error', (err) => {
-          console.error('PeerJS error:', err);
-          this.isConnecting = false;
-          if (err.type === 'unavailable-id') {
-            // Retry with a random id
+        this.peer.on('error', (err: any) => {
+          const errMsg = String(err?.message || err?.type || err || '');
+          const errType = String(err?.type || '');
+
+          // 1. Signaling server disconnect / socket drop is normal & recoverable
+          if (
+            errType === 'network' ||
+            errType === 'server-error' ||
+            errType === 'socket-error' ||
+            errType === 'socket-closed' ||
+            errType === 'lost-connection' ||
+            errMsg.includes('Lost connection') ||
+            errMsg.includes('socket') ||
+            errMsg.includes('disconnected')
+          ) {
+            console.warn('[BeamDrop P2P] Signaling connection notice (auto-reconnecting):', errMsg || errType);
+            this.attemptReconnect();
+            return;
+          }
+
+          // 2. Peer not yet online on signaling server
+          if (errType === 'peer-unavailable') {
+            console.warn('[BeamDrop P2P] Target peer not yet connected to signaling server');
+            this.onStatusChange?.('Waiting for peer to connect...');
+            return;
+          }
+
+          // 3. ID taken - retry with fresh ID
+          if (errType === 'unavailable-id') {
             this.init().then(resolve).catch(reject);
             return;
           }
-          this.onError?.(err.message || 'P2P Connection Error');
-          this.onStatusChange?.('Connection Error: ' + err.type);
-          reject(err);
+
+          console.warn('[BeamDrop P2P] Non-fatal connection event:', err);
+          this.isConnecting = false;
+          this.onError?.(err?.message || 'P2P Connection Notice');
+          this.onStatusChange?.('Connection Notice: ' + errType);
         });
 
         this.peer.on('disconnected', () => {
-          this.onStatusChange?.('Disconnected from signaling server. Reconnecting...');
-          this.peer?.reconnect();
+          this.attemptReconnect();
         });
       } catch (err: any) {
         this.isConnecting = false;
@@ -148,6 +186,51 @@ export class P2PTransferManager {
         reject(err);
       }
     });
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.peer && !this.peer.destroyed) {
+        if (this.peer.disconnected) {
+          this.attemptReconnect();
+        } else {
+          // Keep-alive ping to peerjs socket
+          try {
+            const socket = (this.peer as any).socket;
+            if (socket && socket._socket && socket._socket.readyState === WebSocket.OPEN) {
+              socket._send({ type: 'HEARTBEAT' });
+            }
+          } catch (e) {}
+        }
+      }
+    }, 15000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private attemptReconnect() {
+    if (!this.peer || this.peer.destroyed) return;
+    if (this.reconnectTimer) return;
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+        try {
+          this.peer.reconnect();
+        } catch (e) {
+          // If reconnect throws because ID was taken or expired, recreate peer
+          try {
+            this.init(this.myPeerId).catch(() => {});
+          } catch (_) {}
+        }
+      }
+    }, 1500);
   }
 
   public connect(targetPeerId: string): Promise<void> {
@@ -452,6 +535,11 @@ export class P2PTransferManager {
   }
 
   public destroy() {
+    this.stopHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.disconnect();
     this.peer?.destroy();
     this.peer = null;

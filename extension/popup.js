@@ -94,6 +94,26 @@ const telemetryBandSpeed = document.getElementById('telemetryBandSpeed');
 const telemetryModeTag = document.getElementById('telemetryModeTag');
 const telemetrySubnetTag = document.getElementById('telemetrySubnetTag');
 const chipWifiText = document.getElementById('chipWifiText');
+const radarRoomPinInput = document.getElementById('radarRoomPinInput');
+
+let currentRadarRoomPin = '';
+try {
+  currentRadarRoomPin = localStorage.getItem('beamdrop_radar_pin') || '';
+} catch (e) {}
+
+if (radarRoomPinInput) {
+  radarRoomPinInput.value = currentRadarRoomPin;
+  radarRoomPinInput.addEventListener('input', (e) => {
+    currentRadarRoomPin = e.target.value.trim();
+    try {
+      localStorage.setItem('beamdrop_radar_pin', currentRadarRoomPin);
+    } catch (_) {}
+    discoveredPeersMap.clear();
+    renderNearbyDevices();
+    broadcastPresenceBeacon();
+    scanSpiderNetwork();
+  });
+}
 
 // Category Filter Buttons & Badges
 const filterBtnAll = document.getElementById('filterBtnAll');
@@ -939,7 +959,12 @@ function initPeerJsSession(type = 'file') {
   }
 
   peer = new Peer(currentPeerId, {
-    debug: 1,
+    debug: 0,
+    logFunction: (_lvl, ...args) => {
+      const msg = args.map(a => (a && a.message) || String(a)).join(' ');
+      if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
+      if (_lvl <= 1) console.warn('[BeamDrop Peer Notice]', ...args);
+    },
     config: {
       iceServers: EXTENSION_ICE_SERVERS
     }
@@ -957,9 +982,40 @@ function initPeerJsSession(type = 'file') {
     setupConnectionHandlers(conn, type);
   });
 
+  peer.on('disconnected', () => {
+    if (peer && !peer.destroyed) {
+      try { peer.reconnect(); } catch (e) {}
+    }
+  });
+
   peer.on('error', (err) => {
+    const errMsg = String(err && (err.message || err.type || err) || '');
+    const errType = String(err && err.type || '');
+
+    if (
+      errType === 'network' ||
+      errType === 'server-error' ||
+      errType === 'socket-error' ||
+      errType === 'socket-closed' ||
+      errType === 'lost-connection' ||
+      errMsg.includes('Lost connection') ||
+      errMsg.includes('socket')
+    ) {
+      console.warn('[BeamDrop] Signaling socket notice (reconnecting):', errMsg || errType);
+      if (peer && !peer.destroyed && peer.disconnected) {
+        try { peer.reconnect(); } catch (e) {}
+      }
+      return;
+    }
+
+    if (errType === 'peer-unavailable') {
+      return;
+    }
+
     console.error('[BeamDrop] Peer Error:', err);
-    updateStatus('idle', 'Connection Error');
+    if (!activeConnection || !activeConnection.open) {
+      updateStatus('idle', 'Connection Error');
+    }
   });
 }
 
@@ -1013,9 +1069,28 @@ async function streamTextPayload(conn) {
   }, 400);
 }
 
+let extensionWakeLock = null;
+async function requestExtensionWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !extensionWakeLock) {
+      extensionWakeLock = await navigator.wakeLock.request('screen');
+      extensionWakeLock.addEventListener('release', () => { extensionWakeLock = null; });
+    }
+  } catch (e) {}
+}
+async function releaseExtensionWakeLock() {
+  try {
+    if (extensionWakeLock) {
+      await extensionWakeLock.release();
+      extensionWakeLock = null;
+    }
+  } catch (e) {}
+}
+
 async function startBackpressureStream(conn, file) {
   if (!file) return;
   isStreaming = true;
+  requestExtensionWakeLock();
 
   transferFileTitle.textContent = `Streaming: ${file.name}`;
   transferProgressFill.style.width = '0%';
@@ -1096,6 +1171,7 @@ async function startBackpressureStream(conn, file) {
   conn.send({ type: 'FILE_END', fileId: fileId });
   conn.send({ type: 'complete', fileId: fileId });
   isStreaming = false;
+  releaseExtensionWakeLock();
 
   setTimeout(() => {
     showStage('complete');
@@ -1434,6 +1510,61 @@ function detectLocalDeviceMeta() {
   return { type, icon, name };
 }
 
+let detectedMyLanIp = 'Detecting...';
+let detectedRoomHash = '';
+
+async function detectLanAndRoomInExtension() {
+  // A. Detect private LAN IP via WebRTC
+  try {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pc.createDataChannel('ext-lan-ip');
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    const timer = setTimeout(() => { try { pc.close(); } catch(_) {} }, 3500);
+
+    pc.onicecandidate = (event) => {
+      if (!event || !event.candidate || !event.candidate.candidate) return;
+      const candidateStr = event.candidate.candidate;
+      const ipRegex = /\b(192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(?:1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})\b/;
+      const match = candidateStr.match(ipRegex);
+      if (match && match[1]) {
+        detectedMyLanIp = match[1];
+        clearTimeout(timer);
+        try { pc.close(); } catch(_) {}
+        if (telemetrySubnetTag) {
+          telemetrySubnetTag.textContent = detectedMyLanIp;
+        }
+      }
+    };
+  } catch (e) {}
+
+  // B. Fetch Room Hash from /api/ip
+  const ipEndpoints = [
+    `${VERCEL_RECEIVER_URL}/api/ip`,
+    'http://localhost:3000/api/ip'
+  ];
+  for (const url of ipEndpoints) {
+    try {
+      const res = await fetch(url + '?_t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && json.roomHash) {
+          detectedRoomHash = json.roomHash;
+          if (telemetrySsid && !telemetrySsid.textContent.includes('•')) {
+            telemetrySsid.textContent = 'Wi-Fi (' + json.roomHash + ')';
+          }
+          if (detectedMyLanIp === 'Detecting...') {
+            detectedMyLanIp = json.ip;
+            if (telemetrySubnetTag) telemetrySubnetTag.textContent = detectedMyLanIp;
+          }
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+}
+detectLanAndRoomInExtension();
+
 async function initDeviceIdentity() {
   const meta = detectLocalDeviceMeta();
   myDeviceType = meta.type;
@@ -1493,10 +1624,11 @@ async function scanSpiderNetwork(isManual = false) {
   }
 
   // PairDrop / Snapdrop Architecture: Discover devices sharing same Wi-Fi / Public IP
+  const pinParam = currentRadarRoomPin ? `&pin=${encodeURIComponent(currentRadarRoomPin)}` : '';
   const cloudEndpoints = [
-    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}`,
-    `http://localhost:3000/api/mesh/devices?_t=${Date.now()}`,
-    `http://localhost:3001/api/mesh/devices?_t=${Date.now()}`
+    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}${pinParam}`,
+    `http://localhost:3000/api/mesh/devices?_t=${Date.now()}${pinParam}`,
+    `http://localhost:3001/api/mesh/devices?_t=${Date.now()}${pinParam}`
   ];
 
   for (const ep of cloudEndpoints) {
@@ -1659,6 +1791,8 @@ function broadcastPresenceBeacon() {
     deviceType: myDeviceType,
     icon: myDeviceIcon,
     protocol: 'wifi',
+    ip: detectedMyLanIp !== 'Detecting...' ? detectedMyLanIp : undefined,
+    pin: currentRadarRoomPin || undefined,
     timestamp: Date.now()
   };
   if (localMeshBroadcast) {
@@ -1693,7 +1827,7 @@ function startNearbyDiscovery() {
     broadcastPresenceBeacon();
     scanSpiderNetwork();
     pruneStaleNearbyPeers();
-  }, 3500);
+  }, 3000);
 
   renderNearbyDevices();
 }
@@ -1702,7 +1836,7 @@ function pruneStaleNearbyPeers() {
   const now = Date.now();
   let changed = false;
   for (const [id, peer] of discoveredPeersMap.entries()) {
-    if (now - peer.lastSeen > 30000 && !peer.isGateway) {
+    if (now - peer.lastSeen > 15000 && !peer.isGateway) {
       discoveredPeersMap.delete(id);
       changed = true;
     }
@@ -1719,7 +1853,12 @@ function initDiscoveryPeerListener() {
 
   try {
     myDiscoveryPeer = new Peer(myDiscoveryPeerId, {
-      debug: 1,
+      debug: 0,
+      logFunction: (_lvl, ...args) => {
+        const msg = args.map(a => (a && a.message) || String(a)).join(' ');
+        if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
+        if (_lvl <= 1) console.warn('[BeamDrop Nearby Notice]', ...args);
+      },
       config: { iceServers: EXTENSION_ICE_SERVERS }
     });
 
@@ -1742,7 +1881,30 @@ function initDiscoveryPeerListener() {
       });
     });
 
+    myDiscoveryPeer.on('disconnected', () => {
+      if (myDiscoveryPeer && !myDiscoveryPeer.destroyed) {
+        try { myDiscoveryPeer.reconnect(); } catch (e) {}
+      }
+    });
+
     myDiscoveryPeer.on('error', (err) => {
+      const errMsg = String(err && (err.message || err.type || err) || '');
+      const errType = String(err && err.type || '');
+
+      if (
+        errType === 'network' ||
+        errType === 'server-error' ||
+        errType === 'socket-error' ||
+        errType === 'socket-closed' ||
+        errType === 'lost-connection' ||
+        errMsg.includes('Lost connection') ||
+        errMsg.includes('socket')
+      ) {
+        if (myDiscoveryPeer && !myDiscoveryPeer.destroyed && myDiscoveryPeer.disconnected) {
+          try { myDiscoveryPeer.reconnect(); } catch (e) {}
+        }
+        return;
+      }
       console.debug('[BeamDrop Nearby] Peer listener notice:', err.type);
     });
   } catch (e) {

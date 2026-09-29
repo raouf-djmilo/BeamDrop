@@ -99,7 +99,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
       icon = '💻';
     }
 
-    return { name, deviceType, icon, ip: '127.0.0.1' };
+    return { name, deviceType, icon, ip: 'Detecting...' };
   });
 
   // Real Discovered Peers - ZERO mock devices!
@@ -108,18 +108,17 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
   const [selectedPeer, setSelectedPeer] = useState<DiscoveredPeer | null>(null);
   const [audioFeedback, setAudioFeedback] = useState<boolean>(true);
 
-  // Live Subnet Scanner Counter State ("ALL COUNT LI RAHO MY JIHAZI")
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [scannedIpsCount, setScannedIpsCount] = useState<number>(0);
-  const [totalSubnetIps, setTotalSubnetIps] = useState<number>(254);
-  const [currentScanningIp, setCurrentScanningIp] = useState<string>('');
-  const [scanSpeedIpsPerSec, setScanSpeedIpsPerSec] = useState<number>(0);
-  const [customSubnetPrefix, setCustomSubnetPrefix] = useState<string>('192.168.1');
-  const [manualProbeIp, setManualProbeIp] = useState<string>('');
-  const [isProbingManual, setIsProbingManual] = useState<boolean>(false);
-  const [probeResultMsg, setProbeResultMsg] = useState<string>('');
+
+  const [roomHash, setRoomHash] = useState<string>('');
+  const [roomPin, setRoomPin] = useState<string>(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('beamdrop_radar_pin') || '' : ''));
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const myPeerIdRef = useRef<string>(typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem('beamdrop_mesh_peer_id') || ('peer-' + Math.random().toString(36).slice(2, 9))) : ('peer-' + Math.random().toString(36).slice(2, 9)));
+  useEffect(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('beamdrop_mesh_peer_id', myPeerIdRef.current);
+    }
+  }, []);
 
   // Web Audio Sonar Ping
   const playRadarBlip = () => {
@@ -142,55 +141,88 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     } catch (e) {}
   };
 
-  // 1. Detect Real Local IP of this Device using WebRTC ICE candidates
+  // 1.   // 1. Detect Real Local Private LAN IP via WebRTC ICE candidate gathering (typ host)
+  // + Fetch Public IP & Room Hash from /api/ip (PairDrop Mesh Pairing)
   useEffect(() => {
     let resolved = false;
 
-    const detectLocalIp = async () => {
+    // A. WebRTC Private LAN IP detection (filtering for host candidates and private IP ranges)
+    const detectLanIp = async () => {
       try {
-        const pc = new RTCPeerConnection({ iceServers: [] });
-        pc.createDataChannel('detect-lan-ip');
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' }
+          ]
+        });
+        pc.createDataChannel('lan-ip-probe');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        const timeout = setTimeout(() => {
+        const timer = setTimeout(() => {
           if (!resolved) {
-            pc.close();
+            try { pc.close(); } catch (_) {}
           }
-        }, 3000);
+        }, 3500);
 
         pc.onicecandidate = (event) => {
           if (!event || !event.candidate || !event.candidate.candidate) return;
-          const line = event.candidate.candidate;
-          const match = line.match(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/);
-          if (match) {
-            const detected = match[1];
-            if (!detected.startsWith('127.') && !detected.startsWith('0.')) {
-              resolved = true;
-              clearTimeout(timeout);
-              pc.close();
-
-              setMyDeviceInfo(prev => ({ ...prev, ip: detected }));
-              const parts = detected.split('.');
-              if (parts.length === 4) {
-                const prefix = `${parts[0]}.${parts[1]}.${parts[2]}`;
-                setCustomSubnetPrefix(prefix);
-                setNetworkMeta(prev => ({
-                  ...prev,
-                  myIp: detected,
-                  subnet: `${prefix}.0/24`
-                }));
-              }
+          const candidateStr = event.candidate.candidate;
+          // Capture LAN private IP from candidate strings containing host or standard ranges
+          const ipRegex = /(192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(?:1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})/;
+          const match = candidateStr.match(ipRegex);
+          if (match && match[1]) {
+            const privateLanIp = match[1];
+            resolved = true;
+            clearTimeout(timer);
+            try { pc.close(); } catch (_) {}
+            setMyDeviceInfo(prev => ({ ...prev, ip: privateLanIp }));
+            const parts = privateLanIp.split('.');
+            if (parts.length === 4) {
+              const prefix = parts.slice(0, 3).join('.');
+              setNetworkMeta(prev => ({
+                ...prev,
+                myIp: privateLanIp,
+                subnet: prefix + '.0/24'
+              }));
             }
           }
         };
       } catch (e) {}
     };
 
-    detectLocalIp();
-  }, []);
+    // B. Fetch Public IP and room hash from /api/ip
+    const fetchPublicRoomHash = async () => {
+      const endpoints = [
+        '/api/ip',
+        'https://beam-drop-mu.vercel.app/api/ip'
+      ];
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url + '?_t=' + Date.now(), { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && data.roomHash) {
+              setRoomHash(data.roomHash);
+              setMyDeviceInfo(prev => ({
+                ...prev,
+                ip: prev.ip === 'Detecting...' || prev.ip === '127.0.0.1' ? data.ip : prev.ip
+              }));
+              setNetworkMeta(prev => ({
+                ...prev,
+                ssid: 'Wi-Fi Room (' + data.roomHash + ')',
+                myIp: prev.myIp === 'Detecting...' || prev.myIp === '127.0.0.1' ? data.ip : prev.myIp
+              }));
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+    };
 
-  // Helper to add or update discovered real peer
+    detectLanIp();
+    fetchPublicRoomHash();
+  }, []);
+// Helper to add or update discovered real peer
   const addOrUpdateRealPeer = (peer: DiscoveredPeer) => {
     setDiscoveredPeers(prev => {
       const idx = prev.findIndex(p => p.ip === peer.ip || p.id === peer.id);
@@ -217,23 +249,29 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     });
   };
 
-  // 2. Fetch live data from backend / local gateway (/api/scan-lan & /api/mesh/devices)
+  // 2. Fetch live active devices from Mesh Signaling (PairDrop / Snapdrop Same-Wi-Fi Architecture)
   const queryLocalMeshBackend = async (): Promise<boolean> => {
+    const pinParam = roomPin ? ('&pin=' + encodeURIComponent(roomPin)) : '';
     const endpoints = [
-      '/api/mesh/devices',
-      '/api/scan-lan',
-      'http://localhost:3000/api/mesh/devices',
-      'http://localhost:3000/api/scan-lan',
-      'http://localhost:3001/api/mesh/devices',
-      'http://localhost:3001/api/scan-lan'
+      '/api/mesh/devices?_t=' + Date.now() + pinParam,
+      'https://beam-drop-mu.vercel.app/api/mesh/devices?_t=' + Date.now() + pinParam,
+      '/api/scan-lan?_t=' + Date.now()
     ];
 
+    let foundAny = false;
     for (const url of endpoints) {
       try {
-        const res = await fetch(`${url}?_t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
           if (json && json.success) {
+            if (json.roomHash) {
+              setRoomHash(json.roomHash);
+              setNetworkMeta(prev => ({
+                ...prev,
+                ssid: 'Wi-Fi Room (' + json.roomHash + ')'
+              }));
+            }
             if (json.network) {
               setNetworkMeta(prev => ({
                 ...prev,
@@ -241,25 +279,19 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                 band: json.network.band || prev.band,
                 signal: json.network.signal || prev.signal,
                 speed: json.network.speed || prev.speed,
-                myIp: json.network.myIp !== '127.0.0.1' ? json.network.myIp : prev.myIp,
+                myIp: json.network.myIp && json.network.myIp !== '127.0.0.1' ? json.network.myIp : prev.myIp,
                 subnet: json.network.subnet || prev.subnet,
                 isHotspot: Boolean(json.network.isHotspot)
               }));
-              if (json.network.myIp && json.network.myIp !== '127.0.0.1') {
-                setMyDeviceInfo(prev => ({ ...prev, ip: json.network.myIp }));
-                const parts = json.network.myIp.split('.');
-                if (parts.length === 4) {
-                  setCustomSubnetPrefix(`${parts[0]}.${parts[1]}.${parts[2]}`);
-                }
-              }
             }
-
             if (Array.isArray(json.devices)) {
+              // Map all devices except our own persistent node ID
               json.devices.forEach((dev: any) => {
+                if (dev.id && dev.id === myPeerIdRef.current) return;
                 addOrUpdateRealPeer({
-                  id: dev.id || `lan-${dev.ip.replace(/\./g, '-')}`,
-                  name: dev.name || `Device (${dev.ip})`,
-                  ip: dev.ip,
+                  id: dev.id || ('lan-' + (dev.ip || 'node').replace(/\./g, '-')),
+                  name: dev.name || ('Device (' + (dev.ip || 'Nearby') + ')'),
+                  ip: dev.ip || 'LAN Node',
                   mac: dev.mac,
                   deviceType: dev.deviceType || (dev.isGateway ? 'router' : 'phone'),
                   icon: dev.icon || (dev.isGateway ? '🌐' : '📱'),
@@ -268,189 +300,21 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   isGateway: dev.isGateway,
                   x: 50,
                   y: 50,
-                  signal: dev.signal || json.network?.signal,
+                  signal: dev.signal || '92%',
                   lastSeen: Date.now()
                 });
+                foundAny = true;
               });
-              return true;
+              if (foundAny) return true;
             }
           }
         }
       } catch (e) {}
     }
-    return false;
+    return foundAny;
   };
-
-  // 3. In-Browser Subnet Active Scanner Engine with Real-Time Counters ("ALL COUNT LI RAHO MY JIHAZI")
-  const startRealSubnetSweep = async () => {
-    if (isScanning) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      setIsScanning(false);
-      return;
-    }
-
-    setIsScanning(true);
-    setScannedIpsCount(0);
-    setTotalSubnetIps(254);
-    setProbeResultMsg('');
-
-    // First check system ARP / mesh backend
-    await queryLocalMeshBackend();
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const prefix = customSubnetPrefix.trim() || '192.168.1';
-    const startTime = Date.now();
-    const batchSize = 16;
-    let completedCount = 0;
-
-    // Scan IPs from 1 to 254
-    const ipsToScan: string[] = [];
-    // Prioritize router/gateway (.1 and .254) first
-    ipsToScan.push(`${prefix}.1`);
-    ipsToScan.push(`${prefix}.254`);
-    for (let i = 2; i < 254; i++) {
-      ipsToScan.push(`${prefix}.${i}`);
-    }
-
-    const testHostOnline = async (targetIp: string): Promise<boolean> => {
-      if (targetIp === myDeviceInfo.ip) return false;
-      const pingStart = performance.now();
-
-      // Probing ports via fast fetch / image load
-      const ports = [80, 8080, 3000, 443, 8000];
-      for (const port of ports) {
-        if (controller.signal.aborted) return false;
-        try {
-          const timeoutSignal = AbortSignal.timeout(280);
-          await fetch(`http://${targetIp}:${port}/?_beam_probe=${Date.now()}`, {
-            method: 'HEAD',
-            mode: 'no-cors',
-            signal: timeoutSignal
-          });
-          const latency = Math.max(1, Math.round(performance.now() - pingStart));
-          const isGw = targetIp.endsWith('.1') || targetIp.endsWith('.254');
-          addOrUpdateRealPeer({
-            id: `lan-${targetIp.replace(/\./g, '-')}`,
-            name: isGw ? `Wi-Fi Router Gateway (${targetIp})` : `Active Node (${targetIp})`,
-            ip: targetIp,
-            deviceType: isGw ? 'router' : 'phone',
-            icon: isGw ? '🌐' : '📱',
-            protocol: 'wifi',
-            latency,
-            isGateway: isGw,
-            x: 50,
-            y: 50,
-            lastSeen: Date.now()
-          });
-          return true;
-        } catch (err: any) {
-          // If error is NOT a timeout (e.g. Connection Refused or CORS preflight rejection),
-          // it indicates a live host answered the TCP handshake!
-          if (err && err.name !== 'TimeoutError' && !controller.signal.aborted) {
-            const latency = Math.max(1, Math.round(performance.now() - pingStart));
-            if (latency < 280) {
-              const isGw = targetIp.endsWith('.1') || targetIp.endsWith('.254');
-              addOrUpdateRealPeer({
-                id: `lan-${targetIp.replace(/\./g, '-')}`,
-                name: isGw ? `Wi-Fi Router Gateway (${targetIp})` : `Active Node (${targetIp})`,
-                ip: targetIp,
-                deviceType: isGw ? 'router' : 'phone',
-                icon: isGw ? '🌐' : '📱',
-                protocol: 'wifi',
-                latency,
-                isGateway: isGw,
-                x: 50,
-                y: 50,
-                lastSeen: Date.now()
-              });
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    };
-
-    // Run parallel batches with live counter progression
-    for (let i = 0; i < ipsToScan.length; i += batchSize) {
-      if (controller.signal.aborted) break;
-
-      const batch = ipsToScan.slice(i, i + batchSize);
-      setCurrentScanningIp(batch[0]);
-
-      await Promise.all(batch.map(ip => testHostOnline(ip)));
-
-      completedCount += batch.length;
-      setScannedIpsCount(Math.min(completedCount, 254));
-
-      const elapsedSec = Math.max(0.1, (Date.now() - startTime) / 1000);
-      setScanSpeedIpsPerSec(Math.round(completedCount / elapsedSec));
-    }
-
-    setIsScanning(false);
-    setCurrentScanningIp('');
-    playChime('complete');
-  };
-
-  // 4. Manual IP Direct Probe
-  const handleManualProbe = async () => {
-    const target = manualProbeIp.trim();
-    if (!target) return;
-    setIsProbingManual(true);
-    setProbeResultMsg(`Pinging ${target}...`);
-
-    const start = performance.now();
-    let responded = false;
-
-    try {
-      const ports = [80, 8080, 3000, 443, 8000];
-      for (const p of ports) {
-        try {
-          await fetch(`http://${target}:${p}/?_t=${Date.now()}`, {
-            method: 'HEAD',
-            mode: 'no-cors',
-            signal: AbortSignal.timeout(600)
-          });
-          responded = true;
-          break;
-        } catch (e: any) {
-          if (e && e.name !== 'TimeoutError') {
-            responded = true;
-            break;
-          }
-        }
-      }
-    } catch (e) {}
-
-    const latency = Math.max(1, Math.round(performance.now() - start));
-    setIsProbingManual(false);
-
-    if (responded) {
-      const isGw = target.endsWith('.1') || target.endsWith('.254');
-      addOrUpdateRealPeer({
-        id: `lan-${target.replace(/\./g, '-')}`,
-        name: isGw ? `Wi-Fi Router (${target})` : `Discovered Device (${target})`,
-        ip: target,
-        deviceType: isGw ? 'router' : 'phone',
-        icon: isGw ? '🌐' : '📱',
-        protocol: 'wifi',
-        latency,
-        isGateway: isGw,
-        x: 50,
-        y: 50,
-        lastSeen: Date.now()
-      });
-      setProbeResultMsg(`✅ Device at ${target} responded in ${latency}ms! Added to Radar.`);
-    } else {
-      setProbeResultMsg(`⚠️ No response from ${target} within timeout. Verify device is connected to the same Wi-Fi.`);
-    }
-  };
-
-  // 5. Broadcast Channel for Intra-Machine Multi-Tab Discovery
+// 3. In-Browser Subnet Active Scanner Engine with Real-Time Counters ("ALL COUNT LI RAHO MY JIHAZI")
+  // 5. Active Mesh Presence Loop (3-second polling & 15-second graceful prune)
   useEffect(() => {
     const meshChannel = typeof BroadcastChannel !== 'undefined'
       ? new BroadcastChannel('beamdrop_local_mesh_channel')
@@ -459,7 +323,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     if (meshChannel) {
       meshChannel.onmessage = (evt) => {
         const data = evt.data;
-        if (!data || !data.id || data.id === myDeviceInfo.name) return;
+        if (!data || !data.id || data.id === myPeerIdRef.current) return;
         if (data.type === 'RADAR_BEACON' || data.type === 'RADAR_PONG') {
           addOrUpdateRealPeer({
             id: data.id,
@@ -479,7 +343,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
       // Announce self to local tabs
       meshChannel.postMessage({
         type: 'RADAR_BEACON',
-        id: `web-node-${Math.random().toString(36).slice(2, 7)}`,
+        id: myPeerIdRef.current,
         name: myDeviceInfo.name,
         deviceType: myDeviceInfo.deviceType,
         icon: myDeviceInfo.icon,
@@ -488,40 +352,46 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     }
 
     const announceSelf = () => {
-      fetch('/api/mesh/announce', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: `peer-${Math.random().toString(36).slice(2, 8)}`,
-          name: myDeviceInfo.name,
-          deviceType: myDeviceInfo.deviceType,
-          icon: myDeviceInfo.icon,
-          ip: myDeviceInfo.ip !== 'Detecting...' ? myDeviceInfo.ip : undefined
-        })
-      }).catch(() => {});
+      const endpoints = [
+        '/api/mesh/announce',
+        'https://beam-drop-mu.vercel.app/api/mesh/announce'
+      ];
+      endpoints.forEach(url => {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: myPeerIdRef.current,
+            name: myDeviceInfo.name,
+            deviceType: myDeviceInfo.deviceType,
+            icon: myDeviceInfo.icon,
+            pin: roomPin || undefined,
+            ip: myDeviceInfo.ip && myDeviceInfo.ip !== 'Detecting...' && myDeviceInfo.ip !== '127.0.0.1' ? myDeviceInfo.ip : undefined
+          })
+        }).catch(() => {});
+      });
     };
 
     announceSelf();
     queryLocalMeshBackend();
 
-    // Periodic heartbeat & peer query
+    // 100% Active Mesh Signaling: Poll every 3 seconds for immediate discovery
     const heartbeatTimer = setInterval(() => {
       announceSelf();
       queryLocalMeshBackend();
 
-      // Prune inactive peers older than 35s
+      // Gracefully prune disconnected or inactive peers after 15 seconds
       const now = Date.now();
-      setDiscoveredPeers(prev => prev.filter(p => p.isGateway || now - p.lastSeen < 35000));
-    }, 4000);
+      setDiscoveredPeers(prev => prev.filter(p => p.isGateway || (now - p.lastSeen < 15000)));
+    }, 3000);
 
     return () => {
       clearInterval(heartbeatTimer);
       if (abortControllerRef.current) abortControllerRef.current.abort();
       if (meshChannel) meshChannel.close();
     };
-  }, [myDeviceInfo.ip]);
-
-  // Filtered devices
+  }, [myDeviceInfo.ip, roomPin]);
+// Filtered devices
   const filteredPeers = useMemo(() => {
     return discoveredPeers.filter(peer => {
       if (activeFilter === 'all') return true;
@@ -535,7 +405,6 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
   const phoneCount = discoveredPeers.filter(p => p.deviceType === 'phone').length;
   const pcCount = discoveredPeers.filter(p => p.deviceType === 'laptop' || p.deviceType === 'desktop').length;
   const routerCount = discoveredPeers.filter(p => p.deviceType === 'router' || p.isGateway).length;
-  const scanProgress = totalSubnetIps > 0 ? Math.round((scannedIpsCount / totalSubnetIps) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -579,103 +448,72 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           </button>
 
           <button
-            onClick={startRealSubnetSweep}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-white font-semibold text-xs transition-all shadow-md cursor-pointer ${
-              isScanning
-                ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/25'
-                : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/25'
-            }`}
+            onClick={() => queryLocalMeshBackend()}
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-white font-semibold text-xs transition-all shadow-md cursor-pointer bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/25"
+            title="Scan Mesh Nodes"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-            <span>{isScanning ? 'Stop Subnet Sweep' : 'Sweep Subnet for Devices'}</span>
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Scan Mesh Nodes</span>
           </button>
         </div>
       </div>
 
-      {/* 2. REAL-TIME SUBNET SCANNER COUNTER HUD ("ALL COUNT LI RAHO MY JIHAZI") */}
+      {/* 2. ACTIVE MESH SIGNALING & PAIRING STATUS BAR */}
       <div className="glass-panel rounded-2xl p-4 border border-cyan-500/20 bg-slate-950/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div className="flex items-center space-x-2.5">
-            <Crosshair className={`w-4 h-4 ${isScanning ? 'text-cyan-400 animate-spin' : 'text-slate-400'}`} />
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
             <div>
               <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Real Subnet Discovery Counter
+                Active Mesh Presence Engine
               </span>
-              <span className="text-[11px] text-slate-400 ml-2 font-mono">
-                {isScanning ? `Inspecting ${currentScanningIp || customSubnetPrefix + '.x'}...` : 'Ready to inspect local Wi-Fi nodes'}
+              <span className="text-[11px] text-cyan-300 ml-2 font-mono">
+                Auto-discovering phones & PCs on same Wi-Fi
               </span>
             </div>
           </div>
-
           <div className="flex items-center space-x-3 text-xs font-mono">
             <span className="text-slate-400">
-              Scanned: <strong className="text-cyan-400">{scannedIpsCount}</strong> / {totalSubnetIps} IPs ({scanProgress}%)
+              Room: <strong className="text-cyan-400">{roomHash || 'Auto (Same Wi-Fi)'}</strong>
             </span>
             <span>•</span>
             <span className="text-slate-400">
-              Online Found: <strong className="text-emerald-400">{discoveredPeers.length}</strong>
+              Online Discovered: <strong className="text-emerald-400">{discoveredPeers.length}</strong>
             </span>
-            {isScanning && scanSpeedIpsPerSec > 0 && (
-              <>
-                <span>•</span>
-                <span className="text-amber-400 font-bold">{scanSpeedIpsPerSec} IPs/s</span>
-              </>
-            )}
           </div>
         </div>
 
-        {/* Live Progress Bar */}
-        <div className="mt-3">
-          <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500 rounded-full transition-all duration-150"
-              style={{ width: `${scanProgress}%` }}
-            ></div>
+        {/* Dynamic Connection Instructions & Private Room PIN */}
+        <div className="mt-3 pt-1 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-2 text-slate-300 text-[11px]">
+            <span className="text-base shrink-0">📱</span>
+            <span>
+              Open <strong className="text-cyan-400 font-mono">https://beam-drop-mu.vercel.app</strong> on your phone (same Wi-Fi) to appear instantly on radar!
+            </span>
           </div>
-        </div>
 
-        {/* Subnet Prefix Selector & Direct IP Prober */}
-        <div className="mt-3 pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2">
-            <span className="text-slate-400 whitespace-nowrap">Subnet Target:</span>
+          {/* Room PIN Tool for Public Wi-Fi Collision Isolation */}
+          <div className="flex items-center space-x-1.5 shrink-0" title="Set an optional 4-digit PIN to isolate devices on public Wi-Fi (cafes, universities)">
+            <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="text-slate-400 whitespace-nowrap">Private Room PIN:</span>
             <input
               type="text"
-              value={customSubnetPrefix}
-              onChange={(e) => setCustomSubnetPrefix(e.target.value)}
-              placeholder="192.168.1"
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-cyan-300 font-mono text-xs w-32 focus:outline-none focus:border-cyan-400"
+              value={roomPin}
+              maxLength={4}
+              onChange={(e) => {
+                const val = e.target.value.trim();
+                setRoomPin(val);
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('beamdrop_radar_pin', val);
+                }
+                setDiscoveredPeers([]);
+              }}
+              placeholder="Optional"
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-cyan-300 font-mono text-xs w-20 text-center focus:outline-none focus:border-cyan-400"
             />
-            <span className="text-slate-500 font-mono">.1 → .254</span>
-          </div>
-
-          {/* Direct Manual IP Probe Tool */}
-          <div className="flex items-center space-x-2">
-            <span className="text-slate-400 whitespace-nowrap">Probe IP:</span>
-            <input
-              type="text"
-              value={manualProbeIp}
-              onChange={(e) => setManualProbeIp(e.target.value)}
-              placeholder="e.g. 192.168.1.50"
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs w-36 focus:outline-none focus:border-cyan-400"
-            />
-            <button
-              onClick={handleManualProbe}
-              disabled={isProbingManual || !manualProbeIp.trim()}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50 cursor-pointer flex items-center space-x-1"
-            >
-              <Search className="w-3 h-3" />
-              <span>{isProbingManual ? 'Pinging...' : 'Ping Node'}</span>
-            </button>
           </div>
         </div>
-
-        {probeResultMsg && (
-          <p className="mt-2 text-[11px] font-mono text-slate-300 bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-            {probeResultMsg}
-          </p>
-        )}
       </div>
-
       {/* Main Grid: Radar Screen & Devices List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Radar Screen (7 cols) */}
@@ -836,22 +674,22 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
             {filteredPeers.length === 0 ? (
               <div className="text-center py-10 px-4 glass-panel rounded-3xl border border-slate-800 text-slate-400 space-y-3">
-                <Radio className={`w-10 h-10 mx-auto ${isScanning ? 'text-cyan-400 animate-spin' : 'text-slate-600'}`} />
+                <Radio className="w-10 h-10 mx-auto text-cyan-400 animate-pulse" />
                 <div>
                   <p className="text-sm font-semibold text-slate-200">
-                    {isScanning ? 'Scanning Wi-Fi subnet for real active devices...' : 'No other devices detected on this Wi-Fi yet'}
+                    No other devices detected in this Wi-Fi room yet
                   </p>
                   <p className="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto leading-relaxed">
                     Zero mock devices. Open BeamDrop on your smartphone, tablet, or another PC connected to the same Wi-Fi network, and it will be recognized here automatically!
                   </p>
                 </div>
-                {!isScanning && (
+                {true && (
                   <button
-                    onClick={startRealSubnetSweep}
+                    onClick={() => queryLocalMeshBackend()}
                     className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-md shadow-cyan-600/20 cursor-pointer inline-flex items-center space-x-1.5 transition-all"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Run Subnet Sweep Now</span>
+                    <span>Refresh Mesh Presence</span>
                   </button>
                 )}
               </div>
