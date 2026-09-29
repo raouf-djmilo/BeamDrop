@@ -199,7 +199,7 @@ export const SplitSimulator: React.FC = () => {
               <Laptop className="w-4 h-4 text-cyan-400" />
               <span>PC Chrome Extension Popup</span>
             </span>
-            <span className="font-mono text-[10px] text-cyan-400">BeamDrop v1.4.0 HUD</span>
+            <span className="font-mono text-[10px] text-cyan-400">BeamDrop v1.5.2 HUD</span>
           </div>
 
           <div className="w-full max-w-[390px] mx-auto bg-slate-950 border-2 border-slate-800 rounded-3xl p-4 shadow-2xl space-y-3.5">

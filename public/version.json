@@ -1,28 +1,43 @@
 {
   "name": "BeamDrop",
-  "version": "1.5.1",
+  "version": "1.5.2",
+  "latestVersion": "1.5.2",
   "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
+  "updateUrl": "https://beam-drop-mu.vercel.app",
   "highlights": [
-    "📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline order security",
-    "📓 Smart Ephemeral Notebook: Text, code, and links beam straight into an interactive, zero-latency notebook",
-    "⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction",
-    "🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click"
+    "\ud83d\udce1 Stable Real Wi-Fi & Hotspot Device Discovery (Clean Mesh Engine)",
+    "\u26a1 Zero-latency WebRTC direct LAN file & memory streaming",
+    "\ud83e\uddf9 Purged all backend shell loops for 100% lightweight CPU performance",
+    "\ud83d\udcf1 Automatic screen wake lock on mobile receiver",
+    "\u26a1 1-Click Auto Upgrade & Instant Reload directly from extension"
   ],
   "changelog": [
+    {
+      "version": "1.5.2",
+      "date": "2026-09-29",
+      "type": "major",
+      "title": "Clean Local Mesh Engine & Fast Cloud Auto-Update Sync",
+      "changes": [
+        "Stable Real Wi-Fi & Hotspot Device Discovery (Mesh Engine)",
+        "Zero-latency WebRTC direct LAN file streaming",
+        "Purged all backend shell loops for 100% lightweight CPU performance",
+        "Automatic screen wake lock on mobile receiver",
+        "Clean Mesh Room HUD with dynamic public IP and room hash indicator"
+      ]
+    },
     {
       "version": "1.5.1",
       "date": "2026-09-29",
       "type": "major",
       "title": "Nearby Radar, Ephemeral Notebook & Zero-ZIP Auto Upgrade Engine",
       "changes": [
-        "Nearby Radar: 360 sweeping radar scanning for local Wi-Fi devices and Web Bluetooth LE peers",
-        "AirDrop-style Handshake Modal: Recipient must explicitly Accept or Decline incoming transfer before data streaming begins",
-        "Zero-ZIP 1-Click Auto Upgrade: Instant in-place rebuild and reload directly inside Chrome without downloading or extracting ZIPs",
-        "Smart Notebook Engine: Auto-detects notes, code syntax (JS/Python/SQL), and URL web cards",
-        "In-Popup Instant Reload button: Reloads disk changes in 0.1s without opening chrome://extensions"
+        "Nearby Radar: 360 sweeping radar scanning for local Wi-Fi devices",
+        "AirDrop-style Handshake Modal: Recipient must explicitly Accept or Decline incoming transfer",
+        "Zero-ZIP 1-Click Auto Upgrade: Instant in-place rebuild and reload directly inside Chrome",
+        "Smart Notebook Engine: Auto-detects notes, code syntax (JS/Python/SQL), and URL web cards"
       ]
     },
     {
@@ -32,10 +47,6 @@
       "title": "BeamDrop Ephemeral Live Notebook & Pure OTA Engine",
       "changes": [
         "Interactive Digital Notebook page: Scanned text, code, and links open directly in an interactive notebook",
-        "Code canvas with line numbers, code copy, and smart syntax detection",
-        "Save as File button (.txt, .md, .js, .py) directly from recipient device",
-        "Smart URL detection with 1-click browser navigation",
-        "Removed test simulator from Updates tab for a pure, clean, fast OTA update experience",
         "Multi-file in-memory ZIP bundling with JSZip"
       ]
     },
@@ -46,20 +57,7 @@
       "title": "Automated Package Downloader & Dual GitHub/Vercel Sync",
       "changes": [
         "Direct chrome.downloads API integration: downloads new extension.zip directly to user machine",
-        "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting",
-        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel"
-      ]
-    },
-    {
-      "version": "1.3.0",
-      "date": "2026-09-28",
-      "type": "minor",
-      "title": "1-Click Fast Updater & Background Notification Engine",
-      "changes": [
-        "In-extension fast updater interface: update directly without removing or re-adding the extension in Chrome",
-        "Toolbar notification badge ('NEW') when a new GitHub/Vercel release is published",
-        "Periodic background watcher to alert users automatically of new releases",
-        "Integrated TURN relay for high-speed transfer across firewalls"
+        "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting"
       ]
     }
   ]

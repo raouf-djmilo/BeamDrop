@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
               <FolderArchive className="w-3.5 h-3.5 text-amber-400" />
               <span>Extension</span>
               <span className="ml-1 px-1.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/60 text-[9px] font-mono font-bold">
-                v1.4.0
+                v1.5.2
               </span>
             </button>
 

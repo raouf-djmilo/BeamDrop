@@ -249,7 +249,7 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
 
           <div className="flex items-center space-x-3 shrink-0">
             <div className="px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-              Latest: <span className="text-cyan-400 font-bold">v1.4.0</span>
+              Latest: <span className="text-cyan-400 font-bold">v1.5.2</span>
             </div>
             <a
               href="/version.json"
@@ -267,7 +267,7 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
           <div className="bg-slate-950/90 border border-cyan-500/40 rounded-2xl p-4 space-y-2 shadow-lg shadow-cyan-950/20">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50">
-                v1.4.0 (LATEST)
+                v1.5.2 (LATEST)
               </span>
               <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
             </div>

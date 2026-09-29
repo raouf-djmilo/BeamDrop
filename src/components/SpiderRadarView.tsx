@@ -53,15 +53,13 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     signal: string;
     speed: string;
     myIp: string;
-    subnet: string;
     isHotspot: boolean;
   }>({
-    ssid: 'Local Wi-Fi Network',
-    band: '5 GHz / 2.4 GHz',
-    signal: '92%',
-    speed: 'Auto-Negotiated',
+    ssid: 'Connecting to Mesh...',
+    band: 'Wi-Fi / Mesh P2P',
+    signal: '100%',
+    speed: 'Direct WebRTC',
     myIp: 'Detecting...',
-    subnet: '192.168.1.0/24',
     isHotspot: false
   });
 
@@ -182,7 +180,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
               setNetworkMeta(prev => ({
                 ...prev,
                 myIp: privateLanIp,
-                subnet: prefix + '.0/24'
+                
               }));
             }
           }
@@ -280,7 +278,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                 signal: json.network.signal || prev.signal,
                 speed: json.network.speed || prev.speed,
                 myIp: json.network.myIp && json.network.myIp !== '127.0.0.1' ? json.network.myIp : prev.myIp,
-                subnet: json.network.subnet || prev.subnet,
+                
                 isHotspot: Boolean(json.network.isHotspot)
               }));
             }
@@ -429,11 +427,14 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
               </span>
             </div>
             <p className="text-xs text-slate-400 flex items-center flex-wrap gap-2 mt-0.5 font-mono">
-              <span>{networkMeta.band}</span>
+              <span className="inline-flex items-center text-emerald-400 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1.5 animate-pulse"></span>
+                Connected to Mesh
+              </span>
               <span>•</span>
-              <span className="text-cyan-400 font-semibold">Subnet: {networkMeta.subnet}</span>
+              <span className="text-cyan-300 font-bold">Room: {roomHash || 'Auto (Same Wi-Fi)'}</span>
               <span>•</span>
-              <span className="text-emerald-400 font-bold">This Device IP: {myDeviceInfo.ip}</span>
+              <span className="text-slate-300">Public IP: <strong className="text-white font-mono">{myDeviceInfo.ip}</strong></span>
             </p>
           </div>
         </div>

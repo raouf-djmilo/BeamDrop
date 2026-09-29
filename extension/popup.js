@@ -36,8 +36,8 @@ const EXTENSION_ICE_SERVERS = [
 
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-  ? (chrome.runtime.getManifest().version || '1.5.1')
-  : '1.5.1';
+  ? (chrome.runtime.getManifest().version || '1.5.2')
+  : '1.5.2';
 
 // Global App State
 let activeBridgeMode = 'files'; // 'files' | 'text'
@@ -1240,7 +1240,7 @@ function compareSemver(v1, v2) {
 }
 
 const BUILT_IN_LATEST_REGISTRY = {
-  version: '1.5.1',
+  version: '1.5.2',
   downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
     '📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
@@ -1301,7 +1301,7 @@ async function checkForUpdates(manual = false) {
   if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
   remoteVersionInfo = await fetchLatestCloudVersion();
-  const latestVer = remoteVersionInfo.version || '1.5.1';
+  const latestVer = remoteVersionInfo.version || '1.5.2';
   const isNewer = compareSemver(latestVer, currentVer) > 0;
 
   if (isNewer) {
@@ -1550,12 +1550,17 @@ async function detectLanAndRoomInExtension() {
         const json = await res.json();
         if (json && json.success && json.roomHash) {
           detectedRoomHash = json.roomHash;
-          if (telemetrySsid && !telemetrySsid.textContent.includes('•')) {
-            telemetrySsid.textContent = 'Wi-Fi (' + json.roomHash + ')';
+          if (telemetrySsid) {
+            telemetrySsid.textContent = '🟢 Connected to Mesh';
+          }
+          if (telemetryBandSpeed) {
+            telemetryBandSpeed.textContent = 'Room: ' + json.roomHash + ' • IP: ' + json.ip;
+          }
+          if (telemetrySubnetTag) {
+            telemetrySubnetTag.textContent = json.roomHash;
           }
           if (detectedMyLanIp === 'Detecting...') {
             detectedMyLanIp = json.ip;
-            if (telemetrySubnetTag) telemetrySubnetTag.textContent = detectedMyLanIp;
           }
           break;
         }
@@ -1663,8 +1668,8 @@ async function scanSpiderNetwork(isManual = false) {
       telemetryModeTag.style.borderColor = scanResult.network.isHotspot ? '#fbbf24' : '#38bdf8';
       telemetryModeTag.style.color = scanResult.network.isHotspot ? '#fbbf24' : '#38bdf8';
     }
-    if (telemetrySubnetTag) {
-      telemetrySubnetTag.textContent = scanResult.network.myIp || 'Local Station';
+    if (telemetrySubnetTag && detectedRoomHash) {
+      telemetrySubnetTag.textContent = detectedRoomHash;
     }
     if (chipWifiText) {
       chipWifiText.textContent = scanResult.network.isHotspot

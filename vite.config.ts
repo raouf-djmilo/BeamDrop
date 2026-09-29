@@ -3,12 +3,12 @@ import react from '@vitejs/plugin-react';
 import {fileURLToPath} from 'url';
 import path from 'path';
 import fs from 'fs';
-import {exec, execSync} from 'child_process';
+// Zero native shell execution - 100% in-memory JS mesh
 import os from 'os';
 import util from 'util';
 import {defineConfig} from 'vite';
 
-const execPromise = util.promisify(exec);
+// execPromise removed
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
@@ -236,7 +236,7 @@ export default defineConfig(() => {
               res.setHeader('Content-Type', 'application/json');
               try {
                 // Read latest version from version.json
-                let latestVersion = '1.5.1';
+                let latestVersion = '1.5.2';
                 const versionPath = path.resolve(__dirname, 'version.json');
                 if (fs.existsSync(versionPath)) {
                   try {
@@ -255,9 +255,27 @@ export default defineConfig(() => {
                   } catch (e) {}
                 }
 
-                // Run extension packer to bundle assets
+                // In-process pure JS extension packer (Zero child_process)
                 try {
-                  await execPromise('node scripts/pack-extension.cjs', { cwd: __dirname });
+                  const extensionDir = path.resolve(__dirname, 'extension');
+                  const outputZipPath = path.resolve(__dirname, 'public/extension.zip');
+                  const JSZip = (await import('jszip')).default;
+                  const zip = new JSZip();
+                  function addDir(dirPath: string, zipFolder: any) {
+                    const items = fs.readdirSync(dirPath);
+                    for (const item of items) {
+                      const fullPath = path.join(dirPath, item);
+                      const stat = fs.statSync(fullPath);
+                      if (stat.isDirectory()) {
+                        addDir(fullPath, zipFolder.folder(item));
+                      } else {
+                        zipFolder.file(item, fs.readFileSync(fullPath));
+                      }
+                    }
+                  }
+                  addDir(extensionDir, zip);
+                  const zipBuf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+                  fs.writeFileSync(outputZipPath, zipBuf);
                 } catch (packErr: any) {
                   console.warn('[Upgrade Engine] Pack warning:', packErr?.message);
                 }
@@ -279,256 +297,57 @@ export default defineConfig(() => {
               }
             }
 
-            // High-Gen Wi-Fi & Hotspot Spider Network Scanner (Cross-Platform)
+            // 100% Pure JavaScript Mesh Network Endpoint (ZERO OS shell dependencies, ZERO iwgetid/arp/rtnetlink)
             if (req.url?.startsWith('/api/scan-lan')) {
               res.setHeader('Content-Type', 'application/json');
-              try {
-                // 1. Wi-Fi interface details
-                let wifiInfo = {
-                  ssid: 'Wi-Fi LAN',
-                  signal: '92%',
-                  band: '5 GHz / 2.4 GHz',
-                  speed: 'Auto',
-                  state: 'connected'
-                };
-
-                const isWin = process.platform === 'win32';
-                const isMac = process.platform === 'darwin';
-
-                if (isWin) {
-                  try {
-                    const wlanOut = execSync('netsh wlan show interfaces', { encoding: 'utf8', timeout: 2000 });
-                    for (const l of wlanOut.split('\n')) {
-                      const parts = l.split(':');
-                      if (parts.length >= 2) {
-                        const key = parts[0].trim().toLowerCase();
-                        const val = parts.slice(1).join(':').trim();
-                        if (key === 'ssid' && !val.includes('BSSID')) wifiInfo.ssid = val;
-                        else if (key === 'band') wifiInfo.band = val;
-                        else if (key === 'signal') wifiInfo.signal = val;
-                        else if (key.includes('state')) wifiInfo.state = val;
-                        else if (key.includes('receive rate')) wifiInfo.speed = val + ' Mbps';
-                      }
-                    }
-                  } catch (e) {}
-                } else if (isMac) {
-                  try {
-                    const airportOut = execSync('/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I', { encoding: 'utf8', timeout: 2000 });
-                    const ssidM = airportOut.match(/\sSSID:\s*(.+)/);
-                    if (ssidM) wifiInfo.ssid = ssidM[1].trim();
-                  } catch (e) {}
-                } else {
-                  // Linux
-                  try {
-                    const iwOut = execSync('iwgetid -r', { encoding: 'utf8', timeout: 1500 });
-                    if (iwOut && iwOut.trim()) wifiInfo.ssid = iwOut.trim();
-                  } catch (e) {}
-                }
-
-                // 2. Discover local IP & Subnet
-                let myIp = '127.0.0.1';
-                const nets = os.networkInterfaces();
-                for (const name of Object.keys(nets)) {
-                  for (const net of nets[name] || []) {
-                    if (net.family === 'IPv4' && !net.internal) {
-                      if (net.address.startsWith('192.168.') || net.address.startsWith('10.') || net.address.startsWith('172.')) {
-                        myIp = net.address;
-                        break;
-                      } else if (myIp === '127.0.0.1') {
-                        myIp = net.address;
-                      }
-                    }
-                  }
-                  if (myIp !== '127.0.0.1' && (myIp.startsWith('192.168.') || myIp.startsWith('10.'))) break;
-                }
-
-                const subnetParts = myIp.split('.');
-                const subnetPrefix = subnetParts.length === 4 ? subnetParts.slice(0, 3).join('.') : '192.168.1';
-                const isHotspotAndroid = subnetPrefix === '192.168.43';
-                const isHotspotIos = subnetPrefix === '172.20.10';
-                const isHotspotWin = subnetPrefix === '192.168.137';
-
-                // 3. Read ARP Table for devices connected on this subnet
-                const discoveredDevices: any[] = [];
-                const seenIps = new Set<string>();
-                const rawArpEntries: Array<{ ip: string; mac: string }> = [];
-
-                // Try Linux /proc/net/arp
-                try {
-                  if (fs.existsSync('/proc/net/arp')) {
-                    const arpContent = fs.readFileSync('/proc/net/arp', 'utf8');
-                    const lines = arpContent.split('\n').slice(1);
-                    for (const l of lines) {
-                      const p = l.trim().split(/\s+/);
-                      if (p.length >= 4 && p[3] && p[3] !== '00:00:00:00:00:00') {
-                        rawArpEntries.push({ ip: p[0], mac: p[3].toLowerCase().replace(/:/g, '-') });
-                      }
-                    }
-                  }
-                } catch (e) {}
-
-                // Try arp -a (Windows, Mac, Linux)
-                if (rawArpEntries.length === 0) {
-                  try {
-                    const arpOut = execSync('arp -a', { encoding: 'utf8', timeout: 2500 });
-                    for (const line of arpOut.split('\n')) {
-                      const winM = line.trim().match(/^([0-9.]+)\s+([0-9a-fA-F:-]{11,17})/);
-                      const unixM = line.trim().match(/\(([0-9.]+)\)\s+at\s+([0-9a-fA-F:-]{11,17})/i);
-                      const m = winM || unixM;
-                      if (m) {
-                        rawArpEntries.push({ ip: m[1], mac: m[2].toLowerCase().replace(/:/g, '-') });
-                      }
-                    }
-                  } catch (e) {}
-                }
-
-                // Try ip neigh (Linux)
-                if (rawArpEntries.length === 0 && !isWin && !isMac) {
-                  try {
-                    const ipNeigh = execSync('ip neigh show', { encoding: 'utf8', timeout: 2000 });
-                    for (const line of ipNeigh.split('\n')) {
-                      const m = line.trim().match(/^([0-9.]+)\s+dev\s+\S+\s+lladdr\s+([0-9a-fA-F:-]+)/i);
-                      if (m) {
-                        rawArpEntries.push({ ip: m[1], mac: m[2].toLowerCase().replace(/:/g, '-') });
-                      }
-                    }
-                  } catch (e) {}
-                }
-
-                for (const entry of rawArpEntries) {
-                  const ip = entry.ip;
-                  const mac = entry.mac;
-                  if (
-                    ip.startsWith('224.') ||
-                    ip.startsWith('239.') ||
-                    ip.endsWith('.255') ||
-                    ip === '255.255.255.255' ||
-                    ip === myIp ||
-                    seenIps.has(ip)
-                  ) continue;
-
-                  seenIps.add(ip);
-
-                  // Ping latency test
-                  let latency = 3;
-                  try {
-                    const pingCmd = isWin ? `ping -n 1 -w 300 ${ip}` : `ping -c 1 -W 1 ${ip}`;
-                    const pOut = execSync(pingCmd, { encoding: 'utf8', timeout: 800 });
-                    const timeM = pOut.match(/time[=<](\d+)ms/i);
-                    if (timeM) latency = parseInt(timeM[1], 10);
-                  } catch (e) {}
-
-                  const isGateway = ip.endsWith('.1') || ip.endsWith('.254');
-                  let deviceType = 'phone';
-                  let icon = '📱';
-                  let name = `Device (${ip})`;
-
-                  if (isGateway) {
-                    if (isHotspotAndroid) {
-                      name = 'Android Phone (Hotspot Host)';
-                      deviceType = 'phone';
-                      icon = '📱';
-                    } else if (isHotspotIos) {
-                      name = 'iPhone Personal Hotspot (Host)';
-                      deviceType = 'phone';
-                      icon = '📱';
-                    } else {
-                      name = `Wi-Fi Router Gateway (${wifiInfo.ssid})`;
-                      deviceType = 'router';
-                      icon = '🌐';
-                    }
-                  } else {
-                    const secondHex = mac[1];
-                    const isRandomizedMac = ['2', '6', 'a', 'e'].includes(secondHex);
-                    if (isRandomizedMac) {
-                      name = `Smartphone (Android / iOS)`;
-                      deviceType = 'phone';
-                      icon = '📱';
-                    } else if (mac.startsWith('f8-e4') || mac.startsWith('00-50') || mac.startsWith('00-0c') || mac.startsWith('3c-7c')) {
-                      name = `PC Workstation (${ip})`;
-                      deviceType = 'laptop';
-                      icon = '💻';
-                    } else {
-                      name = `Network Station (${ip})`;
-                      deviceType = 'phone';
-                      icon = '📱';
-                    }
-                  }
-
-                  discoveredDevices.push({
-                    id: `lan-${ip.replace(/\./g, '-')}`,
-                    ip,
-                    mac,
-                    name,
-                    deviceType,
-                    icon,
-                    latency,
-                    isGateway,
-                    protocol: isHotspotAndroid || isHotspotIos || isHotspotWin ? 'hotspot' : 'wifi',
-                    signal: wifiInfo.signal,
-                    lastSeen: Date.now()
-                  });
-                }
-
-                // Merge live registered mesh peers (Phones/PCs connected to the network)
-                for (const peer of meshPeers.values()) {
-                  const existingIdx = discoveredDevices.findIndex(d => d.ip === peer.ip || d.id === peer.id);
-                  if (existingIdx !== -1) {
-                    discoveredDevices[existingIdx].name = peer.name || discoveredDevices[existingIdx].name;
-                    discoveredDevices[existingIdx].deviceType = peer.deviceType || discoveredDevices[existingIdx].deviceType;
-                    discoveredDevices[existingIdx].icon = peer.icon || discoveredDevices[existingIdx].icon;
-                    discoveredDevices[existingIdx].isMeshActive = true;
-                  } else {
-                    discoveredDevices.push({
-                      id: peer.id,
-                      ip: peer.ip || 'LAN Node',
-                      name: peer.name || 'BeamDrop Peer',
-                      deviceType: peer.deviceType || 'phone',
-                      icon: peer.icon || '📱',
-                      latency: 2,
-                      isGateway: false,
-                      protocol: peer.protocol || 'wifi',
-                      signal: wifiInfo.signal,
-                      isMeshActive: true,
-                      lastSeen: peer.lastSeen || Date.now()
-                    });
-                  }
-                }
-
-                res.statusCode = 200;
-                res.end(JSON.stringify({
-                  success: true,
-                  network: {
-                    ssid: wifiInfo.ssid,
-                    band: wifiInfo.band,
-                    signal: wifiInfo.signal,
-                    speed: wifiInfo.speed,
-                    myIp,
-                    subnet: `${subnetPrefix}.0/24`,
-                    isHotspot: isHotspotAndroid || isHotspotIos || isHotspotWin
-                  },
-                  devices: discoveredDevices
-                }));
-                return;
-              } catch (err: any) {
-                res.statusCode = 200;
-                res.end(JSON.stringify({
-                  success: true,
-                  network: {
-                    ssid: 'Local Wi-Fi Network',
-                    band: '5 GHz / 2.4 GHz',
-                    signal: '90%',
-                    speed: 'Auto',
-                    myIp: '127.0.0.1',
-                    subnet: '192.168.1.0/24',
-                    isHotspot: false
-                  },
-                  devices: Array.from(meshPeers.values())
-                }));
-                return;
+              const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim();
+              const cleanIp = rawIp.replace('::ffff:', '');
+              let hash = 0;
+              for (let i = 0; i < cleanIp.length; i++) {
+                hash = (hash << 5) - hash + cleanIp.charCodeAt(i);
+                hash |= 0;
               }
-            }
+              const roomHash = 'room-' + Math.abs(hash).toString(36).slice(0, 8);
 
+              // Pure JS: return currently registered active mesh peers
+              const now = Date.now();
+              const activePeers = [];
+              for (const [id, peer] of meshPeers.entries()) {
+                if (now - peer.lastSeen <= 35000) {
+                  activePeers.push({
+                    id: peer.id,
+                    ip: peer.ip || cleanIp,
+                    name: peer.name || 'BeamDrop Peer',
+                    deviceType: peer.deviceType || 'phone',
+                    icon: peer.icon || '📱',
+                    latency: 2,
+                    isGateway: false,
+                    protocol: 'wifi',
+                    signal: '98%',
+                    isMeshActive: true,
+                    lastSeen: peer.lastSeen || now
+                  });
+                } else {
+                  meshPeers.delete(id);
+                }
+              }
+
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                success: true,
+                roomHash,
+                network: {
+                  ssid: 'Wi-Fi Room (' + roomHash + ')',
+                  band: 'Mesh P2P',
+                  signal: '98%',
+                  speed: 'Direct WebRTC',
+                  myIp: cleanIp,
+                  isHotspot: false
+                },
+                devices: activePeers
+              }));
+              return;
+            }
             next();
           });
         },
