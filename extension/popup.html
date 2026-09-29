@@ -394,6 +394,21 @@
   <!-- STAGE 6: NEARBY RADAR (Wi-Fi LAN & Bluetooth Discovery) -->
   <main id="stageNearby" class="stage-container" style="display: none;">
     
+    <!-- Live Network Telemetry HUD Bar -->
+    <div class="network-telemetry-hud">
+      <div class="telemetry-wifi-badge">
+        <span class="wifi-wave-icon">📶</span>
+        <div class="telemetry-info">
+          <span id="telemetrySsid" class="telemetry-ssid">IdoomFibre Wi-Fi</span>
+          <span id="telemetryBandSpeed" class="telemetry-sub">5 GHz • 1560 Mbps</span>
+        </div>
+      </div>
+      <div class="telemetry-tags">
+        <span id="telemetryModeTag" class="telemetry-pill">WI-FI LAN</span>
+        <span id="telemetrySubnetTag" class="telemetry-sub-pill">192.168.100.9</span>
+      </div>
+    </div>
+
     <!-- Top Identity & Discovery Controls -->
     <div class="nearby-top-card">
       <div class="device-self-identity">
@@ -411,7 +426,7 @@
       <div class="discovery-channels-bar">
         <div class="channel-chip active" id="chipWifiStatus" title="Local Wi-Fi Subnet &amp; Hotspot Mesh Active">
           <span class="chip-dot"></span>
-          <span>📶 Wi-Fi Hotspot Mesh</span>
+          <span id="chipWifiText">📶 Wi-Fi Hotspot Mesh</span>
         </div>
         <button class="channel-chip btn-scan-bt" id="btnScanBluetooth" type="button" title="Scan for nearby Bluetooth LE devices">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -422,14 +437,16 @@
       </div>
     </div>
 
-    <!-- Interactive Radar Visualizer Screen -->
+    <!-- Interactive Radar Visualizer Screen (Spider Net HUD) -->
     <div class="radar-visualizer-card">
       <div class="radar-screen">
-        <div class="radar-grid-ring r1"></div>
-        <div class="radar-grid-ring r2"></div>
-        <div class="radar-grid-ring r3"></div>
-        <div class="radar-crosshair-h"></div>
-        <div class="radar-crosshair-v"></div>
+        <div class="radar-grid-ring r1" title="Direct / Hotspot (< 10ms)"></div>
+        <div class="radar-grid-ring r2" title="Wi-Fi Mobile Phones (10-30ms)"></div>
+        <div class="radar-grid-ring r3" title="PCs &amp; Network Infra (> 30ms)"></div>
+        <div class="radar-spoke sp-h"></div>
+        <div class="radar-spoke sp-v"></div>
+        <div class="radar-spoke sp-d1"></div>
+        <div class="radar-spoke sp-d2"></div>
         <div class="radar-sweep-beam"></div>
 
         <!-- Center User Blip -->
@@ -443,29 +460,37 @@
 
       <div class="radar-status-caption">
         <span class="pulse-radar-dot"></span>
-        <span id="radarScanningStatusText">Scanning Wi-Fi hotspot &amp; Bluetooth...</span>
+        <span id="radarScanningStatusText">Spider Engine scanning Wi-Fi &amp; Hotspot...</span>
       </div>
     </div>
 
     <!-- Discovered Nearby Devices Section -->
     <div class="nearby-devices-section">
       <div class="nearby-section-header">
-        <span class="nearby-section-title">Discovered Devices (<span id="nearbyCountLabel">0</span>)</span>
+        <span class="nearby-section-title">Connected Devices (<span id="nearbyCountLabel">0</span>)</span>
         <button id="btnRefreshRadar" class="btn-refresh-radar" type="button" title="Rescan network">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
           </svg>
-          <span>Refresh</span>
+          <span>Scan Network</span>
         </button>
+      </div>
+
+      <!-- Device Filter Pills -->
+      <div class="radar-filter-tabs">
+        <button id="filterBtnAll" class="radar-filter-btn active" type="button">All (<span id="filterCountAll">0</span>)</button>
+        <button id="filterBtnPhones" class="radar-filter-btn" type="button">📱 Phones (<span id="filterCountPhones">0</span>)</button>
+        <button id="filterBtnPcs" class="radar-filter-btn" type="button">💻 PCs (<span id="filterCountPcs">0</span>)</button>
+        <button id="filterBtnNetwork" class="radar-filter-btn" type="button">🌐 Gateway (<span id="filterCountNetwork">0</span>)</button>
       </div>
 
       <!-- Devices List Container -->
       <div id="nearbyDevicesList" class="nearby-devices-list">
         <div class="nearby-empty-state" id="nearbyEmptyState">
           <div class="nearby-empty-icon">📡</div>
-          <p class="nearby-empty-title">Searching for Nearby Devices</p>
+          <p class="nearby-empty-title">Scanning Local Wi-Fi Subnet</p>
           <p class="nearby-empty-sub">
-            Connect devices to the same Wi-Fi or Mobile Hotspot, or open BeamDrop on a phone or laptop nearby.
+            Connected phones (Android &amp; iPhone), PCs, and Hotspot devices appear here automatically.
           </p>
         </div>
       </div>

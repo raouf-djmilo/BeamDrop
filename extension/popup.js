@@ -88,6 +88,23 @@ const nearbyCountLabel = document.getElementById('nearbyCountLabel');
 const btnRefreshRadar = document.getElementById('btnRefreshRadar');
 const nearbyEmptyState = document.getElementById('nearbyEmptyState');
 
+// Network Telemetry HUD Elements
+const telemetrySsid = document.getElementById('telemetrySsid');
+const telemetryBandSpeed = document.getElementById('telemetryBandSpeed');
+const telemetryModeTag = document.getElementById('telemetryModeTag');
+const telemetrySubnetTag = document.getElementById('telemetrySubnetTag');
+const chipWifiText = document.getElementById('chipWifiText');
+
+// Category Filter Buttons & Badges
+const filterBtnAll = document.getElementById('filterBtnAll');
+const filterBtnPhones = document.getElementById('filterBtnPhones');
+const filterBtnPcs = document.getElementById('filterBtnPcs');
+const filterBtnNetwork = document.getElementById('filterBtnNetwork');
+const filterCountAll = document.getElementById('filterCountAll');
+const filterCountPhones = document.getElementById('filterCountPhones');
+const filterCountPcs = document.getElementById('filterCountPcs');
+const filterCountNetwork = document.getElementById('filterCountNetwork');
+
 // Incoming Transfer Order Modal Elements
 const incomingTransferModal = document.getElementById('incomingTransferModal');
 const incomingSenderAvatar = document.getElementById('incomingSenderAvatar');
@@ -1375,10 +1392,33 @@ let myDeviceType = 'laptop';
 let myDeviceIcon = '💻';
 let myDiscoveryPeer = null;
 let myDiscoveryPeerId = null;
+// ==========================================
+// STAGE 6: SPIDER RADAR & WI-FI HOTSPOT DISCOVERY ENGINE
+// ==========================================
 let isDiscoveringNearby = false;
 let nearbyScanTimer = null;
 const discoveredPeersMap = new Map();
 let pendingIncomingTransfer = null;
+let activeRadarFilter = 'all'; // 'all' | 'phone' | 'laptop' | 'router'
+let currentNetworkMeta = null;
+
+// Audio feedback for radar discovery
+function playRadarBlipSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.08);
+  } catch (e) {}
+}
 
 // Device Identity Detection
 function detectLocalDeviceMeta() {
@@ -1426,6 +1466,116 @@ async function initDeviceIdentity() {
 
 // Call identity setup on startup
 initDeviceIdentity();
+scanSpiderNetwork(); // Pre-scan immediately so radar telemetry & badge are ready
+
+// Scan LAN & Hotspot via local dev server Spider API
+async function scanSpiderNetwork(isManual = false) {
+  if (isManual && radarScanningStatusText) {
+    radarScanningStatusText.textContent = '⚡ Spider sweep in progress...';
+  }
+
+  const ports = [3001, 3000];
+  let scanResult = null;
+
+  for (const port of ports) {
+    try {
+      const resp = await fetch(`http://localhost:${port}/api/scan-lan?_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json && json.success) {
+          scanResult = json;
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (scanResult && scanResult.network) {
+    currentNetworkMeta = scanResult.network;
+
+    // Update Telemetry HUD Bar
+    if (telemetrySsid) {
+      telemetrySsid.textContent = scanResult.network.ssid || 'Wi-Fi Network';
+    }
+    if (telemetryBandSpeed) {
+      telemetryBandSpeed.textContent = `${scanResult.network.band || '5 GHz'} • ${scanResult.network.speed || '1200 Mbps'} (${scanResult.network.signal || '90%'})`;
+    }
+    if (telemetryModeTag) {
+      telemetryModeTag.textContent = scanResult.network.isHotspot ? 'HOTSPOT MESH' : 'WI-FI LAN';
+      telemetryModeTag.style.borderColor = scanResult.network.isHotspot ? '#fbbf24' : '#38bdf8';
+      telemetryModeTag.style.color = scanResult.network.isHotspot ? '#fbbf24' : '#38bdf8';
+    }
+    if (telemetrySubnetTag) {
+      telemetrySubnetTag.textContent = scanResult.network.myIp || '192.168.100.9';
+    }
+    if (chipWifiText) {
+      chipWifiText.textContent = scanResult.network.isHotspot
+        ? '🔥 Mobile Hotspot Mode'
+        : `📶 ${scanResult.network.ssid}`;
+    }
+
+    let newlyDiscoveredCount = 0;
+
+    // Register active devices from real ARP table & telemetry
+    if (Array.isArray(scanResult.devices)) {
+      scanResult.devices.forEach(dev => {
+        const isNew = !discoveredPeersMap.has(dev.id);
+        if (isNew) newlyDiscoveredCount++;
+
+        const octet = parseInt((dev.ip || '1').split('.').pop(), 10) || 1;
+        // Deterministic angle using golden ratio dispersion so nodes don't collide
+        const angle = ((octet * 137.5) % 360) * (Math.PI / 180);
+
+        let dist = 52;
+        if (dev.isGateway) {
+          dist = 22; // Inner hub for router/hotspot host
+        } else if (dev.deviceType === 'phone') {
+          dist = 36 + ((octet % 3) * 5); // First orbit: smartphones (Android / iPhone)
+        } else if (dev.deviceType === 'laptop') {
+          dist = 56 + ((octet % 3) * 5); // Second orbit: PCs & Laptops
+        } else {
+          dist = 72; // Outer orbit: other smart devices
+        }
+
+        const x = Math.min(88, Math.max(12, 50 + Math.cos(angle) * dist));
+        const y = Math.min(88, Math.max(12, 50 + Math.sin(angle) * dist));
+
+        discoveredPeersMap.set(dev.id, {
+          id: dev.id,
+          ip: dev.ip,
+          mac: dev.mac,
+          name: dev.name,
+          deviceType: dev.deviceType,
+          icon: dev.icon,
+          latency: dev.latency || 5,
+          isGateway: dev.isGateway,
+          protocol: dev.protocol || 'wifi',
+          signal: dev.signal || scanResult.network.signal,
+          lastSeen: Date.now(),
+          x,
+          y
+        });
+      });
+    }
+
+    if (newlyDiscoveredCount > 0) {
+      playRadarBlipSound();
+    }
+
+    if (radarScanningStatusText) {
+      const devCount = discoveredPeersMap.size;
+      radarScanningStatusText.textContent = `Spider Radar: ${devCount} active device${devCount === 1 ? '' : 's'} on ${scanResult.network.isHotspot ? 'Hotspot' : 'Wi-Fi'}`;
+    }
+  } else {
+    if (radarScanningStatusText) {
+      radarScanningStatusText.textContent = `Scanning local Wi-Fi mesh & Bluetooth...`;
+    }
+  }
+
+  renderNearbyDevices();
+}
 
 // Broadcast Channel for intra-machine & local tab discovery
 const localMeshBroadcast = (typeof BroadcastChannel !== 'undefined')
@@ -1438,7 +1588,6 @@ if (localMeshBroadcast) {
     if (!data) return;
     if (data.type === 'RADAR_BEACON' && data.id !== myDiscoveryPeerId) {
       registerDiscoveredPeer(data);
-      // Respond with presence
       localMeshBroadcast.postMessage({
         type: 'RADAR_PONG',
         id: myDiscoveryPeerId,
@@ -1458,16 +1607,18 @@ function registerDiscoveredPeer(peerData) {
   if (!peerData || !peerData.id) return;
   const existing = discoveredPeersMap.get(peerData.id);
   const angle = existing ? existing.angle : Math.random() * Math.PI * 2;
-  const dist = existing ? existing.dist : 24 + Math.random() * 40;
-  const x = 50 + Math.cos(angle) * dist;
-  const y = 50 + Math.sin(angle) * dist;
+  const dist = existing ? existing.dist : 36 + Math.random() * 25;
+  const x = Math.min(88, Math.max(12, 50 + Math.cos(angle) * dist));
+  const y = Math.min(88, Math.max(12, 50 + Math.sin(angle) * dist));
 
   discoveredPeersMap.set(peerData.id, {
     id: peerData.id,
+    ip: peerData.ip || '192.168.100.x',
     name: peerData.name || 'Nearby Device',
-    deviceType: peerData.deviceType || 'laptop',
+    deviceType: peerData.deviceType || 'phone',
     icon: peerData.icon || (peerData.deviceType === 'phone' ? '📱' : '💻'),
     protocol: peerData.protocol || 'wifi',
+    latency: peerData.latency || 4,
     lastSeen: Date.now(),
     x, y, angle, dist
   });
@@ -1491,35 +1642,19 @@ function broadcastPresenceBeacon() {
   }
 }
 
-// Start Nearby Radar Discovery Loop
+// Start Spider Radar Discovery Loop
 function startNearbyDiscovery() {
   isDiscoveringNearby = true;
-  if (radarScanningStatusText) {
-    radarScanningStatusText.textContent = 'Scanning Wi-Fi hotspot & Bluetooth...';
-  }
-
   initDiscoveryPeerListener();
   broadcastPresenceBeacon();
+  scanSpiderNetwork();
 
   if (nearbyScanTimer) clearInterval(nearbyScanTimer);
   nearbyScanTimer = setInterval(() => {
     broadcastPresenceBeacon();
+    scanSpiderNetwork();
     pruneStaleNearbyPeers();
-  }, 4000);
-
-  // Auto-detect a nearby device for immediate user feedback if none are found in 2s
-  setTimeout(() => {
-    if (discoveredPeersMap.size === 0 && isDiscoveringNearby) {
-      registerDiscoveredPeer({
-        id: 'peer-hotspot-phone',
-        name: 'Nearby Phone (Wi-Fi Hotspot)',
-        deviceType: 'phone',
-        icon: '📱',
-        protocol: 'wifi',
-        timestamp: Date.now()
-      });
-    }
-  }, 2000);
+  }, 3500);
 
   renderNearbyDevices();
 }
@@ -1528,7 +1663,7 @@ function pruneStaleNearbyPeers() {
   const now = Date.now();
   let changed = false;
   for (const [id, peer] of discoveredPeersMap.entries()) {
-    if (now - peer.lastSeen > 25000 && !id.startsWith('peer-hotspot')) {
+    if (now - peer.lastSeen > 30000 && !peer.isGateway) {
       discoveredPeersMap.delete(id);
       changed = true;
     }
@@ -1576,52 +1711,109 @@ function initDiscoveryPeerListener() {
   }
 }
 
-// Render Discovered Devices & Radar Blips
+// Category Filter Controller
+function setRadarFilter(filter) {
+  activeRadarFilter = filter;
+  [filterBtnAll, filterBtnPhones, filterBtnPcs, filterBtnNetwork].forEach(btn => {
+    if (btn) btn.classList.remove('active');
+  });
+  if (filter === 'all' && filterBtnAll) filterBtnAll.classList.add('active');
+  if (filter === 'phone' && filterBtnPhones) filterBtnPhones.classList.add('active');
+  if (filter === 'laptop' && filterBtnPcs) filterBtnPcs.classList.add('active');
+  if (filter === 'router' && filterBtnNetwork) filterBtnNetwork.classList.add('active');
+  renderNearbyDevices();
+}
+
+if (filterBtnAll) filterBtnAll.addEventListener('click', () => setRadarFilter('all'));
+if (filterBtnPhones) filterBtnPhones.addEventListener('click', () => setRadarFilter('phone'));
+if (filterBtnPcs) filterBtnPcs.addEventListener('click', () => setRadarFilter('laptop'));
+if (filterBtnNetwork) filterBtnNetwork.addEventListener('click', () => setRadarFilter('router'));
+
+// Render Discovered Devices & Spider Radar Blips
 function renderNearbyDevices() {
   if (!nearbyDevicesList) return;
 
-  const peers = Array.from(discoveredPeersMap.values());
-  const count = peers.length;
+  const allPeers = Array.from(discoveredPeersMap.values());
+  const phoneCount = allPeers.filter(p => p.deviceType === 'phone').length;
+  const pcCount = allPeers.filter(p => p.deviceType === 'laptop' || p.deviceType === 'desktop').length;
+  const routerCount = allPeers.filter(p => p.deviceType === 'router').length;
 
-  if (nearbyCountLabel) nearbyCountLabel.textContent = count;
+  if (filterCountAll) filterCountAll.textContent = allPeers.length;
+  if (filterCountPhones) filterCountPhones.textContent = phoneCount;
+  if (filterCountPcs) filterCountPcs.textContent = pcCount;
+  if (filterCountNetwork) filterCountNetwork.textContent = routerCount;
+
+  if (nearbyCountLabel) nearbyCountLabel.textContent = allPeers.length;
   if (navNearbyCountBadge) {
-    if (count > 0) {
-      navNearbyCountBadge.textContent = count;
+    if (allPeers.length > 0) {
+      navNearbyCountBadge.textContent = allPeers.length;
       navNearbyCountBadge.style.display = 'inline-block';
     } else {
       navNearbyCountBadge.style.display = 'none';
     }
   }
 
-  // Render Radar Blips
+  // Filter peers by active category
+  const filteredPeers = allPeers.filter(p => {
+    if (activeRadarFilter === 'all') return true;
+    if (activeRadarFilter === 'phone') return p.deviceType === 'phone';
+    if (activeRadarFilter === 'laptop') return p.deviceType === 'laptop' || p.deviceType === 'desktop';
+    if (activeRadarFilter === 'router') return p.deviceType === 'router';
+    return true;
+  });
+
+  // Render Spider Radar Blips
   if (radarBlipsContainer) {
     radarBlipsContainer.innerHTML = '';
-    peers.forEach(peer => {
+    filteredPeers.forEach(peer => {
       const blip = document.createElement('div');
-      blip.className = 'radar-blip';
+      blip.className = `radar-blip ${peer.deviceType || 'phone'}`;
       blip.style.left = `${peer.x}%`;
       blip.style.top = `${peer.y}%`;
-      blip.title = `${peer.name} (${peer.protocol.toUpperCase()})`;
-      blip.addEventListener('click', () => initiateDirectBeam(peer));
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'blip-tooltip';
+      tooltip.textContent = `${peer.name} (${peer.latency || 5}ms)`;
+      blip.appendChild(tooltip);
+
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = peer.icon || '📱';
+      blip.appendChild(iconSpan);
+
+      blip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        initiateDirectBeam(peer);
+      });
       radarBlipsContainer.appendChild(blip);
     });
   }
 
-  // Render List
-  if (count === 0) {
+  // Render Device List Cards
+  if (filteredPeers.length === 0) {
     if (nearbyEmptyState) nearbyEmptyState.style.display = 'block';
     nearbyDevicesList.querySelectorAll('.nearby-device-card').forEach(el => el.remove());
   } else {
     if (nearbyEmptyState) nearbyEmptyState.style.display = 'none';
     nearbyDevicesList.querySelectorAll('.nearby-device-card').forEach(el => el.remove());
 
-    peers.forEach(peer => {
+    filteredPeers.forEach(peer => {
       const card = document.createElement('div');
       card.className = 'nearby-device-card';
 
       const isBt = peer.protocol === 'bt';
-      const protoBadgeClass = isBt ? 'device-protocol-badge bt' : 'device-protocol-badge wifi';
-      const protoLabel = isBt ? '🔵 Bluetooth LE' : '📶 Wi-Fi Hotspot';
+      const isHotspot = peer.protocol === 'hotspot';
+      let protoLabel = '📶 Wi-Fi 5GHz';
+      let protoClass = 'device-protocol-badge wifi';
+      if (isBt) {
+        protoLabel = '🔵 Bluetooth';
+        protoClass = 'device-protocol-badge bt';
+      } else if (isHotspot) {
+        protoLabel = '🔥 Hotspot';
+        protoClass = 'device-protocol-badge wifi';
+      }
+
+      const maskedMac = peer.mac ? peer.mac.replace(/^([0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2})-.*-([0-9a-f]{2})$/i, '$1-**-**-$2') : '';
+      const pingText = peer.latency ? `${peer.latency}ms` : '< 5ms';
 
       card.innerHTML = `
         <div class="device-avatar-wrap">
@@ -1631,11 +1823,15 @@ function renderNearbyDevices() {
         <div class="device-details-box">
           <div class="device-title-row">
             <span class="device-name-text">${escapeHtml(peer.name)}</span>
-            <span class="${protoBadgeClass}">${protoLabel}</span>
+            <span class="${protoClass}">${protoLabel}</span>
           </div>
-          <p class="device-sub-info">Zero-Cloud Direct Bridge</p>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <span style="font-size: 10px; color: #38bdf8; font-family: ui-monospace, monospace;">${peer.ip || 'Local Node'}</span>
+            <span style="font-size: 9px; color: #34d399; font-weight: 700; background: rgba(52, 211, 153, 0.1); padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);">${pingText}</span>
+            ${maskedMac ? `<span style="font-size: 8.5px; color: #64748b; font-family: ui-monospace, monospace;">${maskedMac}</span>` : ''}
+          </div>
         </div>
-        <button class="btn-beam-device" type="button" title="Send staged object to ${escapeHtml(peer.name)}">
+        <button class="btn-beam-device" type="button" title="Send object to ${escapeHtml(peer.name)}">
           <span>⚡ Beam</span>
         </button>
       `;
@@ -1671,9 +1867,10 @@ if (btnScanBluetooth) {
           deviceType: 'phone',
           icon: '📱',
           protocol: 'bt',
+          latency: 8,
           lastSeen: Date.now(),
-          x: 50 + (Math.random() * 50 - 25),
-          y: 50 + (Math.random() * 50 - 25)
+          x: 50 + (Math.random() * 40 - 20),
+          y: 50 + (Math.random() * 40 - 20)
         });
         renderNearbyDevices();
         if (btnScanBtText) btnScanBtText.textContent = '✓ Found!';
@@ -1688,11 +1885,7 @@ if (btnScanBluetooth) {
 
 if (btnRefreshRadar) {
   btnRefreshRadar.addEventListener('click', () => {
-    if (radarScanningStatusText) radarScanningStatusText.textContent = 'Refreshing network peers...';
-    broadcastPresenceBeacon();
-    setTimeout(() => {
-      if (radarScanningStatusText) radarScanningStatusText.textContent = 'Scanning Wi-Fi hotspot & Bluetooth...';
-    }, 1500);
+    scanSpiderNetwork(true);
   });
 }
 
@@ -1726,6 +1919,20 @@ function initiateDirectBeam(peerInfo) {
   updateStatus('ready', `Pinging ${peerInfo.name}...`);
   if (radarScanningStatusText) {
     radarScanningStatusText.textContent = `Waiting for ${peerInfo.name} to accept transfer order...`;
+  }
+
+  if (peerInfo.id.startsWith('lan-')) {
+    // Target device discovered via Spider Network ARP Scanner (Wi-Fi or Hotspot)
+    currentActiveTab = 'send';
+    navTabSend.classList.add('active');
+    if (navTabNearby) navTabNearby.classList.remove('active');
+    if (navTabUpdates) navTabUpdates.classList.remove('active');
+    showStage('qr');
+    updateStatus('ready', `Targeting ${peerInfo.name}`);
+    if (connectionInstructions) {
+      connectionInstructions.innerHTML = `🎯 <strong>Direct Beam to:</strong> ${escapeHtml(peerInfo.name)} (<code>${peerInfo.ip}</code>)<br>Scan QR code on target device to stream <strong>${escapeHtml(payloadMeta.name)}</strong>!`;
+    }
+    return;
   }
 
   if (peerInfo.protocol === 'bt' || peerInfo.id.startsWith('peer-hotspot')) {
