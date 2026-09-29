@@ -7,6 +7,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { P2PTransferManager } from './utils/p2p';
 import { Header } from './components/Header';
 import { SenderView } from './components/SenderView';
+import { SpiderRadarView } from './components/SpiderRadarView';
+import { NotebookView } from './components/NotebookView';
 import { ReceiverView } from './components/ReceiverView';
 import { ExtensionHub } from './components/ExtensionHub';
 import { SplitSimulator } from './components/SplitSimulator';
@@ -24,7 +26,9 @@ export default function App() {
 
   const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full');
 
-  const [activeTab, setActiveTab] = useState<'sender' | 'receiver' | 'extension' | 'simulator'>('sender');
+  const [activeTab, setActiveTab] = useState<'sender' | 'radar' | 'receiver' | 'notebook' | 'extension' | 'simulator'>('sender');
+  const [targetedPeer, setTargetedPeer] = useState<any>(null);
+  const [notebookContent, setNotebookContent] = useState<string>('');
   const [peerId, setPeerId] = useState<string>('');
   const [urlPeerId, setUrlPeerId] = useState<string>(initialPeer);
   const [urlFileName, setUrlFileName] = useState<string>(initialName);
@@ -88,6 +92,17 @@ export default function App() {
           <SenderView
             transferManager={transferManager}
             receiverBaseUrl={receiverBaseUrl}
+            targetedPeer={targetedPeer}
+            initialTextPayload={notebookContent}
+          />
+        )}
+
+        {activeTab === 'radar' && (
+          <SpiderRadarView
+            onDirectBeamTarget={(peer) => {
+              setTargetedPeer(peer);
+              setActiveTab('sender');
+            }}
           />
         )}
 
@@ -95,6 +110,16 @@ export default function App() {
           <ReceiverView
             transferManager={transferManager}
             initialTargetPeerId={urlPeerId}
+          />
+        )}
+
+        {activeTab === 'notebook' && (
+          <NotebookView
+            initialContent={notebookContent}
+            onBeamNote={(text) => {
+              setNotebookContent(text);
+              setActiveTab('sender');
+            }}
           />
         )}
 

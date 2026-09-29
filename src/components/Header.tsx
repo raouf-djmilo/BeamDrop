@@ -12,13 +12,14 @@ import {
   VolumeX,
   Info,
   ShieldCheck,
-  Cpu
+  Cpu,
+  BookOpen
 } from 'lucide-react';
 import { P2PTransferManager } from '../utils/p2p';
 
 interface HeaderProps {
-  activeTab: 'sender' | 'receiver' | 'extension' | 'simulator';
-  setActiveTab: (tab: 'sender' | 'receiver' | 'extension' | 'simulator') => void;
+  activeTab: 'sender' | 'radar' | 'receiver' | 'notebook' | 'extension' | 'simulator';
+  setActiveTab: (tab: 'sender' | 'radar' | 'receiver' | 'notebook' | 'extension' | 'simulator') => void;
   transferManager: P2PTransferManager;
 }
 
@@ -32,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Logo & Brand */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('sender')}>
@@ -70,38 +71,65 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center space-x-1 bg-slate-900/90 border border-slate-800 p-1 rounded-2xl overflow-x-auto">
             <button
               onClick={() => setActiveTab('sender')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'sender'
                   ? 'bg-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
-              <Laptop className="w-3.5 h-3.5" />
-              <span>Sender (PC)</span>
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Beam Objects</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('radar')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                activeTab === 'radar'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span>Spider Radar</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60 text-[9px] font-mono font-bold">
+                LIVE
+              </span>
             </button>
 
             <button
               onClick={() => setActiveTab('receiver')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'receiver'
                   ? 'bg-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Receiver (Phone)</span>
+              <span>Receiver</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('notebook')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                activeTab === 'notebook'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Notebook Hub</span>
             </button>
 
             <button
               onClick={() => setActiveTab('extension')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'extension'
                   ? 'bg-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
               <FolderArchive className="w-3.5 h-3.5 text-amber-400" />
-              <span>Chrome Extension</span>
+              <span>Extension</span>
               <span className="ml-1 px-1.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/60 text-[9px] font-mono font-bold">
                 v1.4.0
               </span>
@@ -109,14 +137,14 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => setActiveTab('simulator')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'simulator'
                   ? 'bg-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
               <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
-              <span>Live Simulator</span>
+              <span>Simulator</span>
             </button>
           </div>
 

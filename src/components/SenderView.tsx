@@ -31,16 +31,20 @@ import { playChime } from '../utils/audio';
 interface SenderViewProps {
   transferManager: P2PTransferManager;
   receiverBaseUrl: string;
+  targetedPeer?: any;
+  initialTextPayload?: string;
 }
 
 export const SenderView: React.FC<SenderViewProps> = ({
   transferManager,
-  receiverBaseUrl
+  receiverBaseUrl,
+  targetedPeer,
+  initialTextPayload
 }) => {
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [isQrGenerated, setIsQrGenerated] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'files' | 'text'>('files');
-  const [textPayload, setTextPayload] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'files' | 'text'>(initialTextPayload ? 'text' : 'files');
+  const [textPayload, setTextPayload] = useState<string>(initialTextPayload || '');
   const [directQrMode, setDirectQrMode] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [currentTransfer, setCurrentTransfer] = useState<{
@@ -224,6 +228,29 @@ export const SenderView: React.FC<SenderViewProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Left Column: File Staging & Transfer Controls */}
       <div className="lg:col-span-7 space-y-5">
+        {/* Targeted Peer Banner from Spider Radar */}
+        {targetedPeer && (
+          <div className="glass-panel-glow rounded-2xl p-3 border border-cyan-500/40 bg-cyan-950/30 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center text-sm font-bold">
+                <span>{targetedPeer.icon || '🎯'}</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Targeting {targetedPeer.name}</span>
+                  <span className="text-[10px] font-mono text-cyan-400">({targetedPeer.ip})</span>
+                </p>
+                <p className="text-[10px] text-slate-400 font-mono">
+                  Radar Ping: <span className="text-emerald-400 font-bold">{targetedPeer.latency || 4}ms</span> • RAM-to-RAM Bridge Ready
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800/60 px-2 py-0.5 rounded-full">
+              Spider Link
+            </span>
+          </div>
+        )}
+
         {/* Mode Selector */}
         <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl flex items-center space-x-1 shadow-sm">
           <button
