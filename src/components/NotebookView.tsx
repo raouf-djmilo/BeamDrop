@@ -42,7 +42,7 @@ export const NotebookView: React.FC<NotebookViewProps> = ({
     },
     {
       title: 'Local Wi-Fi Mesh Config',
-      text: `{\n  "network": "IdoomFibre_ATJJMkt95",\n  "band": "5 GHz",\n  "speed": "1560 Mbps",\n  "gateway": "192.168.100.1",\n  "encryption": "WPA3-Personal",\n  "mode": "P2P Mesh"\n}`
+      text: `{\n  "network": "Wi-Fi_P2P_Mesh",\n  "band": "5 GHz / 2.4 GHz",\n  "speed": "Auto-Negotiated",\n  "encryption": "WPA3 / WPA2",\n  "mode": "Direct Device-to-Device Mesh"\n}`
     },
     {
       title: 'Vercel Deployment URL',

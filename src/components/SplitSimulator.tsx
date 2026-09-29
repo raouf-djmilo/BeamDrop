@@ -345,7 +345,7 @@ export const SplitSimulator: React.FC = () => {
               <div className="space-y-2">
                 <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 font-mono text-[10px] text-cyan-300 leading-relaxed">
                   <p className="text-slate-500">// BeamDrop Instant Note</p>
-                  <p>const host = "192.168.100.9";</p>
+                  <p>const host = "192.168.1.15";</p>
                   <p>const latency = 1; // 1ms ping</p>
                 </div>
                 <button

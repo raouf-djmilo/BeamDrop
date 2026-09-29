@@ -17,6 +17,6 @@
     { "source": "/notebook", "destination": "/notebook.html" },
     { "source": "/note", "destination": "/notebook.html" },
     { "source": "/code", "destination": "/notebook.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/.*).*)", "destination": "/index.html" }
   ]
 }

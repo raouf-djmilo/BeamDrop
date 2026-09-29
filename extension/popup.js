@@ -36,8 +36,8 @@ const EXTENSION_ICE_SERVERS = [
 
 // Current Installed Version from Manifest
 const REAL_MANIFEST_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-  ? (chrome.runtime.getManifest().version || '1.5.0')
-  : '1.5.0';
+  ? (chrome.runtime.getManifest().version || '1.5.1')
+  : '1.5.1';
 
 // Global App State
 let activeBridgeMode = 'files'; // 'files' | 'text'
@@ -1492,6 +1492,30 @@ async function scanSpiderNetwork(isManual = false) {
     } catch (e) {}
   }
 
+  // PairDrop / Snapdrop Architecture: Discover devices sharing same Wi-Fi / Public IP
+  const cloudEndpoints = [
+    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}`,
+    `http://localhost:3000/api/mesh/devices?_t=${Date.now()}`,
+    `http://localhost:3001/api/mesh/devices?_t=${Date.now()}`
+  ];
+
+  for (const ep of cloudEndpoints) {
+    try {
+      const resp = await fetch(ep, { cache: 'no-store' });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json && json.success && Array.isArray(json.devices)) {
+          json.devices.forEach(dev => {
+            if (dev.id !== myDiscoveryPeerId) {
+              registerDiscoveredPeer(dev);
+            }
+          });
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
   if (scanResult && scanResult.network) {
     currentNetworkMeta = scanResult.network;
 
@@ -1508,7 +1532,7 @@ async function scanSpiderNetwork(isManual = false) {
       telemetryModeTag.style.color = scanResult.network.isHotspot ? '#fbbf24' : '#38bdf8';
     }
     if (telemetrySubnetTag) {
-      telemetrySubnetTag.textContent = scanResult.network.myIp || '192.168.100.9';
+      telemetrySubnetTag.textContent = scanResult.network.myIp || 'Local Station';
     }
     if (chipWifiText) {
       chipWifiText.textContent = scanResult.network.isHotspot
@@ -1613,7 +1637,7 @@ function registerDiscoveredPeer(peerData) {
 
   discoveredPeersMap.set(peerData.id, {
     id: peerData.id,
-    ip: peerData.ip || '192.168.100.x',
+    ip: peerData.ip || 'LAN Node',
     name: peerData.name || 'Nearby Device',
     deviceType: peerData.deviceType || 'phone',
     icon: peerData.icon || (peerData.deviceType === 'phone' ? '📱' : '💻'),
@@ -1640,6 +1664,21 @@ function broadcastPresenceBeacon() {
   if (localMeshBroadcast) {
     localMeshBroadcast.postMessage(payload);
   }
+
+  // Announce to Cloud & Local Signaling (PairDrop Same-Wi-Fi Discovery)
+  const announceEndpoints = [
+    `${VERCEL_RECEIVER_URL}/api/mesh/announce`,
+    'http://localhost:3000/api/mesh/announce',
+    'http://localhost:3001/api/mesh/announce'
+  ];
+
+  announceEndpoints.forEach(url => {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  });
 }
 
 // Start Spider Radar Discovery Loop
@@ -1826,7 +1865,7 @@ function renderNearbyDevices() {
             <span class="${protoClass}">${protoLabel}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-            <span style="font-size: 10px; color: #38bdf8; font-family: ui-monospace, monospace;">${peer.ip || 'Local Node'}</span>
+            <span style="font-size: 10px; color: #38bdf8; font-family: ui-monospace, monospace;">${peer.ip || 'LAN Node'}</span>
             <span style="font-size: 9px; color: #34d399; font-weight: 700; background: rgba(52, 211, 153, 0.1); padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);">${pingText}</span>
             ${maskedMac ? `<span style="font-size: 8.5px; color: #64748b; font-family: ui-monospace, monospace;">${maskedMac}</span>` : ''}
           </div>
@@ -1922,50 +1961,67 @@ function initiateDirectBeam(peerInfo) {
   }
 
   if (peerInfo.id.startsWith('lan-') || peerInfo.ip) {
-    // 1. Dispatch AirDrop Order to Local Mesh Gateway
-    fetch('http://localhost:3001/api/mesh/order/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        senderName: myDeviceName,
-        senderIp: currentNetworkMeta?.myIp || '192.168.100.9',
-        senderType: myDeviceType,
-        targetPeerId: peerInfo.id,
-        targetIp: peerInfo.ip,
-        payload: payloadMeta
-      })
-    }).then(r => r.json()).then(res => {
-      if (res && res.orderId) {
-        const orderId = res.orderId;
-        updateStatus('ready', `Order Dispatched to ${peerInfo.name}...`);
-        let pollCount = 0;
-        const pollTimer = setInterval(async () => {
-          pollCount++;
-          if (pollCount > 60) { clearInterval(pollTimer); return; }
-          try {
-            const statusRes = await fetch(`http://localhost:3001/api/mesh/order/status?orderId=${orderId}`).then(r => r.json());
-            if (statusRes && statusRes.status === 'accepted') {
-              clearInterval(pollTimer);
-              updateStatus('connected', `Order Accepted by ${peerInfo.name}!`);
-              showStage('transfer');
-              transferFileTitle.textContent = `Streaming to ${peerInfo.name}: ${payloadMeta.name}`;
-              transferProgressFill.style.width = '100%';
-              transferPercentText.textContent = '100%';
-              transferSpeedText.textContent = '92.4 MB/s';
-              playRadarBlipSound();
-              setTimeout(() => {
-                showStage('complete');
-                completeSubText.textContent = `Direct transmission to ${peerInfo.name} completed successfully over local Wi-Fi!`;
-              }, 600);
-            } else if (statusRes && statusRes.status === 'declined') {
-              clearInterval(pollTimer);
-              alert(`The transfer order was declined by ${peerInfo.name}.`);
-              updateStatus('idle', 'Order Declined');
-            }
-          } catch (e) {}
-        }, 800);
+    // 1. Dispatch AirDrop Order to Mesh Gateway (Cloud & Local)
+    const orderPayload = {
+      senderName: myDeviceName,
+      senderIp: currentNetworkMeta?.myIp || 'Local Station',
+      senderType: myDeviceType,
+      targetPeerId: peerInfo.id,
+      targetIp: peerInfo.ip,
+      payload: payloadMeta
+    };
+
+    const tryDispatchOrder = async () => {
+      const baseEndpoints = [
+        VERCEL_RECEIVER_URL,
+        'http://localhost:3000',
+        'http://localhost:3001'
+      ];
+
+      for (const base of baseEndpoints) {
+        try {
+          const res = await fetch(`${base}/api/mesh/order/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          }).then(r => r.json());
+
+          if (res && res.orderId) {
+            const orderId = res.orderId;
+            updateStatus('ready', `Order Dispatched to ${peerInfo.name}...`);
+            let pollCount = 0;
+            const pollTimer = setInterval(async () => {
+              pollCount++;
+              if (pollCount > 60) { clearInterval(pollTimer); return; }
+              try {
+                const statusRes = await fetch(`${base}/api/mesh/order/status?orderId=${orderId}`).then(r => r.json());
+                if (statusRes && statusRes.status === 'accepted') {
+                  clearInterval(pollTimer);
+                  updateStatus('connected', `Order Accepted by ${peerInfo.name}!`);
+                  showStage('transfer');
+                  transferFileTitle.textContent = `Streaming to ${peerInfo.name}: ${payloadMeta.name}`;
+                  transferProgressFill.style.width = '100%';
+                  transferPercentText.textContent = '100%';
+                  transferSpeedText.textContent = '92.4 MB/s';
+                  playRadarBlipSound();
+                  setTimeout(() => {
+                    showStage('complete');
+                    completeSubText.textContent = `Direct transmission to ${peerInfo.name} completed successfully over local Wi-Fi!`;
+                  }, 600);
+                } else if (statusRes && statusRes.status === 'declined') {
+                  clearInterval(pollTimer);
+                  alert(`The transfer order was declined by ${peerInfo.name}.`);
+                  updateStatus('idle', 'Order Declined');
+                }
+              } catch (e) {}
+            }, 800);
+            return;
+          }
+        } catch (e) {}
       }
-    }).catch(() => {});
+    };
+
+    tryDispatchOrder();
 
     currentActiveTab = 'send';
     navTabSend.classList.add('active');

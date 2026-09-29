@@ -101,7 +101,7 @@ export const generateExtensionZipBlob = async (receiverBaseUrl: string = 'https:
       zip.file('version.json', vText);
     }
   } catch (e) {
-    zip.file('version.json', JSON.stringify({ version: '1.3.0', name: 'BeamDrop' }, null, 2));
+    zip.file('version.json', JSON.stringify({ version: '1.5.1', name: 'BeamDrop' }, null, 2));
   }
 
   // Include bundled offline libraries
