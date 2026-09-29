@@ -41,11 +41,53 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
   const [autoDownload, setAutoDownload] = useState<boolean>(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewModalFile, setPreviewModalFile] = useState<TransferFile | null>(null);
+  const [incomingOrderModal, setIncomingOrderModal] = useState<any>(null);
 
   // Return beam message from phone to PC
   const [replyText, setReplyText] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
   const replyFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Local Mesh Gateway auto-announce & order listener
+  useEffect(() => {
+    const myReceiverMeshId = 'receiver-' + (transferManager.myPeerId || Math.random().toString(36).slice(2, 8));
+    const isMobileDevice = typeof navigator !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const myReceiverName = isMobileDevice
+      ? (navigator.userAgent.includes('iPhone') ? 'Apple iPhone (Web)' : 'Android Smartphone (Web)')
+      : 'Web Receiver Workstation';
+
+    const announce = () => {
+      fetch('/api/mesh/announce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: myReceiverMeshId,
+          name: myReceiverName,
+          deviceType: isMobileDevice ? 'phone' : 'laptop',
+          icon: isMobileDevice ? '📱' : '💻',
+          protocol: 'wifi'
+        })
+      }).catch(() => {});
+    };
+
+    announce();
+    const announceTimer = setInterval(announce, 10000);
+
+    const pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/mesh/order/poll?peerId=${myReceiverMeshId}`).then(r => r.json());
+        if (res && res.hasOrder && res.order && !incomingOrderModal) {
+          setIncomingOrderModal(res.order);
+          playChime('connect');
+        }
+      } catch (e) {}
+    }, 1000);
+
+    return () => {
+      clearInterval(announceTimer);
+      clearInterval(pollTimer);
+    };
+  }, [transferManager.myPeerId, incomingOrderModal]);
 
   useEffect(() => {
     // If an initial peer ID is provided via URL query or prop, connect automatically
@@ -578,6 +620,85 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Download Image</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AirDrop Order Acceptance Modal */}
+      {incomingOrderModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/40 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-cyan-500/20">
+              <span>{incomingOrderModal.senderType === 'laptop' ? '💻' : '📱'}</span>
+            </div>
+            
+            <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950 px-3 py-1 rounded-full border border-cyan-800">
+              📶 Wi-Fi 5GHz Mesh Bridge
+            </span>
+
+            <h3 className="text-base font-extrabold text-white">
+              {incomingOrderModal.senderName || 'PC Workstation'}
+            </h3>
+            <p className="text-xs text-slate-400">
+              wants to beam an object directly to this device:
+            </p>
+
+            <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-2xl flex items-center gap-3 text-left">
+              <span className="text-2xl">📄</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-white truncate">{incomingOrderModal.payload?.name || 'Shared Object'}</p>
+                <p className="text-[11px] font-mono text-cyan-400">
+                  {typeof incomingOrderModal.payload?.size === 'number' ? formatBytes(incomingOrderModal.payload.size) : (incomingOrderModal.payload?.size || 'Direct Payload')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-1">
+              <button
+                onClick={async () => {
+                  await fetch('/api/mesh/order/respond', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: incomingOrderModal.orderId, status: 'declined' })
+                  }).catch(() => {});
+                  setIncomingOrderModal(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                ✕ Decline (رفض)
+              </button>
+
+              <button
+                onClick={async () => {
+                  const ord = incomingOrderModal;
+                  await fetch('/api/mesh/order/respond', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: ord.orderId, status: 'accepted' })
+                  }).catch(() => {});
+                  setIncomingOrderModal(null);
+                  playChime('complete');
+                  if (ord.payload) {
+                    setReceivedFiles(prev => [
+                      {
+                        id: ord.orderId,
+                        name: ord.payload.name,
+                        size: typeof ord.payload.size === 'number' ? ord.payload.size : 1024,
+                        type: ord.payload.mime || 'application/octet-stream',
+                        progress: 100,
+                        speed: 85 * 1024 * 1024,
+                        status: 'completed',
+                        direction: 'receive'
+                      },
+                      ...prev
+                    ]);
+                  }
+                }}
+                className="flex-[1.4] py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-600/30 transition-all cursor-pointer"
+              >
+                ✓ Accept Order (قبول)
               </button>
             </div>
           </div>

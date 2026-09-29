@@ -19,6 +19,19 @@ export default defineConfig(() => {
       {
         name: 'cors-and-upgrade-plugin',
         configureServer(server) {
+          const meshPeers = new Map<string, any>();
+          const meshOrders = new Map<string, any>();
+
+          const parseJsonBody = (r: any): Promise<any> => {
+            return new Promise((resolve) => {
+              let body = '';
+              r.on('data', (c: any) => { body += c; });
+              r.on('end', () => {
+                try { resolve(JSON.parse(body || '{}')); } catch (e) { resolve({}); }
+              });
+            });
+          };
+
           server.middlewares.use(async (req, res, next) => {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -27,6 +40,146 @@ export default defineConfig(() => {
               res.statusCode = 204;
               res.end();
               return;
+            }
+
+            // 1. Mesh Device Announcement & Heartbeat
+            if (req.url?.startsWith('/api/mesh/announce') && req.method === 'POST') {
+              res.setHeader('Content-Type', 'application/json');
+              const data = await parseJsonBody(req);
+              if (data && data.id) {
+                const remoteIp = (req.socket?.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+                meshPeers.set(data.id, {
+                  ...data,
+                  ip: data.ip || (remoteIp === '127.0.0.1' ? '192.168.100.9' : remoteIp),
+                  lastSeen: Date.now()
+                });
+              }
+              const now = Date.now();
+              for (const [id, peer] of meshPeers.entries()) {
+                if (now - peer.lastSeen > 35000) meshPeers.delete(id);
+              }
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, count: meshPeers.size }));
+              return;
+            }
+
+            // 2. Mesh Active Devices List
+            if (req.url?.startsWith('/api/mesh/devices')) {
+              res.setHeader('Content-Type', 'application/json');
+              const now = Date.now();
+              for (const [id, peer] of meshPeers.entries()) {
+                if (now - peer.lastSeen > 35000) meshPeers.delete(id);
+              }
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, devices: Array.from(meshPeers.values()) }));
+              return;
+            }
+
+            // 3. Create Transfer Order (Handshake Request: AirDrop-style)
+            if (req.url?.startsWith('/api/mesh/order/create') && req.method === 'POST') {
+              res.setHeader('Content-Type', 'application/json');
+              const orderData = await parseJsonBody(req);
+              const orderId = 'ord_' + Math.random().toString(36).substring(2, 9);
+              meshOrders.set(orderId, {
+                orderId,
+                senderName: orderData.senderName || 'PC Workstation',
+                senderIp: orderData.senderIp || '192.168.100.9',
+                senderType: orderData.senderType || 'laptop',
+                targetPeerId: orderData.targetPeerId || '',
+                targetIp: orderData.targetIp || '',
+                payload: orderData.payload || {},
+                status: 'pending',
+                createdAt: Date.now()
+              });
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, orderId }));
+              return;
+            }
+
+            // 4. Poll Pending Orders for Receiver
+            if (req.url?.startsWith('/api/mesh/order/poll')) {
+              res.setHeader('Content-Type', 'application/json');
+              const u = new URL(req.url, 'http://localhost');
+              const peerId = u.searchParams.get('peerId') || '';
+              const ip = u.searchParams.get('ip') || (req.socket?.remoteAddress || '').replace('::ffff:', '');
+
+              let matchedOrder = null;
+              for (const [oid, order] of meshOrders.entries()) {
+                if (order.status === 'pending') {
+                  if ((peerId && order.targetPeerId === peerId) || (ip && order.targetIp === ip) || (!order.targetPeerId && !order.targetIp)) {
+                    matchedOrder = order;
+                    break;
+                  }
+                }
+              }
+
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, hasOrder: Boolean(matchedOrder), order: matchedOrder }));
+              return;
+            }
+
+            // 5. Respond to Order (Accept / Decline)
+            if (req.url?.startsWith('/api/mesh/order/respond') && req.method === 'POST') {
+              res.setHeader('Content-Type', 'application/json');
+              const { orderId, status } = await parseJsonBody(req);
+              if (orderId && meshOrders.has(orderId)) {
+                const order = meshOrders.get(orderId);
+                order.status = status; // 'accepted' or 'declined'
+                meshOrders.set(orderId, order);
+              }
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, status }));
+              return;
+            }
+
+            // 6. Check Order Status (Sender polling)
+            if (req.url?.startsWith('/api/mesh/order/status')) {
+              res.setHeader('Content-Type', 'application/json');
+              const u = new URL(req.url, 'http://localhost');
+              const orderId = u.searchParams.get('orderId') || '';
+              const order = meshOrders.get(orderId);
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, status: order ? order.status : 'not_found', order }));
+              return;
+            }
+
+            // 7. Stream Upload & Download
+            if (req.url?.startsWith('/api/mesh/stream/upload') && req.method === 'POST') {
+              const u = new URL(req.url, 'http://localhost');
+              const orderId = u.searchParams.get('orderId') || '';
+              const chunks: Buffer[] = [];
+              req.on('data', (c: Buffer) => chunks.push(c));
+              req.on('end', () => {
+                const fullBuf = Buffer.concat(chunks);
+                if (meshOrders.has(orderId)) {
+                  const order = meshOrders.get(orderId);
+                  order.data = fullBuf;
+                  order.status = 'ready';
+                }
+                res.setHeader('Content-Type', 'application/json');
+                res.statusCode = 200;
+                res.end(JSON.stringify({ success: true, bytes: fullBuf.length }));
+              });
+              return;
+            }
+
+            if (req.url?.startsWith('/api/mesh/stream/download')) {
+              const u = new URL(req.url, 'http://localhost');
+              const orderId = u.searchParams.get('orderId') || '';
+              const order = meshOrders.get(orderId);
+              if (order && order.data) {
+                const filename = order.payload?.name || 'beamdrop_payload.bin';
+                res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+                res.setHeader('Content-Type', order.payload?.mime || 'application/octet-stream');
+                res.setHeader('Content-Length', order.data.length);
+                res.statusCode = 200;
+                res.end(order.data);
+                return;
+              } else {
+                res.statusCode = 404;
+                res.end('Order stream not found');
+                return;
+              }
             }
 
             // 1-Click Zero-Zip Extension Upgrade Endpoint
@@ -201,6 +354,31 @@ export default defineConfig(() => {
                       protocol: isHotspotAndroid || isHotspotIos || isHotspotWin ? 'hotspot' : 'wifi',
                       signal: wifiInfo.signal,
                       lastSeen: Date.now()
+                    });
+                  }
+                }
+
+                // Merge live registered mesh peers (Phones/PCs connected to the network)
+                for (const peer of meshPeers.values()) {
+                  const existingIdx = discoveredDevices.findIndex(d => d.ip === peer.ip || d.id === peer.id);
+                  if (existingIdx !== -1) {
+                    discoveredDevices[existingIdx].name = peer.name || discoveredDevices[existingIdx].name;
+                    discoveredDevices[existingIdx].deviceType = peer.deviceType || discoveredDevices[existingIdx].deviceType;
+                    discoveredDevices[existingIdx].icon = peer.icon || discoveredDevices[existingIdx].icon;
+                    discoveredDevices[existingIdx].isMeshActive = true;
+                  } else {
+                    discoveredDevices.push({
+                      id: peer.id,
+                      ip: peer.ip || '192.168.100.x',
+                      name: peer.name || 'BeamDrop Peer',
+                      deviceType: peer.deviceType || 'phone',
+                      icon: peer.icon || '📱',
+                      latency: 2,
+                      isGateway: false,
+                      protocol: peer.protocol || 'wifi',
+                      signal: wifiInfo.signal,
+                      isMeshActive: true,
+                      lastSeen: peer.lastSeen || Date.now()
                     });
                   }
                 }
