@@ -314,6 +314,18 @@
         <span id="lastCheckedText" class="uptodate-time">Last checked: Just now</span>
       </div>
 
+      <!-- In-Popup 1-Click Fast Reload Engine -->
+      <div class="uptodate-reload-section" style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 8px;">
+        <button id="btnForceReloadExt" class="btn-clean-check" type="button" style="width: 100%; justify-content: center; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          <span id="btnForceReloadExtText">🔄 Force Reload Extension (Apply Disk Changes)</span>
+        </button>
+        <p style="font-size: 10px; color: #94a3b8; text-align: center; margin: 0;">
+          Instantly reloads updated files from disk into Chrome without developer mode hassle.
+        </p>
+      </div>
 
     </div>
 
@@ -322,8 +334,8 @@
       <div class="available-top-row">
         <span class="available-pulse-tag">⚡ New Version Available</span>
         <div class="flex items-center gap-1">
-          <span id="currentVerPill" class="text-[10px] text-slate-400 font-mono">v1.3.0 ➔</span>
-          <span id="availableVerPill" class="available-ver-badge">v1.4.0</span>
+          <span id="currentVerPill" class="text-[10px] text-slate-400 font-mono">v1.5.0 ➔</span>
+          <span id="availableVerPill" class="available-ver-badge">v1.5.1</span>
         </div>
       </div>
 
@@ -337,7 +349,7 @@
       <!-- Live Update Progress Animation -->
       <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
         <div class="update-progress-header">
-          <span id="updateProgressLabel">⚡ Downloading update package...</span>
+          <span id="updateProgressLabel">⚡ Upgrading BeamDrop engine...</span>
           <span id="updateProgressPercent" class="font-mono">0%</span>
         </div>
         <div class="update-progress-bar">
@@ -345,33 +357,35 @@
         </div>
       </div>
 
-      <!-- Post-Download Replacement Assistant -->
+      <!-- Upgrade Complete Assistant -->
       <div id="updatePostDownloadBox" class="update-post-download-box" style="display: none;">
         <div class="post-download-title">
-          <span class="text-emerald-400 font-bold">✓ Update Package Downloaded!</span>
+          <span class="text-emerald-400 font-bold">✓ BeamDrop Upgraded Successfully!</span>
         </div>
         <p class="post-download-desc">
-          <strong>How to apply in Chrome:</strong><br/>
-          1. Extract the downloaded <code id="downloadedFilename">BeamDrop-v1.4.0.zip</code> and replace the files inside your BeamDrop folder (or double-click <code class="text-amber-400">update.bat</code> in the folder).<br/>
-          2. Click <strong>🔄 Reload Extension</strong> below.
+          All files have been updated and rebuilt. Click below to reload Chrome Extension now.
         </p>
         <div class="post-download-actions">
-          <button id="btnOpenExtensionsPage" type="button" class="btn-clean-check">
-            <span>📂 Open chrome://extensions</span>
-          </button>
-          <button id="btnReloadExtension" type="button" class="btn-clean-check" style="border-color: #06b6d4; color: #38bdf8;">
-            <span>🔄 Reload Extension</span>
+          <button id="btnReloadExtension" type="button" class="btn-cta-generate" style="margin-top: 6px;">
+            <span>🔄 Reload &amp; Launch Now</span>
           </button>
         </div>
       </div>
 
-      <!-- Primary 1-Click Update Button -->
+      <!-- Primary 1-Click Seamless In-Place Upgrade Button -->
       <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
-        <span id="btnTriggerUpdateText">📥 Download Update Package (.ZIP)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span id="btnTriggerUpdateText">⚡ Mettre à jour (1-Click Auto Upgrade)</span>
       </button>
 
+      <p class="update-sub-desc" style="font-size: 10px; color: #94a3b8; text-align: center; margin: 6px 0 0 0;">
+        ⚡ Direct in-place upgrade &amp; reload. Zero manual ZIP downloads or file extracting!
+      </p>
+
       <div class="available-footer-info flex items-center justify-between mt-2">
-        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked from GitHub &amp; Vercel</span>
+        <span id="updateAvailableCheckedTime" class="uptodate-time">Checked from Cloud &amp; Local Engine</span>
       </div>
     </div>
 

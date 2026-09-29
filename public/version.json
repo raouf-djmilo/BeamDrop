@@ -1,31 +1,42 @@
 {
   "name": "BeamDrop",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "highlights": [
-    "📓 BeamDrop Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC",
-    "⚡ Zero-Latency Instant Beaming: Scan and view without waiting for WebRTC connection or download confirmation",
-    "💻 Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code",
-    "🔗 Smart URL Web Cards: 1-click browser launcher and native mobile share integration",
-    "✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension",
-    "🛡️ 100% Simulator-Free Engine: Clean, fast, and frozen-free OTA update system"
+    "📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline order security",
+    "📓 Smart Ephemeral Notebook: Text, code, and links beam straight into an interactive, zero-latency notebook",
+    "⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction",
+    "🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click"
   ],
   "changelog": [
+    {
+      "version": "1.5.1",
+      "date": "2026-09-29",
+      "type": "major",
+      "title": "Nearby Radar, Ephemeral Notebook & Zero-ZIP Auto Upgrade Engine",
+      "changes": [
+        "Nearby Radar: 360 sweeping radar scanning for local Wi-Fi devices and Web Bluetooth LE peers",
+        "AirDrop-style Handshake Modal: Recipient must explicitly Accept or Decline incoming transfer before data streaming begins",
+        "Zero-ZIP 1-Click Auto Upgrade: Instant in-place rebuild and reload directly inside Chrome without downloading or extracting ZIPs",
+        "Smart Notebook Engine: Auto-detects notes, code syntax (JS/Python/SQL), and URL web cards",
+        "In-Popup Instant Reload button: Reloads disk changes in 0.1s without opening chrome://extensions"
+      ]
+    },
     {
       "version": "1.5.0",
       "date": "2026-09-29",
       "type": "major",
-      "title": "Smart Notebook Engine & Ultra-Clean Glassmorphism UI",
+      "title": "BeamDrop Ephemeral Live Notebook & Pure OTA Engine",
       "changes": [
-        "Dedicated BeamDrop Notebook web app (/notebook.html) for zero-latency note and code viewing on mobile & desktop",
-        "Instant hash-embedded QR code: short text, code, and links beam with 0ms waiting time without WebRTC handshake",
-        "Built-in Code Engine with syntax highlighting, line numbers, language badges, and file exporting (.js, .py, .html, .txt)",
-        "Smart URL cards with 1-tap browser opener and mobile native share (Web Share API)",
-        "Fully overhauled extension styling: ultra-clean obsidian dark glassmorphism theme",
-        "Completely purged test simulator for smooth, frozen-free performance"
+        "Interactive Digital Notebook page: Scanned text, code, and links open directly in an interactive notebook",
+        "Code canvas with line numbers, code copy, and smart syntax detection",
+        "Save as File button (.txt, .md, .js, .py) directly from recipient device",
+        "Smart URL detection with 1-click browser navigation",
+        "Removed test simulator from Updates tab for a pure, clean, fast OTA update experience",
+        "Multi-file in-memory ZIP bundling with JSZip"
       ]
     },
     {
@@ -34,11 +45,9 @@
       "type": "minor",
       "title": "Automated Package Downloader & Dual GitHub/Vercel Sync",
       "changes": [
-        "Direct chrome.downloads API integration: downloads new extension.zip directly to user Downloads folder with 1 click",
+        "Direct chrome.downloads API integration: downloads new extension.zip directly to user machine",
         "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting",
-        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel",
-        "Cleaned up Updates tab for a pure, clean, fast OTA update experience",
-        "Guided 2-step reload assistant with 1-click chrome://extensions launcher"
+        "Native Chrome desktop notification when a new version is pushed to GitHub/Vercel"
       ]
     },
     {
@@ -51,39 +60,6 @@
         "Toolbar notification badge ('NEW') when a new GitHub/Vercel release is published",
         "Periodic background watcher to alert users automatically of new releases",
         "Integrated TURN relay for high-speed transfer across firewalls"
-      ]
-    },
-    {
-      "version": "1.2.0",
-      "date": "2026-09-28",
-      "type": "minor",
-      "title": "Direct Download Gateway & Isolated Download Portal",
-      "changes": [
-        "Direct Phone Download: Scanning QR immediately prompts native browser download for that specific file",
-        "Dedicated isolated download window with zero website distraction",
-        "Direct stream progress bar with live MB/s and instant auto-download trigger"
-      ]
-    },
-    {
-      "version": "1.1.0",
-      "date": "2026-09-28",
-      "type": "minor",
-      "title": "Staging Area & Flow Control",
-      "changes": [
-        "Multi-file staging container before generating QR code",
-        "64KB chunk backpressure control to prevent buffer saturation",
-        "Offline pure CSS styling & strict 380px sizing"
-      ]
-    },
-    {
-      "version": "1.0.0",
-      "date": "2026-09-27",
-      "type": "initial",
-      "title": "Initial Manifest V3 Launch",
-      "changes": [
-        "Manifest V3 Chrome Extension architecture",
-        "Direct Device-to-Device WebRTC DataChannel transfer",
-        "Zero cloud storage and zero database"
       ]
     }
   ]

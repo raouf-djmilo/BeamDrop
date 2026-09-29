@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BeamDrop - Direct P2P Device Share",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Lightning-fast direct Device-to-Device file, photo, video, and text transfer without servers or cloud storage using WebRTC and QR codes.",
   "action": {
     "default_popup": "popup.html",

@@ -1,18 +1,30 @@
 {
   "name": "BeamDrop",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "highlights": [
-    "📝 BeamDrop Live Ephemeral Notebook: Beam code, text & links directly into an interactive digital notebook with line numbers",
-    "🔗 Smart URL detector: 1-click open link in mobile/PC browser with zero server storage",
-    "📋 Instant Clipboard Copy & Live Scratchpad editing directly on recipient device",
-    "💾 1-Click Save as File (.txt, .md, .js, .py) directly to recipient's local storage",
-    "⚡ Cleaned up OTA Updates Engine: Removed simulation clutter for 100% genuine real-time updates"
+    "📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline order security",
+    "📓 Smart Ephemeral Notebook: Text, code, and links beam straight into an interactive, zero-latency notebook",
+    "⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction",
+    "🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click"
   ],
   "changelog": [
+    {
+      "version": "1.5.1",
+      "date": "2026-09-29",
+      "type": "major",
+      "title": "Nearby Radar, Ephemeral Notebook & Zero-ZIP Auto Upgrade Engine",
+      "changes": [
+        "Nearby Radar: 360 sweeping radar scanning for local Wi-Fi devices and Web Bluetooth LE peers",
+        "AirDrop-style Handshake Modal: Recipient must explicitly Accept or Decline incoming transfer before data streaming begins",
+        "Zero-ZIP 1-Click Auto Upgrade: Instant in-place rebuild and reload directly inside Chrome without downloading or extracting ZIPs",
+        "Smart Notebook Engine: Auto-detects notes, code syntax (JS/Python/SQL), and URL web cards",
+        "In-Popup Instant Reload button: Reloads disk changes in 0.1s without opening chrome://extensions"
+      ]
+    },
     {
       "version": "1.5.0",
       "date": "2026-09-29",

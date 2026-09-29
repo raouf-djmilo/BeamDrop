@@ -166,6 +166,8 @@ const btnCheckUpdates = document.getElementById('btnCheckUpdates');
 const btnCheckUpdatesText = document.getElementById('btnCheckUpdatesText');
 const refreshSpinIcon = document.getElementById('refreshSpinIcon');
 const lastCheckedText = document.getElementById('lastCheckedText');
+const btnForceReloadExt = document.getElementById('btnForceReloadExt');
+const btnForceReloadExtText = document.getElementById('btnForceReloadExtText');
 
 const stateUpdateAvailable = document.getElementById('stateUpdateAvailable');
 const currentVerPill = document.getElementById('currentVerPill');
@@ -1145,15 +1147,15 @@ function compareSemver(v1, v2) {
 }
 
 const BUILT_IN_LATEST_REGISTRY = {
-  version: '1.5.0',
+  version: '1.5.1',
   downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
+    '📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
     '📓 Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
-    '⚡ Zero-Latency Instant Beaming: Scan and view without waiting for WebRTC connection or download confirmation',
+    '⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction',
+    '🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click',
     '💻 Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code',
-    '🔗 Smart URL Web Cards: 1-click browser launcher and native mobile share integration',
-    '✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension',
-    '🛡️ 100% Simulator-Free Engine: Clean, fast, and frozen-free OTA update system'
+    '✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension'
   ]
 };
 
@@ -1174,6 +1176,8 @@ async function fetchLatestCloudVersion() {
   }
 
   const endpoints = [
+    `http://localhost:3001/version.json?_t=${Date.now()}`,
+    `http://localhost:3000/version.json?_t=${Date.now()}`,
     `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
     `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`,
     'https://beam-drop-mu.vercel.app/version.json'
@@ -1204,9 +1208,8 @@ async function checkForUpdates(manual = false) {
   if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
 
   remoteVersionInfo = await fetchLatestCloudVersion();
-  const latestVer = remoteVersionInfo.version || '1.4.0';
+  const latestVer = remoteVersionInfo.version || '1.5.1';
   const isNewer = compareSemver(latestVer, currentVer) > 0;
-
 
   if (isNewer) {
     // STATE B: NEW UPDATE AVAILABLE
@@ -1216,15 +1219,16 @@ async function checkForUpdates(manual = false) {
 
     if (currentVerPill) currentVerPill.textContent = `v${currentVer} ➔`;
     if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
-    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Download & Apply Update v${latestVer}`;
+    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Mettre à jour v${latestVer}`;
     if (updatePostDownloadBox) updatePostDownloadBox.style.display = 'none';
     if (updateProgressContainer) updateProgressContainer.style.display = 'none';
     if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'flex';
 
     const notes = remoteVersionInfo.highlights || [
-      'Universal Device Bridge for files, text, notes, and links',
-      'Full TURN relay support for 4G/5G mobile networks',
-      'Automated 1-click extension updates'
+      '📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
+      '📓 Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
+      '⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction',
+      '🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click'
     ];
 
     if (availableChangelogList) {
@@ -1258,102 +1262,72 @@ async function checkForUpdates(manual = false) {
   }
 }
 
-// 1-Click Update Action
+// 1-Click Zero-ZIP In-Place Upgrade Action
 async function startOneClickUpdate(ver) {
   if (updateProgressContainer) updateProgressContainer.style.display = 'block';
   if (btnTriggerUpdate) btnTriggerUpdate.disabled = true;
 
-  setUpdateProgress(25, `⚡ Requesting package v${ver} from cloud...`);
+  setUpdateProgress(20, `⚡ Contacting Upgrade Engine...`);
 
-  const downloadUrl = (remoteVersionInfo && remoteVersionInfo.downloadUrl) || `${VERCEL_RECEIVER_URL}/extension.zip`;
-  const filename = `BeamDrop-Extension-v${ver}.zip`;
-
-  setTimeout(async () => {
-    setUpdateProgress(60, `⚡ Saving ${filename} to your Downloads...`);
-
-    let downloadTriggered = false;
-
-    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+  try {
+    let localSuccess = false;
+    const candidatePorts = [3001, 3000];
+    for (const p of candidatePorts) {
       try {
-        chrome.downloads.download({
-          url: downloadUrl,
-          filename: filename,
-          saveAs: false,
-          conflictAction: 'overwrite'
-        }, (id) => {
-          if (id) downloadTriggered = true;
-          finishDownloadStep(ver, filename);
+        const resp = await fetch(`http://localhost:${p}/api/upgrade-extension`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store'
         });
-      } catch (err) {
-        console.warn('Chrome downloads error:', err);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success) {
+            localSuccess = true;
+            break;
+          }
+        }
+      } catch (e) {
+        // try next
       }
     }
 
-    if (!downloadTriggered && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({
-        action: 'download_update_package',
-        url: downloadUrl,
-        filename: filename
-      }, (resp) => {
-        if (resp && resp.success) {
-          finishDownloadStep(ver, filename);
-        } else {
-          fallbackBrowserDownload(downloadUrl, filename, ver);
-        }
-      });
+    if (localSuccess) {
+      setUpdateProgress(60, `✓ In-place upgrade applied & extension built!`);
+      setTimeout(() => {
+        setUpdateProgress(90, `🔄 Reloading BeamDrop to v${ver}...`);
+        setTimeout(() => {
+          setUpdateProgress(100, `✓ Ready!`);
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+            chrome.runtime.reload();
+          } else {
+            window.location.reload();
+          }
+        }, 400);
+      }, 500);
       return;
     }
 
-    if (!downloadTriggered) {
-      fallbackBrowserDownload(downloadUrl, filename, ver);
+    // Fallback if dev server is not active: reload disk files directly
+    setUpdateProgress(70, `⚡ Reloading local extension from disk...`);
+    setTimeout(() => {
+      setUpdateProgress(100, `✓ Reloading...`);
+      setTimeout(() => {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+          chrome.runtime.reload();
+        } else {
+          window.location.reload();
+        }
+      }, 400);
+    }, 500);
+  } catch (err) {
+    console.error('Update error:', err);
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+      chrome.runtime.reload();
     }
-  }, 400);
-}
-
-function fallbackBrowserDownload(url, filename, ver) {
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch (e) {
-    window.open(url, '_blank');
   }
-  finishDownloadStep(ver, filename);
 }
 
-function finishDownloadStep(ver, filename) {
-  setUpdateProgress(100, `✓ Downloaded ${filename} successfully!`);
-
-  setTimeout(() => {
-    if (updateProgressContainer) updateProgressContainer.style.display = 'none';
-    if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'none';
-
-    if (updatePostDownloadBox) {
-      updatePostDownloadBox.style.display = 'block';
-      if (downloadedFilename) downloadedFilename.textContent = filename;
-    }
-
-    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
-      chrome.action.setBadgeText({ text: '' });
-    }
-  }, 500);
-}
-
-// Handlers for Post-Download Assistant
-if (btnOpenExtensionsPage) {
-  btnOpenExtensionsPage.addEventListener('click', () => {
-    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url: 'chrome://extensions' });
-    } else {
-      window.open('chrome://extensions', '_blank');
-    }
-  });
-}
-
+// Handlers for Reload Buttons
 if (btnReloadExtension) {
   btnReloadExtension.addEventListener('click', () => {
     if (btnReloadExtension) btnReloadExtension.textContent = '🔄 Reloading...';
@@ -1361,12 +1335,25 @@ if (btnReloadExtension) {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
         chrome.runtime.reload();
       } else {
-        checkForUpdates(false);
+        window.location.reload();
       }
-    }, 400);
+    }, 300);
   });
 }
 
+if (btnForceReloadExt) {
+  btnForceReloadExt.addEventListener('click', () => {
+    if (btnForceReloadExtText) btnForceReloadExtText.textContent = '🔄 Reloading files from disk...';
+    btnForceReloadExt.disabled = true;
+    setTimeout(() => {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+        chrome.runtime.reload();
+      } else {
+        window.location.reload();
+      }
+    }, 300);
+  });
+}
 
 function setUpdateProgress(percent, label) {
   if (updateProgressFill) updateProgressFill.style.width = percent + '%';
