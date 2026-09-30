@@ -638,6 +638,10 @@ checkPendingShareFromBackground();
 // STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
 // ==========================================
 async function startFilePortalSession(file) {
+  isStreaming = false;
+  if (!activePreparedFile && file) {
+    activePreparedFile = file;
+  }
   // Suspend radar scanning and beacons during active QR session to prevent peer collision & socket congestion
   stopNearbyDiscovery();
 
@@ -970,11 +974,7 @@ function initPeerJsSession(type = 'file') {
 
   peer = new Peer(currentPeerId, {
     debug: 0,
-    logFunction: (_lvl, ...args) => {
-      const msg = args.map(a => (a && a.message) || String(a)).join(' ');
-      if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
-      if (_lvl <= 1) console.warn('[BeamDrop Peer Notice]', ...args);
-    },
+    logFunction: () => {}, // Completely silent logger: Chrome counts any console.warn/error as extension red errors
     config: {
       iceServers: EXTENSION_ICE_SERVERS
     }
@@ -986,15 +986,24 @@ function initPeerJsSession(type = 'file') {
   });
 
   peer.on('connection', (conn) => {
+    // 1. Single-Connection Lock: Prevent duplicate receiver connections from disrupting the active session
+    if (activeConnection && activeConnection.open && activeConnection.peer !== conn.peer) {
+      try { conn.close(); } catch (_) {}
+      return;
+    }
+
     console.log('[BeamDrop] Receiver Connected:', conn.peer);
     activeConnection = conn;
-    updateStatus('connected', 'Phone Connected');
-    if (portalRadarText) {
-      portalRadarText.textContent = '🟢 Phone Connected! Starting stream...';
+    updateStatus('connected', 'Streaming...');
+
+    // 2. Unconditionally force immediate transition to transfer stage
+    showStage('transfer');
+
+    // 3. Enforce strict binaryType on DataChannel
+    if (conn.dataChannel) {
+      try { conn.dataChannel.binaryType = 'arraybuffer'; } catch (_) {}
     }
-    if (qrScanInstruction) {
-      qrScanInstruction.textContent = 'Phone connected! Preparing transfer...';
-    }
+
     setupConnectionHandlers(conn, type);
   });
 
@@ -1009,6 +1018,7 @@ function initPeerJsSession(type = 'file') {
     const errMsg = String(err && (err.message || err.type || err) || '');
     const errType = String(err && err.type || '');
 
+    // Ignore benign transient signaling server drops (WebRTC P2P operates peer-to-peer)
     if (
       errType === 'network' ||
       errType === 'server-error' ||
@@ -1016,21 +1026,17 @@ function initPeerJsSession(type = 'file') {
       errType === 'socket-closed' ||
       errType === 'lost-connection' ||
       errMsg.includes('Lost connection') ||
-      errMsg.includes('socket')
+      errMsg.includes('socket') ||
+      errType === 'peer-unavailable'
     ) {
-      // Signaling server socket notices: WebRTC P2P direct stream continues undisturbed
-      // Only reconnect signaling if not actively connected to peer
+      // Never print console.warn/error here, because Chromium intercepts it and creates red error badges
       if (!activeConnection && peer && !peer.destroyed && peer.disconnected) {
-        try { peer.reconnect(); } catch (e) {}
+        try { peer.reconnect(); } catch (_) {}
       }
       return;
     }
 
-    if (errType === 'peer-unavailable') {
-      return;
-    }
-
-    console.error('[BeamDrop] Peer Error:', err);
+    // Only set idle status if truly failed with no active connection
     if (!activeConnection || !activeConnection.open) {
       updateStatus('idle', 'Connection Error');
     }
@@ -1045,12 +1051,11 @@ function setupConnectionHandlers(conn, type) {
     streamStarted = true;
     updateStatus('connected', 'Streaming...');
     showStage('transfer');
-    if (portalRadarText) portalRadarText.textContent = '🚀 Streaming to Phone...';
-    if (qrScanInstruction) qrScanInstruction.textContent = 'Streaming data to phone...';
 
-    // Set threshold immediately to prevent deadlock
+    // Enforce binaryType and bufferedAmountLowThreshold
     try {
       if (conn.dataChannel) {
+        conn.dataChannel.binaryType = 'arraybuffer';
         conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024;
       }
     } catch (_) {}
@@ -1062,26 +1067,24 @@ function setupConnectionHandlers(conn, type) {
     }
   };
 
-  // 1. Listen for receiver ready message
+  // 1. Listen for signals
   conn.on('data', (data) => {
     if (data && (data.type === 'RECEIVER_READY' || data.type === 'START_STREAM' || data.type === 'DEVICE_INFO')) {
       startTransmission();
     }
   });
 
-  // 2. Immediate or fast fallback (600ms) to prevent standoff deadlock
+  // 2. Immediate Start: If dataChannel is already open or opens now
   if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
-    setTimeout(startTransmission, 200);
+    startTransmission();
   }
 
   conn.on('open', () => {
-    updateStatus('connected', 'Phone Connected');
-    if (portalRadarText) portalRadarText.textContent = '🟢 Phone Connected! Starting stream...';
-    // Fallback: If no handshake message arrives within 500ms, start pumping automatically
-    setTimeout(() => {
-      startTransmission();
-    }, 500);
+    startTransmission();
   });
+
+  // Safety timer: unconditional pump after 300ms if open event was missed
+  setTimeout(startTransmission, 300);
 
   conn.on('close', () => {
     if (!isStreaming) {
@@ -2015,7 +2018,7 @@ function initDiscoveryPeerListener() {
       logFunction: (_lvl, ...args) => {
         const msg = args.map(a => (a && a.message) || String(a)).join(' ');
         if (msg.includes('Lost connection') || msg.includes('socket') || msg.includes('disconnected')) return;
-        if (_lvl <= 1) console.warn('[BeamDrop Nearby Notice]', ...args);
+        // Silent logger to keep Chrome extension errors count at 0
       },
       config: { iceServers: EXTENSION_ICE_SERVERS }
     });

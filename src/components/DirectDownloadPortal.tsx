@@ -41,6 +41,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
   const transferManager = useMemo(() => new P2PTransferManager(), []);
   const autoTriggeredRef = useRef(false);
+  const isConnectingRef = useRef(false);
 
   // Metadata from URL query or incoming stream
   const displayName = downloadedFile?.name || currentFile?.name || expectedFileName || 'Shared File';
@@ -121,6 +122,9 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
         transferManager.setE2EEKeyFromHex(match[1]);
       }
     }
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
+
     const myReceiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
     transferManager
       .init(myReceiverId)

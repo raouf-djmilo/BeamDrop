@@ -976,11 +976,23 @@
       }
 
       function setupConnection(conn) {
+        try {
+          if (conn.dataChannel) {
+            conn.dataChannel.binaryType = 'arraybuffer';
+          }
+        } catch (_) {}
+
         conn.on('open', function() {
-          transferStatusText.textContent = 'Connected! Awaiting data stream...';
+          try {
+            if (conn.dataChannel) {
+              conn.dataChannel.binaryType = 'arraybuffer';
+            }
+          } catch (_) {}
+
+          transferStatusText.textContent = 'Connected! Receiving stream...';
           btnDownload.disabled = false;
           btnDownload.onclick = function() {
-            if (isCompleted && currentDownloadUrl) {
+            if (currentDownloadUrl) {
               triggerBrowserSave(currentDownloadUrl, activeFileName);
             }
           };
