@@ -410,7 +410,7 @@ if (btnCopyReceiveAddress) {
 
 if (btnGetIosShortcut) {
   btnGetIosShortcut.addEventListener('click', () => {
-    const url = 'https://www.icloud.com/shortcuts/1b230c3b262842f69e1032562b2bc6f1';
+    const url = 'https://www.icloud.com/shortcuts/0b10ce1117eb49528d916c7557f472f2';
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
       chrome.tabs.create({ url });
     } else {
