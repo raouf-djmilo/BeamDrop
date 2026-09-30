@@ -1,13 +1,15 @@
 {
   "name": "BeamDrop",
-  "version": "1.6.0",
-  "latestVersion": "1.6.0",
+  "version": "1.6.1",
+  "latestVersion": "1.6.1",
   "releaseDate": "2026-09-30",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "updateUrl": "https://beam-drop-mu.vercel.app",
   "highlights": [
+    "\ud83d\udee1\ufe0f Eliminated Chrome extension clipboard and bluetooth exceptions",
+    "\u26a1 High-resolution crisp icon assets for Chrome bar",
     "\ud83c\udfa8 iOS Liquid Glass Visual Overhaul with Specular Refraction",
     "\ud83d\udcc1 Native File System 1-Click Folder Unpacker (Zero-ZIP)",
     "\u26a1 Streamlined 4-Tab Navigation with Zero Scrollbar",

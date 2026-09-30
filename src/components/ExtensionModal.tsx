@@ -88,7 +88,7 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({
       // Handle icons subfolder
       try {
         const iconsDirHandle = await dirHandle.getDirectoryHandle('icons', { create: true });
-        const iconFiles = ['icon16.png', 'icon48.png', 'icon128.png', 'icon.svg'];
+        const iconFiles = ['icon16.png', 'icon48.png', 'icon128.png', 'icon-16.png', 'icon-48.png', 'icon-128.png', 'icon.svg'];
         for (const iconName of iconFiles) {
           try {
             const iconRes = await fetch('/extension/icons/' + iconName);

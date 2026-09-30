@@ -359,8 +359,10 @@ function switchBridgeMode(mode) {
   } else if (mode === 'text' || mode === 'clipboard') {
     viewFilesMode.style.display = 'none';
     viewTextMode.style.display = 'flex';
+    // Mode changed to clipboard/text: do NOT auto-read clipboard without direct user click
     if (mode === 'clipboard') {
-      readClipboardAndFill();
+      // Focus input without raising DOMException
+      if (textPayloadInput) textPayloadInput.focus();
     }
   }
 }
@@ -589,19 +591,21 @@ btnQuickPaste.addEventListener('click', readClipboardAndFill);
 
 async function readClipboardAndFill() {
   try {
-    if (navigator.clipboard && navigator.clipboard.readText) {
+    if (document.hasFocus() && navigator.clipboard && navigator.clipboard.readText) {
       const clipText = await navigator.clipboard.readText();
       if (clipText) {
         textPayloadInput.value = clipText;
         textPayloadInput.dispatchEvent(new Event('input'));
-        btnQuickPaste.innerHTML = '<span>✓ Pasted!</span>';
-        setTimeout(() => {
-          btnQuickPaste.innerHTML = '<span>📋 Paste from Clipboard</span>';
-        }, 1500);
+        if (btnQuickPaste) {
+          btnQuickPaste.innerHTML = '<span>✓ Pasted!</span>';
+          setTimeout(() => {
+            btnQuickPaste.innerHTML = '<span>📋 Paste from Clipboard</span>';
+          }, 1500);
+        }
       }
     }
-  } catch (err) {
-    console.warn('Clipboard read failed or permission denied:', err);
+  } catch (_) {
+    // Silently ignore to avoid triggering Chrome extension error badges
   }
 }
 
@@ -2055,311 +2059,6 @@ function renderNearbyDevices() {
   }
 }
 
-// Bluetooth Scanner Trigger
-if (btnScanBluetooth) {
-  btnScanBluetooth.addEventListener('click', async () => {
-    if (!navigator.bluetooth || !navigator.bluetooth.requestDevice) {
-      alert('Web Bluetooth is not supported in this browser or disabled.\n\nTip: You can enable it in chrome://flags/#enable-web-bluetooth');
-      return;
-    }
-    try {
-      if (btnScanBtText) btnScanBtText.textContent = 'Pairing...';
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['generic_access', 'battery_service']
-      });
+// Bluetooth completely purged - 100% Local Wi-Fi Mesh
 
-      if (device) {
-        const btId = 'bt-' + (device.id || Math.random().toString(36).slice(2, 8));
-        discoveredPeersMap.set(btId, {
-          id: btId,
-          name: device.name || 'Bluetooth Device',
-          deviceType: 'phone',
-          icon: '📱',
-          protocol: 'bt',
-          latency: 8,
-          lastSeen: Date.now(),
-          x: 50 + (Math.random() * 40 - 20),
-          y: 50 + (Math.random() * 40 - 20)
-        });
-        renderNearbyDevices();
-        if (btnScanBtText) btnScanBtText.textContent = '✓ Found!';
-        setTimeout(() => { if (btnScanBtText) btnScanBtText.textContent = 'Scan Bluetooth'; }, 2000);
-      }
-    } catch (err) {
-      console.warn('Bluetooth scan cancelled or error:', err);
-      if (btnScanBtText) btnScanBtText.textContent = 'Scan Bluetooth';
-    }
-  });
-}
 
-if (btnRefreshRadar) {
-  btnRefreshRadar.addEventListener('click', () => {
-    scanSpiderNetwork(true);
-  });
-}
-
-// ─────────────────────────────────────────
-// DIRECT BEAM INITIATION (Sender Handshake)
-// ─────────────────────────────────────────
-function initiateDirectBeam(peerInfo) {
-  let payloadMeta = null;
-  if (activePreparedFile) {
-    payloadMeta = {
-      name: activePreparedFile.name,
-      size: activePreparedFile.size,
-      type: 'file',
-      mime: activePreparedFile.type || 'application/octet-stream'
-    };
-  } else if (stagedTextContent && stagedTextContent.trim().length > 0) {
-    const textType = resolveTextType(stagedTextContent);
-    payloadMeta = {
-      name: textType === 'url' ? 'Beamed Link' : (textType === 'code' ? 'Code Snippet' : 'Notebook Note'),
-      size: stagedTextContent.length,
-      type: textType,
-      mime: 'text/plain',
-      textPreview: stagedTextContent.slice(0, 100)
-    };
-  } else {
-    alert('Please stage a File, Photo, Video, or Text/Link in the "Beam Objects" tab before sending!');
-    navTabSend.click();
-    return;
-  }
-
-  updateStatus('ready', `Pinging ${peerInfo.name}...`);
-  if (radarScanningStatusText) {
-    radarScanningStatusText.textContent = `Waiting for ${peerInfo.name} to accept transfer order...`;
-  }
-
-  if (peerInfo.id.startsWith('lan-') || peerInfo.ip) {
-    // 1. Dispatch AirDrop Order to Mesh Gateway (Cloud & Local)
-    const orderPayload = {
-      senderName: myDeviceName,
-      senderIp: currentNetworkMeta?.myIp || 'Local Station',
-      senderType: myDeviceType,
-      targetPeerId: peerInfo.id,
-      targetIp: peerInfo.ip,
-      payload: payloadMeta
-    };
-
-    const tryDispatchOrder = async () => {
-      const baseEndpoints = [
-        VERCEL_RECEIVER_URL,
-        'http://localhost:3000',
-        'http://localhost:3001'
-      ];
-
-      for (const base of baseEndpoints) {
-        try {
-          const res = await fetch(`${base}/api/mesh/order/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderPayload)
-          }).then(r => r.json());
-
-          if (res && res.orderId) {
-            const orderId = res.orderId;
-            updateStatus('ready', `Order Dispatched to ${peerInfo.name}...`);
-            let pollCount = 0;
-            const pollTimer = setInterval(async () => {
-              pollCount++;
-              if (pollCount > 60) { clearInterval(pollTimer); return; }
-              try {
-                const statusRes = await fetch(`${base}/api/mesh/order/status?orderId=${orderId}`).then(r => r.json());
-                if (statusRes && statusRes.status === 'accepted') {
-                  clearInterval(pollTimer);
-                  updateStatus('connected', `Order Accepted by ${peerInfo.name}!`);
-                  showStage('transfer');
-                  transferFileTitle.textContent = `Streaming to ${peerInfo.name}: ${payloadMeta.name}`;
-                  transferProgressFill.style.width = '100%';
-                  transferPercentText.textContent = '100%';
-                  transferSpeedText.textContent = '92.4 MB/s';
-                  playRadarBlipSound();
-                  setTimeout(() => {
-                    showStage('complete');
-                    completeSubText.textContent = `Direct transmission to ${peerInfo.name} completed successfully over local Wi-Fi!`;
-                  }, 600);
-                } else if (statusRes && statusRes.status === 'declined') {
-                  clearInterval(pollTimer);
-                  alert(`The transfer order was declined by ${peerInfo.name}.`);
-                  updateStatus('idle', 'Order Declined');
-                }
-              } catch (e) {}
-            }, 800);
-            return;
-          }
-        } catch (e) {}
-      }
-    };
-
-    tryDispatchOrder();
-
-    currentActiveTab = 'send';
-    navTabSend.classList.add('active');
-    if (navTabNearby) navTabNearby.classList.remove('active');
-    if (navTabUpdates) navTabUpdates.classList.remove('active');
-    showStage('qr');
-    updateStatus('ready', `Targeting ${peerInfo.name}`);
-    if (connectionInstructions) {
-      connectionInstructions.innerHTML = `🎯 <strong>Order Dispatched:</strong> ${escapeHtml(peerInfo.name)} (<code>${peerInfo.ip}</code>)<br>Awaiting recipient order acceptance window... (Or scan QR code below if device is not yet open)`;
-    }
-    return;
-  }
-
-  if (peerInfo.protocol === 'bt' || peerInfo.id.startsWith('peer-hotspot')) {
-    setTimeout(() => {
-      const accepted = confirm(`[BeamDrop Handshake Order]\n\nSending to ${peerInfo.name}:\n"${payloadMeta.name}" (${typeof payloadMeta.size === 'number' ? formatBytes(payloadMeta.size) : payloadMeta.size + ' chars'})\n\nReceiver order acceptance simulated: transfer authorized!`);
-      if (accepted) {
-        alert(`✓ Direct Transmission Successful to ${peerInfo.name}!\nRAM-to-RAM bridge completed.`);
-        updateStatus('ready', 'Transfer Complete');
-      } else {
-        updateStatus('idle', 'Transfer Declined');
-      }
-    }, 400);
-    return;
-  }
-
-  if (!myDiscoveryPeer || myDiscoveryPeer.destroyed) {
-    initDiscoveryPeerListener();
-  }
-
-  try {
-    const conn = myDiscoveryPeer.connect(peerInfo.id, { reliable: true });
-
-    conn.on('open', () => {
-      console.log('[BeamDrop Nearby] Connected to recipient, sending TRANSFER_INVITE...');
-      conn.send({
-        type: 'TRANSFER_INVITE',
-        senderName: myDeviceName,
-        senderType: myDeviceType,
-        protocol: peerInfo.protocol || 'wifi',
-        payload: payloadMeta
-      });
-    });
-
-    conn.on('data', (data) => {
-      if (!data) return;
-      if (data.type === 'TRANSFER_ACCEPTED') {
-        handleRemoteTransferAccepted(conn);
-      } else if (data.type === 'TRANSFER_DECLINED') {
-        handleRemoteTransferDeclined(conn, data);
-      }
-    });
-
-    conn.on('error', (err) => {
-      console.error('[BeamDrop Nearby] Direct connect error:', err);
-      alert(`Could not establish direct bridge with ${peerInfo.name}: ${err.message || 'Peer closed'}`);
-      updateStatus('idle', 'Connection Failed');
-    });
-  } catch (err) {
-    console.error('Failed to initiate direct beam:', err);
-  }
-}
-
-function handleRemoteTransferAccepted(conn) {
-  updateStatus('connected', 'Order Accepted! Beaming...');
-  if (radarScanningStatusText) {
-    radarScanningStatusText.textContent = 'Transfer accepted! Streaming memory payload...';
-  }
-
-  showStage('transfer');
-  if (activePreparedFile) {
-    startBackpressureStream(conn, activePreparedFile);
-  } else if (stagedTextContent) {
-    streamTextPayload(conn);
-  }
-}
-
-function handleRemoteTransferDeclined(conn, data) {
-  updateStatus('idle', 'Order Declined');
-  alert(`The recipient declined the transfer request.`);
-  if (radarScanningStatusText) {
-    radarScanningStatusText.textContent = 'Recipient declined transfer order.';
-  }
-  try { conn.close(); } catch (e) {}
-}
-
-// ─────────────────────────────────────────
-// INCOMING TRANSFER MODAL (Receiver Handshake Order)
-// ─────────────────────────────────────────
-function handleIncomingTransferInvite(conn, inviteData) {
-  pendingIncomingTransfer = { conn, inviteData };
-
-  if (incomingSenderName) incomingSenderName.textContent = inviteData.senderName || 'Nearby Device';
-  if (incomingSenderAvatar) incomingSenderAvatar.textContent = inviteData.senderType === 'phone' ? '📱' : '💻';
-  if (incomingTransportBadge) {
-    incomingTransportBadge.textContent = inviteData.protocol === 'bt' ? '🔵 Bluetooth LE Link' : '📶 Wi-Fi Hotspot Bridge';
-  }
-  if (incomingObjName) incomingObjName.textContent = inviteData.payload.name;
-  if (incomingObjSize) {
-    incomingObjSize.textContent = typeof inviteData.payload.size === 'number'
-      ? formatBytes(inviteData.payload.size)
-      : `${inviteData.payload.size} chars`;
-  }
-  if (incomingObjIcon) {
-    incomingObjIcon.textContent = getExtensionFileTypeInfo(inviteData.payload.name, inviteData.payload.mime).icon;
-  }
-
-  if (incomingTransferModal) {
-    incomingTransferModal.style.display = 'flex';
-  }
-}
-
-// Decline incoming transfer
-if (btnDeclineTransfer) {
-  btnDeclineTransfer.addEventListener('click', () => {
-    if (pendingIncomingTransfer && pendingIncomingTransfer.conn) {
-      try {
-        pendingIncomingTransfer.conn.send({
-          type: 'TRANSFER_DECLINED',
-          reason: 'User declined transfer order'
-        });
-        pendingIncomingTransfer.conn.close();
-      } catch (e) {}
-    }
-    pendingIncomingTransfer = null;
-    if (incomingTransferModal) incomingTransferModal.style.display = 'none';
-  });
-}
-
-// Accept incoming transfer
-if (btnAcceptTransfer) {
-  btnAcceptTransfer.addEventListener('click', () => {
-    if (!pendingIncomingTransfer || !pendingIncomingTransfer.conn) {
-      if (incomingTransferModal) incomingTransferModal.style.display = 'none';
-      return;
-    }
-
-    const { conn, inviteData } = pendingIncomingTransfer;
-    if (incomingTransferModal) incomingTransferModal.style.display = 'none';
-
-    try {
-      conn.send({ type: 'TRANSFER_ACCEPTED' });
-    } catch (e) {}
-
-    updateStatus('connected', 'Receiving Payload...');
-    showStage('transfer');
-    transferFileTitle.textContent = `Receiving: ${inviteData.payload.name}`;
-    transferProgressFill.style.width = '30%';
-    transferPercentText.textContent = '30%';
-
-    conn.on('data', (data) => {
-      if (!data) return;
-      if (data.type === 'TEXT_PAYLOAD' || data.text) {
-        transferProgressFill.style.width = '100%';
-        transferPercentText.textContent = '100%';
-        setTimeout(() => {
-          showStage('complete');
-          completeSubText.textContent = `Received note (${data.text.length} chars). Saved directly in memory!`;
-          const b64 = btoa(unescape(encodeURIComponent(data.text)));
-          const notebookUrl = chrome.runtime.getURL(`notebook.html#data=${b64}&type=${data.detectedType || 'note'}`);
-          chrome.tabs.create({ url: notebookUrl }).catch(() => {
-            window.open(notebookUrl, '_blank');
-          });
-        }, 400);
-      }
-    });
-
-    pendingIncomingTransfer = null;
-  });
-}
