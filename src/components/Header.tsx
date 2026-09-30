@@ -8,17 +8,20 @@ import {
   ShieldCheck,
   Cpu,
   Chrome,
-  Download
+  Download,
+  QrCode,
+  Camera
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
 import { APP_VERSION } from '../config/version';
 
-export type MainTab = 'sender' | 'radar' | 'workspaces' | 'receiver';
+export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces' | 'receiver';
 
 interface HeaderProps {
   activeTab: MainTab;
   setActiveTab: (tab: MainTab) => void;
   onOpenExtensionModal: () => void;
+  onOpenMobileScanner?: () => void;
   showArchitectureModal: boolean;
   setShowArchitectureModal: (show: boolean) => void;
 }
@@ -27,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onOpenExtensionModal,
+  onOpenMobileScanner,
   showArchitectureModal,
   setShowArchitectureModal
 }) => {
@@ -35,9 +39,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const tabs: Array<{ id: MainTab; label: string; icon: React.ReactNode }> = [
     { id: 'sender', label: 'Direct Beam', icon: <Zap className="w-4 h-4" /> },
-    { id: 'radar', label: 'Mesh Radar', icon: <Radio className="w-4 h-4 text-emerald-400" /> },
-    { id: 'workspaces', label: 'Workspaces', icon: <Building2 className="w-4 h-4 text-indigo-400" /> },
-    { id: 'receiver', label: 'Receiver', icon: <Smartphone className="w-4 h-4 text-cyan-400" /> }
+    { id: 'receive', label: 'Receive (QR)', icon: <QrCode className="w-4 h-4 text-sky-600" /> },
+    { id: 'radar', label: 'Mesh Radar', icon: <Radio className="w-4 h-4 text-emerald-500" /> },
+    { id: 'workspaces', label: 'Workspaces', icon: <Building2 className="w-4 h-4 text-indigo-500" /> },
+    { id: 'receiver', label: 'Device Bridge', icon: <Smartphone className="w-4 h-4 text-cyan-600" /> }
   ];
 
   return (
@@ -97,6 +102,18 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
                   <span>Streaming {currentTransfer.progress}%</span>
                 </div>
+              )}
+
+              {/* Mobile Camera Scan Launcher Button */}
+              {onOpenMobileScanner && (
+                <button
+                  onClick={onOpenMobileScanner}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white transition-all text-xs font-semibold cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
+                  title="Open Mobile Camera Scanner to beam files"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline font-mono text-[11px]">Scan &amp; Send</span>
+                </button>
               )}
 
               {/* Dedicated Specular Glass Extension Pill */}

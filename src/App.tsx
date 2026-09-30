@@ -10,6 +10,8 @@ import { SenderView } from './components/SenderView';
 import { SpiderRadarView } from './components/SpiderRadarView';
 import { WorkspacesView } from './components/WorkspacesView';
 import { ReceiverView } from './components/ReceiverView';
+import { ReceiveVaultView } from './components/ReceiveVaultView';
+import { MobileScannerPortal } from './components/MobileScannerPortal';
 import { ExtensionModal } from './components/ExtensionModal';
 import { DirectDownloadPortal } from './components/DirectDownloadPortal';
 import { PortalView } from './components/PortalView';
@@ -33,11 +35,12 @@ function MainApp() {
 
   const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full');
 
-  // Streamlined 4-Tab Navigation: Direct Beam, Mesh Radar, Workspaces, Receiver
+  // Streamlined Navigation: Direct Beam, Receive (QR), Mesh Radar, Workspaces, Receiver
   const [activeTab, setActiveTab] = useState<MainTab>('sender');
   const [targetedPeer, setTargetedPeer] = useState<any>(null);
 
-  // Modals & PWA state
+  // Modals & Mobile Scanner state
+  const [showMobileScanner, setShowMobileScanner] = useState<boolean>(initialMode === 'scan' || initialMode === 'scanner');
   const [showExtensionModal, setShowExtensionModal] = useState<boolean>(false);
   const [showArchitectureModal, setShowArchitectureModal] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -132,6 +135,7 @@ function MainApp() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenExtensionModal={() => setShowExtensionModal(true)}
+        onOpenMobileScanner={() => setShowMobileScanner(true)}
         showArchitectureModal={showArchitectureModal}
         setShowArchitectureModal={setShowArchitectureModal}
       />
@@ -143,6 +147,13 @@ function MainApp() {
             transferManager={transferManager}
             receiverBaseUrl={receiverBaseUrl}
             targetedPeer={targetedPeer}
+          />
+        )}
+
+        {activeTab === 'receive' && (
+          <ReceiveVaultView
+            transferManager={transferManager}
+            onOpenMobileScanner={() => setShowMobileScanner(true)}
           />
         )}
 
@@ -166,6 +177,15 @@ function MainApp() {
           />
         )}
       </main>
+
+      {/* Mobile Camera Scanner Modal & Portal */}
+      {showMobileScanner && (
+        <MobileScannerPortal
+          transferManager={transferManager}
+          initialTargetPeer={initialPeer}
+          onClose={() => setShowMobileScanner(false)}
+        />
+      )}
 
       {/* Extension Modal (File System Access 1-Click Unpacker) */}
       <ExtensionModal

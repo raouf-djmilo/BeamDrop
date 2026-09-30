@@ -49,6 +49,7 @@ const footerVersionText = document.getElementById('footerVersionText');
 
 // Navigation Tabs
 const navTabSend = document.getElementById('navTabSend');
+const navTabReceive = document.getElementById('navTabReceive');
 const navTabNearby = document.getElementById('navTabNearby');
 const navTabUpdates = document.getElementById('navTabUpdates');
 const navUpdateDot = document.getElementById('navUpdateDot');
@@ -56,11 +57,25 @@ const navNearbyCountBadge = document.getElementById('navNearbyCountBadge');
 
 // Stages
 const stageStaging = document.getElementById('stageStaging');
+const stageReceive = document.getElementById('stageReceive');
 const stagePortal = document.getElementById('stagePortal');
 const stageTransfer = document.getElementById('stageTransfer');
 const stageComplete = document.getElementById('stageComplete');
 const stageUpdates = document.getElementById('stageUpdates');
 const stageNearby = document.getElementById('stageNearby');
+
+// Receive Vault Elements
+const receiveVaultQrBox = document.getElementById('receiveVaultQrBox');
+const receiveVaultAddressText = document.getElementById('receiveVaultAddressText');
+const btnCopyReceiveAddress = document.getElementById('btnCopyReceiveAddress');
+const btnGetIosShortcut = document.getElementById('btnGetIosShortcut');
+const btnOpenMobileScannerLink = document.getElementById('btnOpenMobileScannerLink');
+const receiveLiveStreamCard = document.getElementById('receiveLiveStreamCard');
+const receiveIncomingFilename = document.getElementById('receiveIncomingFilename');
+const receiveIncomingPercent = document.getElementById('receiveIncomingPercent');
+const receiveIncomingProgressFill = document.getElementById('receiveIncomingProgressFill');
+const vaultItemsCount = document.getElementById('vaultItemsCount');
+const vaultItemsList = document.getElementById('vaultItemsList');
 
 // Nearby Radar Elements
 const myDeviceNameInput = document.getElementById('myDeviceNameInput');
@@ -219,6 +234,7 @@ if (footerVersionText) {
 // ==========================================
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
+  if (stageReceive) stageReceive.style.display = stageName === 'receive' ? 'flex' : 'none';
   stagePortal.style.display = stageName === 'portal' ? 'flex' : 'none';
   stageTransfer.style.display = stageName === 'transfer' ? 'flex' : 'none';
   stageComplete.style.display = stageName === 'complete' ? 'flex' : 'none';
@@ -293,6 +309,7 @@ function openFloatingWindowFallback() {
 navTabSend.addEventListener('click', () => {
   currentActiveTab = 'send';
   navTabSend.classList.add('active');
+  if (navTabReceive) navTabReceive.classList.remove('active');
   if (navTabNearby) navTabNearby.classList.remove('active');
   navTabUpdates.classList.remove('active');
 
@@ -305,11 +322,109 @@ navTabSend.addEventListener('click', () => {
   }
 });
 
+if (navTabReceive) {
+  navTabReceive.addEventListener('click', () => {
+    currentActiveTab = 'receive';
+    navTabReceive.classList.add('active');
+    navTabSend.classList.remove('active');
+    if (navTabNearby) navTabNearby.classList.remove('active');
+    navTabUpdates.classList.remove('active');
+    showStage('receive');
+    initReceiveVault();
+  });
+}
+
+function initReceiveVault() {
+  if (!currentPeerId) {
+    try {
+      currentPeerId = localStorage.getItem('beamdrop_ext_peer_id');
+    } catch (_) {}
+    if (!currentPeerId) {
+      const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().slice(0, 8)
+        : Math.random().toString(36).substring(2, 10);
+      currentPeerId = 'beam-' + randomSub;
+      try {
+        localStorage.setItem('beamdrop_ext_peer_id', currentPeerId);
+      } catch (_) {}
+    }
+  }
+
+  // Ensure PeerJS listener is active for incoming connections
+  if (!peer || peer.destroyed || peer.disconnected) {
+    initPeerJsSession('receive');
+  }
+
+  const shortPeer = (currentPeerId || 'ID').replace('beam-', '').toUpperCase();
+  const cryptoAddress = `BD-${shortPeer.slice(0, 4)}-${shortPeer.slice(4, 8) || 'ADDR'}`;
+  if (receiveVaultAddressText) {
+    receiveVaultAddressText.textContent = cryptoAddress;
+  }
+
+  // Render QR Code in receiveVaultQrBox using qrcode.min.js
+  if (receiveVaultQrBox && typeof QRCode !== 'undefined') {
+    receiveVaultQrBox.innerHTML = '';
+    const mobileLink = `${VERCEL_RECEIVER_URL}/?mode=scan&peer=${currentPeerId}`;
+    try {
+      new QRCode(receiveVaultQrBox, {
+        text: mobileLink,
+        width: 160,
+        height: 160,
+        colorDark: '#0369a1',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (e) {
+      console.warn('QR render error:', e);
+    }
+  }
+}
+
+if (btnCopyReceiveAddress) {
+  btnCopyReceiveAddress.addEventListener('click', () => {
+    const text = receiveVaultAddressText ? receiveVaultAddressText.textContent : '';
+    if (text) {
+      navigator.clipboard.writeText(text);
+      btnCopyReceiveAddress.textContent = 'Copied!';
+      setTimeout(() => { btnCopyReceiveAddress.textContent = 'Copy'; }, 2000);
+    }
+  });
+}
+
+if (btnGetIosShortcut) {
+  btnGetIosShortcut.addEventListener('click', () => {
+    const url = `${VERCEL_RECEIVER_URL}/shortcuts/BeamDrop-to-PC.shortcut`;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url });
+    } else {
+      window.open(url, '_blank');
+    }
+  });
+}
+
+let vaultItems = [];
+function addVaultItem(item) {
+  vaultItems.unshift(item);
+  if (vaultItemsCount) vaultItemsCount.textContent = vaultItems.length;
+  if (!vaultItemsList) return;
+
+  vaultItemsList.innerHTML = vaultItems.map(it => `
+    <div style="padding: 6px 8px; border-radius: 8px; background: #ffffff; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+      <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">
+        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(it.name)}</span>
+        <span style="color: #64748b; font-size: 9.5px; margin-left: 4px;">(${formatBytes(it.size)})</span>
+      </div>
+      <a href="${it.url}" download="${escapeHtml(it.name)}" style="padding: 2px 6px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 700; text-decoration: none; font-size: 10px;">Save</a>
+    </div>
+  `).join('');
+}
+
 if (navTabNearby) {
   navTabNearby.addEventListener('click', () => {
     currentActiveTab = 'nearby';
     navTabNearby.classList.add('active');
     navTabSend.classList.remove('active');
+    if (navTabReceive) navTabReceive.classList.remove('active');
     navTabUpdates.classList.remove('active');
     showStage('nearby');
     startNearbyDiscovery();
@@ -320,6 +435,7 @@ navTabUpdates.addEventListener('click', () => {
   currentActiveTab = 'updates';
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
+  if (navTabReceive) navTabReceive.classList.remove('active');
   if (navTabNearby) navTabNearby.classList.remove('active');
   showStage('updates');
 
@@ -1067,17 +1183,89 @@ function setupConnectionHandlers(conn, type) {
     }
   };
 
-  // 1. Listen for signals from receiver (Phone or PC)
+  // 1. Listen for signals & incoming media from sender (iPhone / Android / PC)
+  let incomingChunks = [];
+  let incomingMeta = null;
+  let incomingTotalBytes = 0;
+
   conn.on('data', (data) => {
+    // Binary chunk (ArrayBuffer) received from Phone / Sender
+    if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+      const buffer = data instanceof ArrayBuffer ? data : data.buffer;
+      incomingChunks.push(buffer);
+      incomingTotalBytes += buffer.byteLength;
+
+      if (incomingMeta && incomingMeta.fileSize) {
+        const pct = Math.min(99, Math.round((incomingTotalBytes / incomingMeta.fileSize) * 100));
+        if (receiveIncomingPercent) receiveIncomingPercent.textContent = `${pct}%`;
+        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = `${pct}%`;
+      }
+      return;
+    }
+
     let msg = data;
     if (typeof data === 'string') {
       try { msg = JSON.parse(data); } catch (_) {}
     }
-    if (msg && (msg.type === 'RECEIVER_READY' || msg.type === 'START_STREAM' || msg.type === 'DEVICE_INFO')) {
+    if (!msg) return;
+
+    if (msg.type === 'FILE_START') {
+      incomingMeta = msg;
+      incomingChunks = [];
+      incomingTotalBytes = 0;
+      if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'block';
+      if (receiveIncomingFilename) receiveIncomingFilename.textContent = msg.fileName || 'Incoming media...';
+      if (receiveIncomingPercent) receiveIncomingPercent.textContent = '0%';
+      if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '0%';
+      conn.send({ type: 'RECEIVER_READY', fileId: msg.fileId });
+      return;
+    }
+
+    if (msg.type === 'FILE_END') {
+      if (incomingMeta && incomingChunks.length > 0) {
+        const fileBlob = new Blob(incomingChunks, { type: incomingMeta.fileMime || 'application/octet-stream' });
+        const fileName = incomingMeta.fileName || 'beamed-file';
+        const blobUrl = URL.createObjectURL(fileBlob);
+
+        if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+          chrome.downloads.download({ url: blobUrl, filename: fileName, saveAs: false }).catch(() => {
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = fileName;
+            a.click();
+          });
+        } else {
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName;
+          a.click();
+        }
+
+        addVaultItem({
+          name: fileName,
+          size: incomingTotalBytes,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: incomingMeta.fileMime || 'file',
+          url: blobUrl
+        });
+
+        if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';
+        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '100%';
+        setTimeout(() => {
+          if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'none';
+        }, 2500);
+
+        conn.send({ type: 'TRANSFER_COMPLETE_ACK', device: 'PC Extension' });
+      }
+      return;
+    }
+
+    if (msg.type === 'RECEIVER_READY' || msg.type === 'START_STREAM' || msg.type === 'DEVICE_INFO') {
       console.log('[BeamDrop] Receiver signaled readiness:', msg.type);
       startTransmission();
+      return;
     }
-    if (msg && (msg.type === 'TRANSFER_COMPLETE_ACK' || msg.type === 'TRANSFER_SUCCESS')) {
+    if (msg.type === 'TRANSFER_COMPLETE_ACK' || msg.type === 'TRANSFER_SUCCESS') {
       console.log('[BeamDrop] Receiver confirmed 100% receipt:', msg.device || 'remote device');
       isStreaming = false;
       transferProgressFill.style.width = '100%';
@@ -1087,6 +1275,7 @@ function setupConnectionHandlers(conn, type) {
       showStage('complete');
       completeSubText.textContent = `Successfully received on ${msg.device || 'device'} with zero cloud storage.`;
       updateStatus('ready', 'Transfer Complete');
+      return;
     }
   });
 
