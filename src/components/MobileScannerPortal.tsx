@@ -22,6 +22,7 @@ import {
 import { P2PTransferManager } from '../utils/p2p';
 import { formatBytes, formatSpeed } from '../utils/formatters';
 import { playChime } from '../utils/audio';
+import { consumeSharedPayload } from '../utils/sharedVault';
 
 interface MobileScannerPortalProps {
   transferManager: P2PTransferManager;
@@ -36,6 +37,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [targetPeerId, setTargetPeerId] = useState<string>(initialTargetPeer || '');
+  const [sharedFromAndroid, setSharedFromAndroid] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(true);
   const [cameraError, setCameraError] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(true);
@@ -260,6 +262,19 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
     }
   };
 
+  // Check for shared payload from Android Share Sheet (Web Share Target API)
+  useEffect(() => {
+    consumeSharedPayload().then((payload) => {
+      if (payload && payload.files && payload.files.length > 0) {
+        setSelectedFiles(payload.files);
+        setSharedFromAndroid(true);
+        if (targetPeerId) {
+          initiateTransfer(targetPeerId, payload.files);
+        }
+      }
+    });
+  }, [targetPeerId]);
+
   useEffect(() => {
     if (initialTargetPeer) {
       setTargetPeerId(initialTargetPeer);
@@ -307,6 +322,24 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
             </button>
           )}
         </div>
+
+        {/* Android Share Sheet Received Badge */}
+        {sharedFromAndroid && selectedFiles.length > 0 && (
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-2xl p-3.5 flex items-center space-x-3 text-emerald-950 animate-fade-in shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs font-bold text-xs">
+              🤖
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold flex items-center gap-1.5">
+                <span>Android Share Sheet Ready</span>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} staged
+                </span>
+              </p>
+              <p className="text-[11px] text-emerald-700">Point your camera at the PC screen QR code to beam them now!</p>
+            </div>
+          </div>
+        )}
 
         {/* Transferring Live State Card */}
         {transferStatus === 'transferring' && (

@@ -49,6 +49,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   const [autoDownload, setAutoDownload] = useState<boolean>(true);
   const [showScannerModal, setShowScannerModal] = useState<boolean>(false);
   const [showIosGuideModal, setShowIosGuideModal] = useState<boolean>(false);
+  const [showAndroidGuideModal, setShowAndroidGuideModal] = useState<boolean>(false);
 
   // Vault Received Items History
   const [vaultFiles, setVaultFiles] = useState<TransferFile[]>([]);
@@ -363,41 +364,57 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
           </div>
         </div>
 
-        {/* Card 2: Mobile Camera Scanner Portal (Android & iPhone) */}
+        {/* Card 2: Android Quick Share & Native Share Sheet */}
         <div className="bg-white/85 backdrop-blur-2xl border border-white/95 rounded-3xl p-6 shadow-[0_16px_40px_rgba(2,132,199,0.06)] flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
-                <Camera className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 font-bold text-base">
+                🤖
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">Mobile Camera Scanner</h3>
-                <p className="text-xs text-slate-500">Scan &amp; Send from any Smartphone</p>
+                <h3 className="text-base font-extrabold text-slate-900">Android Share Sheet</h3>
+                <p className="text-xs text-slate-500">Share from Gallery &amp; Files in 1 Tap</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Open the interactive mobile camera viewfinder on your phone to scan another screen or test real-time P2P beaming right from your browser.
+              Install BeamDrop on Android in 1 tap. Whenever you are in <strong>Google Photos, Gallery, or Files</strong>, tap <strong>Share → BeamDrop</strong> to scan PC QR and transfer instantly!
             </p>
 
-            <div className="p-3 rounded-2xl bg-sky-50/80 border border-sky-200 text-xs text-sky-900 space-y-1">
-              <div className="flex items-center space-x-1.5 font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                <span>Zero Installation Required</span>
+            {/* 3 Step Visual Mini Guide */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">1</span>
+                <span>Install BeamDrop Web App in Chrome / Edge</span>
               </div>
-              <p className="text-[11px] text-slate-600">
-                Works seamlessly in Safari, Chrome, Edge, and Samsung Internet.
-              </p>
+              <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">2</span>
+                <span>Select media in Gallery/Files ➔ Tap Share ➔ "BeamDrop"</span>
+              </div>
+              <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">3</span>
+                <span>Point camera at this PC screen ➔ Transferred!</span>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setShowScannerModal(true)}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
-          >
-            <Camera className="w-4 h-4" />
-            <span>📷 Launch Mobile Camera Scanner View</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <button
+              onClick={() => setShowAndroidGuideModal(true)}
+              className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 hover:from-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-900/20 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
+            >
+              <span>🤖 Setup Android Share Sheet</span>
+              <ArrowRight className="w-3.5 h-3.5 opacity-70" />
+            </button>
+            <button
+              onClick={() => setShowScannerModal(true)}
+              className="py-3 px-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
+              title="Launch Camera Scanner directly"
+            >
+              <Camera className="w-3.5 h-3.5 text-slate-600" />
+              <span>Camera</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -602,6 +619,131 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowIosGuideModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 cursor-pointer"
+              >
+                Got It
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Android Share Sheet Setup Assistant Modal */}
+      {showAndroidGuideModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-white shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-lg">
+                  🤖
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold">Android Native Share Sheet</h3>
+                  <p className="text-[11px] text-emerald-200">Share from Gallery &amp; Files directly to PC</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAndroidGuideModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
+              
+              {/* Highlight Card: How Android Share Sheet works */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-2 border-emerald-300 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 font-extrabold text-slate-900">
+                    <span className="w-6 h-6 rounded-full bg-emerald-700 text-white flex items-center justify-center text-xs font-bold">1</span>
+                    <span className="text-sm">Install App in Chrome (1-Tap Setup)</span>
+                  </div>
+                  <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Android Native</span>
+                </div>
+
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Installing BeamDrop as a Web App registers it with Android's system share menu. You'll be able to share photos, videos, and files directly from Google Photos or Files!
+                </p>
+
+                {/* QR Code and Actions */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-emerald-100">
+                  {qrDataUrl && (
+                    <div className="flex flex-col items-center shrink-0">
+                      <img
+                        src={qrDataUrl}
+                        alt="Scan to Open on Android"
+                        className="w-24 h-24 rounded-lg border border-slate-200 shadow-xs"
+                      />
+                      <span className="text-[9px] text-slate-500 font-medium mt-1">Scan with Android Camera</span>
+                    </div>
+                  )}
+
+                  <div className="flex-1 w-full space-y-2">
+                    <p className="text-[11px] text-slate-600">
+                      Open in <strong>Google Chrome</strong> or <strong>Samsung Internet</strong> on your phone:
+                    </p>
+                    <button
+                      onClick={copyLink}
+                      className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
+                    >
+                      {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedLink ? 'Link Copied!' : 'Copy Mobile Link'}</span>
+                    </button>
+                    <p className="text-[10px] text-slate-500 text-center">
+                      Tap Chrome Menu (⋮) ➔ <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Sharing Media from Gallery/Files */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="flex items-center space-x-2 font-extrabold text-slate-900">
+                  <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-bold">2</span>
+                  <span>How to Share from your Android Phone</span>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-slate-600 pl-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-[10px] shrink-0">A</span>
+                    <span>Open <strong>Google Photos</strong>, <strong>Gallery</strong>, or <strong>Files</strong>.</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-[10px] shrink-0">B</span>
+                    <span>Select any photos, videos, zip, or files ➔ Tap <strong>Share</strong>.</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-[10px] shrink-0">C</span>
+                    <span>Select <strong>BeamDrop</strong> from the app share list.</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">D</span>
+                    <span>BeamDrop opens with your files ready. Point camera at PC QR ➔ Beamed!</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alternative: Instant Camera Viewfinder */}
+              <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-1 text-slate-700">
+                <div className="flex items-center space-x-1.5 font-bold text-xs text-sky-950">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                  <span>No Setup Alternative:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  You can also simply scan the QR code on your PC screen with your Android camera without installing anything to transfer files directly in your browser.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowAndroidGuideModal(false)}
                 className="px-5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 cursor-pointer"
               >
                 Got It
