@@ -27,24 +27,28 @@ export function generateIosShortcutBlob(customOrigin?: string): Blob {
 			<key>WFWorkflowActionParameters</key>
 			<dict>
 				<key>WFCommentActionText</key>
-				<string>BeamDrop to PC - Instant P2P File &amp; Media Transfer from iOS to PC Extension/Web. Point camera at PC QR Receive Address to transfer!</string>
+				<string>BeamDrop to PC - Instant P2P File &amp; Media Transfer from iOS to PC Extension/Web. Point camera at PC QR Receive Address to transfer directly without opening browser!</string>
 			</dict>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.url</string>
+			<string>is.workflow.actions.scanbarcode</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
-				<key>WFURLActionURL</key>
-				<string>${targetUrl.replace(/&/g, '&amp;')}</string>
+				<key>UUID</key>
+				<string>BD-SCAN-BARCODE-UUID</string>
 			</dict>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.openurl</string>
+			<string>is.workflow.actions.downloadurl</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
-				<key>WFInput</key>
+				<key>WFHTTPBodyType</key>
+				<string>File</string>
+				<key>WFHTTPMethod</key>
+				<string>POST</string>
+				<key>WFRequestVariable</key>
 				<dict>
 					<key>Value</key>
 					<dict>
@@ -54,13 +58,36 @@ export function generateIosShortcutBlob(customOrigin?: string): Blob {
 					<key>WFSerializationType</key>
 					<string>WFTextTokenAttachment</string>
 				</dict>
+				<key>WFURL</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>QR/Barcode</string>
+						<key>OutputUUID</key>
+						<string>BD-SCAN-BARCODE-UUID</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFNotificationActionBody</key>
+				<string>File beamed to PC Vault successfully!</string>
+				<key>WFNotificationActionTitle</key>
+				<string>BeamDrop</string>
 			</dict>
 		</dict>
 	</array>
 	<key>WFWorkflowClientVersion</key>
 	<string>2104.0.3</string>
-	<key>WFWorkflowHasOutputFallback</key>
-	<false/>
 	<key>WFWorkflowHasShortcutInputVariables</key>
 	<true/>
 	<key>WFWorkflowIcon</key>
@@ -86,7 +113,6 @@ export function generateIosShortcutBlob(customOrigin?: string): Blob {
 	<key>WFWorkflowTypes</key>
 	<array>
 		<string>ActionExtension</string>
-		<string>NCWidget</string>
 	</array>
 </dict>
 </plist>`;
