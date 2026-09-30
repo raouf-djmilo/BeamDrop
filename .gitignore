@@ -6,6 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-public/extension.zip
-public/extension.zip.map
-*.zip
