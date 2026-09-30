@@ -987,20 +987,20 @@ function initPeerJsSession(type = 'file') {
   });
 
   peer.on('connection', (conn) => {
-    // 1. Single-Connection Lock: Prevent duplicate receiver connections from disrupting the active session
-    if (activeConnection && activeConnection.open && activeConnection.peer !== conn.peer) {
-      try { conn.close(); } catch (_) {}
-      return;
+    console.log('[BeamDrop] Receiver Connected:', conn.peer);
+
+    // If an existing connection exists from an earlier test or device, cleanly close it
+    if (activeConnection && activeConnection !== conn) {
+      try { activeConnection.close(); } catch (_) {}
     }
 
-    console.log('[BeamDrop] Receiver Connected:', conn.peer);
     activeConnection = conn;
-    updateStatus('connected', 'Streaming...');
+    updateStatus('connected', 'Device Connected');
 
-    // 2. Unconditionally force immediate transition to transfer stage
+    // Transition to transfer stage
     showStage('transfer');
 
-    // 3. Enforce strict binaryType on DataChannel
+    // Enforce strict binaryType on DataChannel
     if (conn.dataChannel) {
       try { conn.dataChannel.binaryType = 'arraybuffer'; } catch (_) {}
     }
@@ -1050,14 +1050,14 @@ function setupConnectionHandlers(conn, type) {
   const startTransmission = () => {
     if (streamStarted) return;
     streamStarted = true;
-    updateStatus('connected', 'Streaming...');
+    updateStatus('connected', 'Streaming to Device...');
     showStage('transfer');
 
     // Enforce binaryType and bufferedAmountLowThreshold
     try {
       if (conn.dataChannel) {
         conn.dataChannel.binaryType = 'arraybuffer';
-        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024;
+        conn.dataChannel.bufferedAmountLowThreshold = 32 * 1024;
       }
     } catch (_) {}
 
@@ -1068,26 +1068,43 @@ function setupConnectionHandlers(conn, type) {
     }
   };
 
-  // 1. Listen for signals
+  // 1. Listen for signals from receiver (Phone or PC)
   conn.on('data', (data) => {
-    if (data && (data.type === 'RECEIVER_READY' || data.type === 'START_STREAM' || data.type === 'DEVICE_INFO')) {
+    let msg = data;
+    if (typeof data === 'string') {
+      try { msg = JSON.parse(data); } catch (_) {}
+    }
+    if (msg && (msg.type === 'RECEIVER_READY' || msg.type === 'START_STREAM' || msg.type === 'DEVICE_INFO')) {
+      console.log('[BeamDrop] Receiver signaled readiness:', msg.type);
       startTransmission();
     }
   });
 
-  // 2. Immediate Start: If dataChannel is already open or opens now
+  // 2. Start when DataChannel is confirmed OPEN
   if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
     startTransmission();
   }
 
   conn.on('open', () => {
+    console.log('[BeamDrop] DataChannel open confirmed');
     startTransmission();
   });
 
-  // Safety timer: unconditional pump after 300ms if open event was missed
-  setTimeout(startTransmission, 300);
+  // Polling watchdog: check channel open status up to 15 seconds (essential for mobile 4G/5G ICE negotiation)
+  const pollTimer = setInterval(() => {
+    if (streamStarted) {
+      clearInterval(pollTimer);
+      return;
+    }
+    if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
+      clearInterval(pollTimer);
+      startTransmission();
+    }
+  }, 120);
+  setTimeout(() => clearInterval(pollTimer), 15000);
 
   conn.on('close', () => {
+    clearInterval(pollTimer);
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
       if (portalRadarText) portalRadarText.textContent = 'Connection closed';
@@ -1164,10 +1181,8 @@ async function startBackpressureStream(conn, file) {
   transferEtaText.textContent = 'Awaiting receiver ACK...';
 
   const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
-  let CHUNK_SIZE = 128 * 1024;
-  if (file.size < 512 * 1024) {
-    CHUNK_SIZE = 64 * 1024;
-  }
+  // Safe 32KB chunk size for universal mobile (iOS Safari WebKit + Android Chrome + Desktop)
+  const CHUNK_SIZE = 32 * 1024;
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
   // 1. Send File Metadata Header
@@ -1193,11 +1208,11 @@ async function startBackpressureStream(conn, file) {
   if (dc) {
     try {
       dc.binaryType = 'arraybuffer';
-      dc.bufferedAmountLowThreshold = 64 * 1024;
+      dc.bufferedAmountLowThreshold = 32 * 1024;
     } catch (_) {}
   }
 
-  // 2. WAIT FOR RECEIVER ACK_START (Lockstep Handshake)
+  // 2. WAIT FOR RECEIVER ACK_START (Lockstep Handshake - up to 2500ms for mobile round-trip)
   await new Promise((resolve) => {
     let resolved = false;
     const onAck = (data) => {
@@ -1217,29 +1232,34 @@ async function startBackpressureStream(conn, file) {
 
     conn.on('data', onAck);
 
-    // Safe fallback timeout (400ms max) in case phone ACK was dropped
+    // Fallback: start sending after 2000ms if ACK was lost
     setTimeout(() => {
       if (!resolved) {
         resolved = true;
         resolve();
       }
-    }, 400);
+    }, 2000);
   });
 
   updateStatus('connected', 'Streaming...');
   transferEtaText.textContent = 'Streaming data...';
 
-  // 3. High-speed raw binary slice pumping with Watchdog Timer
+  // 3. High-speed raw binary slice pumping with Mobile-Friendly Backpressure
   let offset = 0;
   let chunkIndex = 0;
   const startTime = Date.now();
   let lastSpeedCheck = startTime;
   let lastBytes = 0;
 
-  const HIGH_WATER_MARK = 512 * 1024;
-  const LOW_WATER_MARK = 64 * 1024;
+  const HIGH_WATER_MARK = 256 * 1024;
+  const LOW_WATER_MARK = 32 * 1024;
 
   while (offset < file.size) {
+    if (!conn.open) {
+      console.warn('[BeamDrop] DataChannel closed during stream');
+      break;
+    }
+
     if (dc && dc.bufferedAmount > HIGH_WATER_MARK) {
       await new Promise((resolve) => {
         let resolved = false;
@@ -1272,7 +1292,11 @@ async function startBackpressureStream(conn, file) {
     const arrayBuffer = await slice.arrayBuffer();
 
     // Send RAW ArrayBuffer directly
-    conn.send(arrayBuffer);
+    try {
+      conn.send(arrayBuffer);
+    } catch (sendErr) {
+      console.warn('[BeamDrop] Chunk send dropped:', sendErr);
+    }
 
     offset += currentSliceSize;
     chunkIndex++;
@@ -1296,8 +1320,11 @@ async function startBackpressureStream(conn, file) {
   }
 
   // 4. Send Complete Signal
-  conn.send({ type: 'FILE_END', fileId: fileId });
-  conn.send({ type: 'complete', fileId: fileId });
+  try {
+    conn.send({ type: 'FILE_END', fileId: fileId });
+    conn.send({ type: 'complete', fileId: fileId });
+  } catch (_) {}
+  
   isStreaming = false;
   releaseExtensionWakeLock();
 
