@@ -1,6 +1,6 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  buildHash: "git-6abce517",
-  buildTimestamp: 1790764311,
+  buildHash: "git-6abcebbb",
+  buildTimestamp: 1790766011,
   patchNotes: "Live WebRTC DataChannel optimizations & instant two-way handshake"
 };

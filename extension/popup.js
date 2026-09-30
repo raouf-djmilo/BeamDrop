@@ -1473,25 +1473,37 @@ async function checkForUpdates(manual = false) {
     const btnReloadExtension = document.getElementById('btnReloadExtension');
 
     if (isUnpacked) {
-      // Unpacked / Developer Mode
+      // Zero-ZIP In-Place Folder Sync Mode (via updater.html)
       if (unpackedGuide) unpackedGuide.style.display = 'block';
+      
+      // Check if user already linked an extension directory in IndexedDB
+      let hasLinkedFolder = false;
+      try {
+        if (window.BeamDropFolderStore) {
+          const h = await window.BeamDropFolderStore.getFolderHandle();
+          if (h) hasLinkedFolder = true;
+        }
+      } catch (_) {}
+
       if (btnTriggerUpdateText) {
-        btnTriggerUpdateText.textContent = isNewGitPatch
-          ? ('📥 Download Patched Build (' + remoteHash.slice(0, 8) + ')')
-          : ('📥 Download v' + latestVer + ' Update Archive');
+        btnTriggerUpdateText.textContent = hasLinkedFolder
+          ? ('⚡ Sync & Overwrite to ' + (isNewGitPatch ? ('Patch ' + remoteHash.slice(0, 8)) : ('v' + latestVer)))
+          : '📁 Link Folder for Auto-Updates';
       }
       if (updateModeNotice) {
-        updateModeNotice.textContent = isNewGitPatch
-          ? '⚡ Live Patch from GitHub: download update & reload extension'
-          : '⚡ Load Unpacked mode: download package and reload';
+        updateModeNotice.textContent = '⚡ Zero-ZIP In-Place Sync: directly updates files on disk';
       }
 
       if (btnTriggerUpdate) {
         btnTriggerUpdate.style.display = 'flex';
         btnTriggerUpdate.disabled = false;
         btnTriggerUpdate.onclick = () => {
-          downloadUpdatePackage(latestVer);
-          if (btnReloadExtension) btnReloadExtension.style.display = 'block';
+          // Open dedicated full-tab updater page to prevent popup auto-close
+          if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+            chrome.tabs.create({ url: chrome.runtime.getURL('updater.html') });
+          } else {
+            window.open('updater.html', '_blank');
+          }
         };
       }
 

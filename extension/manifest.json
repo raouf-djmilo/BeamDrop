@@ -48,5 +48,18 @@
       },
       "description": "Open BeamDrop Device Bridge"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "updater.html",
+        "updater.js",
+        "folderStore.js",
+        "libs/jszip.min.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
