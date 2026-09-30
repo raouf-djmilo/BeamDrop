@@ -638,6 +638,9 @@ checkPendingShareFromBackground();
 // STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
 // ==========================================
 async function startFilePortalSession(file) {
+  // Suspend radar scanning and beacons during active QR session to prevent peer collision & socket congestion
+  stopNearbyDiscovery();
+
   updateStatus('ready', 'Starting Portal...');
 
   const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -679,6 +682,9 @@ async function startFilePortalSession(file) {
 }
 
 async function startTextPortalSession(text) {
+  // Suspend radar scanning and beacons during active QR session
+  stopNearbyDiscovery();
+
   updateStatus('ready', 'Starting Notebook Bridge...');
 
   const chosenType = resolveTextType(text);
@@ -1032,26 +1038,23 @@ function initPeerJsSession(type = 'file') {
 }
 
 function setupConnectionHandlers(conn, type) {
-  // Synchronously update central status text when phone connects to prevent UI desync
-  if (portalRadarText) {
-    portalRadarText.textContent = '🟢 Phone Connected! Initializing stream...';
-  }
-  if (qrScanInstruction) {
-    qrScanInstruction.textContent = 'Phone connected! Preparing transfer...';
-  }
+  let streamStarted = false;
 
-  // 1. Listen for two-way handshake & messages
-  conn.on('data', (data) => {
-    handleReceiverControlMessage(conn, data, type);
-  });
-
-  const triggerStreamNow = () => {
-    if (isStreaming) return;
+  const startTransmission = () => {
+    if (streamStarted) return;
+    streamStarted = true;
     updateStatus('connected', 'Streaming...');
     showStage('transfer');
-    if (portalRadarText) {
-      portalRadarText.textContent = '🚀 Streaming to Phone...';
-    }
+    if (portalRadarText) portalRadarText.textContent = '🚀 Streaming to Phone...';
+    if (qrScanInstruction) qrScanInstruction.textContent = 'Streaming data to phone...';
+
+    // Set threshold immediately to prevent deadlock
+    try {
+      if (conn.dataChannel) {
+        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024;
+      }
+    } catch (_) {}
+
     if (type === 'text') {
       streamTextPayload(conn);
     } else if (activePreparedFile) {
@@ -1059,19 +1062,25 @@ function setupConnectionHandlers(conn, type) {
     }
   };
 
-  // Immediate start if dataChannel is already open
+  // 1. Listen for receiver ready message
+  conn.on('data', (data) => {
+    if (data && (data.type === 'RECEIVER_READY' || data.type === 'START_STREAM' || data.type === 'DEVICE_INFO')) {
+      startTransmission();
+    }
+  });
+
+  // 2. Immediate or fast fallback (600ms) to prevent standoff deadlock
   if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
-    triggerStreamNow();
+    setTimeout(startTransmission, 200);
   }
 
   conn.on('open', () => {
     updateStatus('connected', 'Phone Connected');
-    try {
-      if (conn.dataChannel) {
-        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024;
-      }
-    } catch (_) {}
-    triggerStreamNow();
+    if (portalRadarText) portalRadarText.textContent = '🟢 Phone Connected! Starting stream...';
+    // Fallback: If no handshake message arrives within 500ms, start pumping automatically
+    setTimeout(() => {
+      startTransmission();
+    }, 500);
   });
 
   conn.on('close', () => {
@@ -1083,22 +1092,7 @@ function setupConnectionHandlers(conn, type) {
 }
 
 function handleReceiverControlMessage(conn, msg, type) {
-  if (!msg) return;
-  if (msg.type === 'RECEIVER_READY') {
-    console.log('[BeamDrop Handshake] Receiver ready signal received!');
-    updateStatus('connected', 'Phone Connected');
-    if (portalRadarText) portalRadarText.textContent = '🚀 Streaming Data to Phone...';
-    showStage('transfer');
-    if (!isStreaming) {
-      if (type === 'text') {
-        streamTextPayload(conn);
-      } else if (activePreparedFile) {
-        startBackpressureStream(conn, activePreparedFile);
-      }
-    }
-  } else if (msg.type === 'ACK_METADATA' || msg.type === 'START_STREAM') {
-    console.log('[BeamDrop Handshake] Metadata acknowledged by receiver.');
-  }
+  // Backwards compatibility
 }
 
 // ==========================================
@@ -1365,8 +1359,6 @@ async function fetchLatestCloudVersion() {
   }
 
   const endpoints = [
-    `http://localhost:3001/version.json?_t=${Date.now()}`,
-    `http://localhost:3000/version.json?_t=${Date.now()}`,
     `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
     `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`,
     'https://beam-drop-mu.vercel.app/version.json'
@@ -1698,7 +1690,6 @@ async function detectLanAndRoomInExtension() {
   // B. Fetch Room Hash from /api/ip
   const ipEndpoints = [
     `${VERCEL_RECEIVER_URL}/api/ip`,
-    'http://localhost:3000/api/ip'
   ];
   for (const url of ipEndpoints) {
     try {
@@ -1761,39 +1752,21 @@ async function initDeviceIdentity() {
 initDeviceIdentity();
 scanSpiderNetwork(); // Pre-scan immediately so radar telemetry & badge are ready
 
-// Scan LAN & Hotspot via local dev server Spider API
+// Scan LAN & Hotspot via clean Cloud Mesh API
 async function scanSpiderNetwork(isManual = false) {
   if (isManual && radarScanningStatusText) {
-    radarScanningStatusText.textContent = '⚡ Spider sweep in progress...';
+    radarScanningStatusText.textContent = "⚡ Spider sweep in progress...";
   }
 
-  const ports = [3001, 3000];
   let scanResult = null;
-
-  for (const port of ports) {
-    try {
-      const resp = await fetch(`http://localhost:${port}/api/scan-lan?_t=${Date.now()}`, {
-        cache: 'no-store'
-      });
-      if (resp.ok) {
-        const json = await resp.json();
-        if (json && json.success) {
-          scanResult = json;
-          break;
-        }
-      }
-    } catch (e) {}
-  }
-
-  // PairDrop / Snapdrop Architecture: Discover devices sharing same Wi-Fi / Public IP
-  const pinParam = currentRadarRoomPin ? `&pin=${encodeURIComponent(currentRadarRoomPin)}` : '';
+  const pinParam = currentRadarRoomPin ? ("&pin=" + encodeURIComponent(currentRadarRoomPin)) : "";
   const cloudEndpoints = [
-    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}${pinParam}`
+    VERCEL_RECEIVER_URL + "/api/mesh/devices?_t=" + Date.now() + pinParam
   ];
 
   for (const ep of cloudEndpoints) {
     try {
-      const resp = await fetch(ep, { cache: 'no-store' });
+      const resp = await fetch(ep, { cache: "no-store" });
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.success && Array.isArray(json.devices)) {
@@ -1805,7 +1778,7 @@ async function scanSpiderNetwork(isManual = false) {
           break;
         }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   if (scanResult && scanResult.network) {
@@ -1962,8 +1935,6 @@ function broadcastPresenceBeacon() {
   // Announce to Cloud & Local Signaling (PairDrop Same-Wi-Fi Discovery)
   const announceEndpoints = [
     `${VERCEL_RECEIVER_URL}/api/mesh/announce`,
-    'http://localhost:3000/api/mesh/announce',
-    'http://localhost:3001/api/mesh/announce'
   ];
 
   announceEndpoints.forEach(url => {
@@ -1976,6 +1947,21 @@ function broadcastPresenceBeacon() {
 }
 
 // Start Spider Radar Discovery Loop
+
+function stopNearbyDiscovery() {
+  isDiscoveringNearby = false;
+  if (nearbyScanTimer) {
+    clearInterval(nearbyScanTimer);
+    nearbyScanTimer = null;
+  }
+  if (myDiscoveryPeer) {
+    try {
+      myDiscoveryPeer.destroy();
+    } catch (_) {}
+    myDiscoveryPeer = null;
+  }
+}
+
 function startNearbyDiscovery() {
   isDiscoveringNearby = true;
   initDiscoveryPeerListener();

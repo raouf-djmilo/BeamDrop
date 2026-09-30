@@ -984,11 +984,12 @@
               triggerBrowserSave(currentDownloadUrl, activeFileName);
             }
           };
-          conn.send({ type: 'DEVICE_INFO', device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver' });
-          // Emit immediate RECEIVER_READY two-way handshake to unlock desktop sender pump loop
+          // Emit immediate RECEIVER_READY two-way handshake
           try {
             conn.send({ type: 'RECEIVER_READY', timestamp: Date.now() });
+            conn.send({ type: 'START_STREAM', timestamp: Date.now() });
           } catch (_) {}
+          conn.send({ type: 'DEVICE_INFO', device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver' });
         });
 
         conn.on('data', function(msg) { handleIncomingData(msg); });
