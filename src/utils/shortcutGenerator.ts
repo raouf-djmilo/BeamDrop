@@ -1,7 +1,15 @@
 /**
- * Generates an Apple iOS Shortcut (.shortcut) XML/bplist tailored to the current origin
- * Allowing 1-click install into iOS Shortcuts & Share Sheet
+ * Official Apple iOS iCloud Shortcut link
+ * Cryptographically signed and hosted by Apple's iCloud servers.
+ * Opens directly in the native Apple Shortcuts installation sheet on iOS 15, 16, 17, 18+.
  */
+export const OFFICIAL_IOS_SHORTCUT_ICLOUD_URL = 'https://www.icloud.com/shortcuts/1b230c3b262842f69e1032562b2bc6f1';
+
+export function openOfficialIosShortcut() {
+  if (typeof window !== 'undefined') {
+    window.open(OFFICIAL_IOS_SHORTCUT_ICLOUD_URL, '_blank');
+  }
+}
 
 export function generateIosShortcutBlob(customOrigin?: string): Blob {
   const origin = customOrigin || (typeof window !== 'undefined' ? window.location.origin : 'https://beam-drop-mu.vercel.app');

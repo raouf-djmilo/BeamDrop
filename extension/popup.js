@@ -410,7 +410,7 @@ if (btnCopyReceiveAddress) {
 
 if (btnGetIosShortcut) {
   btnGetIosShortcut.addEventListener('click', () => {
-    const url = `${VERCEL_RECEIVER_URL}/shortcuts/BeamDrop-to-PC.shortcut`;
+    const url = 'https://www.icloud.com/shortcuts/1b230c3b262842f69e1032562b2bc6f1';
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
       chrome.tabs.create({ url });
     } else {
@@ -1208,19 +1208,7 @@ function setupConnectionHandlers(conn, type) {
   conn.on('data', (data) => {
     // Binary chunk (ArrayBuffer) received from Phone / Sender
     if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-      let buffer = data instanceof ArrayBuffer ? data : data.buffer;
-      // If 32-byte binary frame header is present, extract pure payload slice
-      if (buffer.byteLength >= 32 && incomingMeta && incomingMeta.fileId) {
-        try {
-          const decoder = new TextDecoder();
-          const headerId = decoder.decode(new Uint8Array(buffer, 0, 16)).trim();
-          if (headerId === incomingMeta.fileId) {
-            const view = new DataView(buffer);
-            const payloadLength = view.getUint32(24, false);
-            buffer = buffer.slice(32, 32 + payloadLength);
-          }
-        } catch (_) {}
-      }
+      const buffer = data instanceof ArrayBuffer ? data : data.buffer;
       incomingChunks.push(buffer);
       incomingTotalBytes += buffer.byteLength;
 
@@ -1237,18 +1225,6 @@ function setupConnectionHandlers(conn, type) {
       try { msg = JSON.parse(data); } catch (_) {}
     }
     if (!msg) return;
-
-    if (msg.type === 'FILE_CHUNK' && msg.data) {
-      let buffer = msg.data instanceof ArrayBuffer ? msg.data : msg.data.buffer;
-      incomingChunks.push(buffer);
-      incomingTotalBytes += buffer.byteLength;
-      if (incomingMeta && incomingMeta.fileSize) {
-        const pct = Math.min(99, Math.round((incomingTotalBytes / incomingMeta.fileSize) * 100));
-        if (receiveIncomingPercent) receiveIncomingPercent.textContent = `${pct}%`;
-        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = `${pct}%`;
-      }
-      return;
-    }
 
     if (msg.type === 'FILE_START') {
       incomingMeta = msg;
