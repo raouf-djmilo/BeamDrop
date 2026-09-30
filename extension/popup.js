@@ -1155,17 +1155,17 @@ async function startBackpressureStream(conn, file) {
   requestExtensionWakeLock();
 
   showStage('transfer');
-  updateStatus('connected', 'Streaming...');
+  updateStatus('connected', 'Syncing...');
   transferFileTitle.textContent = "Streaming: " + file.name;
   transferProgressFill.style.width = '0%';
   transferPercentText.textContent = '0%';
-  transferSpeedText.textContent = '0.0 MB/s';
-  transferEtaText.textContent = '--s remaining';
+  transferSpeedText.textContent = 'Syncing...';
+  transferEtaText.textContent = 'Awaiting receiver ACK...';
 
   const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
-  let CHUNK_SIZE = 128 * 1024; // 128KB optimal starting chunk
+  let CHUNK_SIZE = 128 * 1024;
   if (file.size < 512 * 1024) {
-    CHUNK_SIZE = 64 * 1024; // 64KB for small files (like 284KB images)
+    CHUNK_SIZE = 64 * 1024;
   }
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
@@ -1187,26 +1187,58 @@ async function startBackpressureStream(conn, file) {
     }
   });
 
-  // Ensure bufferedAmountLowThreshold is explicitly set to 64KB
+  // Ensure bufferedAmountLowThreshold and binaryType
   const dc = conn.dataChannel;
   if (dc) {
     try {
+      dc.binaryType = 'arraybuffer';
       dc.bufferedAmountLowThreshold = 64 * 1024;
     } catch (_) {}
   }
 
-  // 2. High-speed raw binary slice pumping with Watchdog Timer
+  // 2. WAIT FOR RECEIVER ACK_START (Lockstep Handshake)
+  await new Promise((resolve) => {
+    let resolved = false;
+    const onAck = (data) => {
+      if (!data) return;
+      let msg = data;
+      if (typeof data === 'string') {
+        try { msg = JSON.parse(data); } catch (_) {}
+      }
+      if (msg && (msg.type === 'ACK_START' || msg.type === 'START_STREAM' || msg.type === 'RECEIVER_READY')) {
+        if (!resolved) {
+          resolved = true;
+          conn.off ? conn.off('data', onAck) : null;
+          resolve();
+        }
+      }
+    };
+
+    conn.on('data', onAck);
+
+    // Safe fallback timeout (400ms max) in case phone ACK was dropped
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    }, 400);
+  });
+
+  updateStatus('connected', 'Streaming...');
+  transferEtaText.textContent = 'Streaming data...';
+
+  // 3. High-speed raw binary slice pumping with Watchdog Timer
   let offset = 0;
   let chunkIndex = 0;
   const startTime = Date.now();
   let lastSpeedCheck = startTime;
   let lastBytes = 0;
 
-  const HIGH_WATER_MARK = 512 * 1024; // 512 KB
-  const LOW_WATER_MARK = 64 * 1024;   // 64 KB
+  const HIGH_WATER_MARK = 512 * 1024;
+  const LOW_WATER_MARK = 64 * 1024;
 
   while (offset < file.size) {
-    // Backpressure Check
     if (dc && dc.bufferedAmount > HIGH_WATER_MARK) {
       await new Promise((resolve) => {
         let resolved = false;
@@ -1219,18 +1251,12 @@ async function startBackpressureStream(conn, file) {
           }
         };
 
-        // Watchdog Guard (150ms timeout) to prevent deadlock if event is dropped by browser
-        const watchdog = setTimeout(() => {
-          done();
-        }, 150);
+        const watchdog = setTimeout(done, 150);
 
         if (dc) {
-          dc.onbufferedamountlow = () => {
-            done();
-          };
+          dc.onbufferedamountlow = done;
         }
 
-        // Poll fallback
         const pollInt = setInterval(() => {
           if (!dc || dc.bufferedAmount <= LOW_WATER_MARK) {
             clearInterval(pollInt);
@@ -1244,36 +1270,31 @@ async function startBackpressureStream(conn, file) {
     const slice = file.slice(offset, offset + currentSliceSize);
     const arrayBuffer = await slice.arrayBuffer();
 
-    conn.send({
-      type: 'FILE_CHUNK',
-      fileId: fileId,
-      chunkIndex: chunkIndex,
-      totalChunks: totalChunks,
-      data: arrayBuffer
-    });
+    // Send RAW ArrayBuffer directly
+    conn.send(arrayBuffer);
 
     offset += currentSliceSize;
     chunkIndex++;
 
     const progress = Math.min(100, Math.round((offset / file.size) * 100));
-    transferProgressFill.style.width = "0%";
-    transferPercentText.textContent = "0%";
+    transferProgressFill.style.width = progress + "%";
+    transferPercentText.textContent = progress + "%";
 
     const now = Date.now();
     if (now - lastSpeedCheck > 250) {
       const durationSec = (now - lastSpeedCheck) / 1000;
       const bytesSent = offset - lastBytes;
       const speedMBs = (bytesSent / (1024 * 1024)) / durationSec;
-      transferSpeedText.textContent = "0.0 MB/s";
+      transferSpeedText.textContent = speedMBs.toFixed(1) + " MB/s";
       const remainingBytes = file.size - offset;
       const etaSec = speedMBs > 0 ? Math.round((remainingBytes / (1024 * 1024)) / speedMBs) : 0;
-      transferEtaText.textContent = "--s remaining";
+      transferEtaText.textContent = etaSec + "s remaining";
       lastSpeedCheck = now;
       lastBytes = offset;
     }
   }
 
-  // 3. Complete Signal
+  // 4. Send Complete Signal
   conn.send({ type: 'FILE_END', fileId: fileId });
   conn.send({ type: 'complete', fileId: fileId });
   isStreaming = false;
@@ -1283,7 +1304,7 @@ async function startBackpressureStream(conn, file) {
     showStage('complete');
     completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
     updateStatus('ready', 'Transfer Complete');
-  }, 300);
+  }, 400);
 }
 
 // Reset session

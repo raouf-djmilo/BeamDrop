@@ -1014,96 +1014,126 @@
         });
       }
 
-      function handleIncomingData(msg) {
+      let currentFileEntry = null;
+
+      function handleIncomingData(data) {
+        if (!data) return;
+
+        // 1. RAW BINARY CHUNK (ArrayBuffer or Uint8Array)
+        if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+          const rawBuffer = data instanceof ArrayBuffer ? data : data.buffer;
+          if (!currentFileEntry) return;
+
+          currentFileEntry.chunks.push(rawBuffer);
+          currentFileEntry.receivedBytes += rawBuffer.byteLength;
+
+          const pct = Math.min(100, Math.round((currentFileEntry.receivedBytes / currentFileEntry.size) * 100));
+          progressBarFill.style.width = pct + '%';
+          progressPctLabel.textContent = pct + '%';
+          bytesTransferredLabel.textContent = formatBytes(currentFileEntry.receivedBytes) + ' / ' + formatBytes(currentFileEntry.size);
+
+          const now = Date.now();
+          const elapsed = (now - currentFileEntry.lastTime) / 1000;
+          if (elapsed >= 0.2) {
+            const speed = (currentFileEntry.receivedBytes - currentFileEntry.lastBytes) / Math.max(elapsed, 0.001);
+            transferSpeedText.textContent = formatBytes(speed) + '/s';
+            currentFileEntry.lastTime = now;
+            currentFileEntry.lastBytes = currentFileEntry.receivedBytes;
+          }
+          return;
+        }
+
+        // 2. CONTROL FRAMES & JSON OBJECTS
+        let msg = data;
+        if (typeof data === 'string') {
+          try { msg = JSON.parse(data); } catch (_) {}
+        }
         if (!msg || !msg.type) return;
 
-        // ─ TEXT / LINK PAYLOAD → Notebook Engine ─
+        // TEXT / LINK PAYLOAD
         if (msg.type === 'TEXT_PAYLOAD' || msg.type === 'TEXT_MSG') {
           const rawText = msg.text || '';
           isCompleted = true;
           portalBadgeTag.textContent = 'BEAMED CONTENT';
           renderNotebook(rawText);
-
           successTitle.textContent = 'Content Received!';
-          successSub.textContent   = 'Transferred in-flight • Zero cloud storage.';
+          successSub.textContent = 'Transferred in-flight • Zero cloud storage.';
           successBox.style.display = 'flex';
           return;
         }
 
-        // ─ Binary File Chunks ─
+        // START OF FILE TRANSFER
         if (msg.type === 'FILE_START') {
           requestWakeLock();
-          activeFileName = msg.fileName;
-          fileNameHeading.textContent = msg.fileName;
-          fileSizeLabel.textContent   = formatBytes(msg.fileSize) + ' • Streaming to RAM';
-          transferStatusText.textContent = 'Streaming file chunks...';
-          btnDownloadText.textContent    = 'Downloading ' + formatBytes(msg.fileSize) + '...';
+          activeFileName = msg.fileName || (msg.payload && msg.payload.name) || 'downloaded-file';
+          const fileSize = msg.fileSize || (msg.payload && msg.payload.size) || 0;
+          const fileMime = msg.fileMime || (msg.payload && msg.payload.mimeType) || 'application/octet-stream';
 
-          chunksMap.set(msg.fileId, {
-            name: msg.fileName,
-            size: msg.fileSize,
-            mime: msg.fileMime || 'application/octet-stream',
+          fileNameHeading.textContent = activeFileName;
+          fileSizeLabel.textContent = formatBytes(fileSize) + ' • Streaming to RAM';
+          transferStatusText.textContent = 'Receiving stream...';
+          btnDownloadText.textContent = 'Receiving ' + formatBytes(fileSize) + '...';
+
+          currentFileEntry = {
+            id: msg.fileId,
+            name: activeFileName,
+            size: fileSize,
+            mime: fileMime,
             chunks: [],
             receivedBytes: 0,
             lastTime: Date.now(),
             lastBytes: 0
-          });
+          };
 
-        } else if (msg.type === 'FILE_CHUNK') {
-          const entry = chunksMap.get(msg.fileId);
-          if (!entry) return;
+          // CRITICAL: Acknowledge FILE_START so the desktop extension knows we are ready for binary stream
+          try {
+            if (connection && connection.open) {
+              connection.send({ type: 'ACK_START', fileId: msg.fileId });
+            }
+          } catch (_) {}
+          return;
+        }
 
-          entry.chunks.push(msg.data);
-          entry.receivedBytes += msg.data.byteLength;
-
-          const pct = Math.min(100, Math.round((entry.receivedBytes / entry.size) * 100));
-          progressBarFill.style.width = pct + '%';
-          progressPctLabel.textContent = pct + '%';
-          bytesTransferredLabel.textContent = formatBytes(entry.receivedBytes) + ' / ' + formatBytes(entry.size);
-
-          const now = Date.now();
-          const elapsed = (now - entry.lastTime) / 1000;
-          if (elapsed >= 0.25) {
-            const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
-            transferSpeedText.textContent = formatBytes(speed) + '/s';
-            entry.lastTime  = now;
-            entry.lastBytes = entry.receivedBytes;
-          }
-
-        } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
-          const entry = chunksMap.get(msg.fileId);
-          if (!entry) return;
-
+        // END OF FILE TRANSFER
+        if (msg.type === 'FILE_END' || msg.type === 'complete') {
+          if (!currentFileEntry) return;
           isCompleted = true;
-          const blob = new Blob(entry.chunks, { type: entry.mime });
-          currentDownloadUrl = URL.createObjectURL(blob);
-          activeFileName = entry.name;
 
-          triggerBrowserSave(currentDownloadUrl, activeFileName);
+          const blob = new Blob(currentFileEntry.chunks, { type: currentFileEntry.mime });
+          currentDownloadUrl = URL.createObjectURL(blob);
 
           progressBarFill.style.width = '100%';
           progressPctLabel.textContent = '100%';
-          transferStatusText.textContent = '✓ File downloaded!';
-          transferSpeedText.textContent  = 'Finished';
-          successBox.style.display = 'flex';
+          transferStatusText.textContent = '✓ Ready to Save!';
+          transferSpeedText.textContent = 'Finished';
           pulseRing.style.animation = 'none';
 
+          // Prominent Action Button for Mobile User Gesture
           btnDownload.disabled = false;
-          btnDownloadText.textContent = '📥 Save Again (' + formatBytes(entry.size) + ')';
-          btnDownload.onclick = function() { triggerBrowserSave(currentDownloadUrl, activeFileName); };
+          btnDownload.className = 'btn-download-hero glowing-neon';
+          btnDownload.style.background = 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)';
+          btnDownload.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.6)';
+          btnDownload.style.transform = 'scale(1.02)';
+          btnDownloadText.textContent = '📥 Tap to Save ' + currentFileEntry.name;
+          btnDownload.onclick = function() {
+            triggerBrowserSave(currentDownloadUrl, currentFileEntry.name);
+          };
 
-          if (entry.mime.startsWith('image/')) {
-            previewBox.innerHTML = '<img src="' + currentDownloadUrl + '" alt="' + activeFileName + '" />';
-            previewBox.style.display = 'block';
-          } else if (entry.mime.startsWith('video/')) {
-            previewBox.innerHTML = '<video controls playsinline src="' + currentDownloadUrl + '"></video>';
-            previewBox.style.display = 'block';
-          }
+          successBox.style.display = 'flex';
+          successTitle.textContent = 'Transfer Complete!';
+          successSub.textContent = 'File assembled in RAM. Tap the button above to save to device.';
 
-          chunksMap.delete(msg.fileId);
-          if (chunksMap.size === 0) {
-            releaseWakeLock();
-          }
+          // Optimistic automated download attempt
+          try {
+            triggerBrowserSave(currentDownloadUrl, currentFileEntry.name);
+          } catch (_) {}
+
+          // Confirm back to sender
+          try {
+            if (connection && connection.open) {
+              connection.send({ type: 'TRANSFER_SAVED', fileId: msg.fileId });
+            }
+          } catch (_) {}
         }
       }
 
