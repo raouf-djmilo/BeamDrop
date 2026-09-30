@@ -177,6 +177,10 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
         peer = parts[parts.length - 1] || peer;
       } else if (peer.startsWith('beam://receive/') || peer.startsWith('beam:drop:')) {
         peer = peer.replace('beam://receive/', '').replace('beam:drop:', '');
+      } else if (peer.startsWith('BD-')) {
+        // Resolve crypto address format BD-8F29-4B01 -> beam-8f294b01
+        const clean = peer.replace(/^BD-/, '').replace(/-/g, '').toLowerCase();
+        peer = 'beam-' + clean;
       }
     } catch (_) {}
 
@@ -257,11 +261,16 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   };
 
   useEffect(() => {
-    startCamera();
+    if (initialTargetPeer) {
+      setTargetPeerId(initialTargetPeer);
+      setIsScanning(false);
+    } else {
+      startCamera();
+    }
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [initialTargetPeer]);
 
   const totalBytes = selectedFiles.reduce((acc, f) => acc + f.size, 0);
 

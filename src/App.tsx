@@ -33,7 +33,7 @@ function MainApp() {
   const portalIdMatch = typeof window !== 'undefined' ? window.location.pathname.match(/\/portal\/([^\/]+)/) : null;
   const portalId = portalIdMatch ? portalIdMatch[1] : '';
 
-  const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full');
+  const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full' && initialMode !== 'scan' && initialMode !== 'scanner');
 
   // Streamlined Navigation: Direct Beam, Receive (QR), Mesh Radar, Workspaces, Receiver
   const [activeTab, setActiveTab] = useState<MainTab>('sender');
