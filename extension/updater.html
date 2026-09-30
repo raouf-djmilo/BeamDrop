@@ -255,26 +255,22 @@
 
     <!-- Step Guide -->
     <div class="step-guide">
-      <h3>💡 How Zero-ZIP In-Place Updating Works:</h3>
+      <h3>💡 Clean 1-Click In-Place Synchronization:</h3>
       <ol>
-        <li>Link your local BeamDrop extension folder on your PC once.</li>
-        <li>When you click <strong>Sync & Overwrite</strong>, the latest code files are fetched directly into your directory on disk.</li>
-        <li>The extension reloads automatically without generating any <code>.zip</code> files in Downloads!</li>
+        <li>Click <strong>Select Folder & Clean-Overwrite</strong> and pick your extension directory.</li>
+        <li>The updater removes any old/stale code and writes all 25 fresh files directly from the cloud.</li>
+        <li>The extension reloads cleanly on disk with zero zip extractions!</li>
       </ol>
     </div>
 
     <!-- Dynamic Actions -->
     <div id="actionArea" style="display: flex; flex-direction: column; gap: 10px;">
-      <button id="btnLinkFolder" class="btn-action-primary" type="button">
-        <span>📁 Link Local Extension Folder Once</span>
+      <button id="btnSelectAndSync" class="btn-action-primary" type="button">
+        <span>📁 Select Folder & Clean-Overwrite All Files</span>
       </button>
 
-      <button id="btnSyncOverwrite" class="btn-action-primary" type="button" style="display: none;">
-        <span>⚡ Sync & Overwrite Files to Latest Build</span>
-      </button>
-
-      <button id="btnChangeFolder" class="btn-action-secondary" type="button" style="display: none;">
-        <span>🔄 Change Linked Folder</span>
+      <button id="btnSyncOverwrite" class="btn-action-secondary" type="button" style="display: none; border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.12); color: #38bdf8;">
+        <span id="btnSyncOverwriteText">⚡ Overwrite Stored Folder (1-Click)</span>
       </button>
     </div>
 
