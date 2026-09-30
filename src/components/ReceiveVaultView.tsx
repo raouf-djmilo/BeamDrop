@@ -134,15 +134,26 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
       try {
         const res = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}`);
         if (res.status === 200) {
-          const blob = await res.blob();
-          const rawName = res.headers.get('X-BeamDrop-Name');
-          const fileName = rawName ? decodeURIComponent(rawName) : `received_media_${Date.now()}.jpg`;
+          const remoteUrlHeader = res.headers.get('X-BeamDrop-Remote-Url');
+          let blob: Blob;
+          let fileName = '';
+
+          if (remoteUrlHeader) {
+            const rawName = res.headers.get('X-BeamDrop-Name');
+            fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}`;
+            const dlRes = await fetch(remoteUrlHeader);
+            blob = await dlRes.blob();
+          } else {
+            blob = await res.blob();
+            const rawName = res.headers.get('X-BeamDrop-Name');
+            fileName = rawName ? decodeURIComponent(rawName) : `received_media_${Date.now()}.jpg`;
+          }
 
           const newFile: TransferFile = {
             id: 'transit-' + Date.now(),
             name: fileName,
             size: blob.size,
-            type: blob.type || 'image/jpeg',
+            type: blob.type || 'application/octet-stream',
             progress: 100,
             speed: blob.size,
             status: 'completed',
@@ -161,6 +172,13 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 4000);
+          }
+
+          // Drain multi-file batch immediately if more files are waiting
+          const pending = parseInt(res.headers.get('X-BeamDrop-Pending') || '0', 10);
+          if (pending > 0 && isPolling) {
+            setTimeout(pollTransit, 100);
+            return;
           }
         }
       } catch (_) {}

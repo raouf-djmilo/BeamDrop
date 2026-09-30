@@ -1,4 +1,4 @@
-// In-Memory RAM-to-RAM Ephemeral Transit Engine (Zero Cloud Storage)
+// In-Memory RAM-to-RAM Ephemeral Transit Engine (Multi-File FIFO Queue & High-Capacity Bridge)
 if (!global.__BEAMDROP_TRANSIT__) {
   global.__BEAMDROP_TRANSIT__ = new Map();
 }
@@ -8,8 +8,12 @@ const transitStore = global.__BEAMDROP_TRANSIT__;
 // Clean items older than 3 minutes
 setInterval(() => {
   const now = Date.now();
-  for (const [peer, item] of transitStore.entries()) {
-    if (now - item.created > 180000) {
+  for (const [peer, items] of transitStore.entries()) {
+    if (Array.isArray(items)) {
+      const active = items.filter(it => now - it.created <= 180000);
+      if (active.length === 0) transitStore.delete(peer);
+      else transitStore.set(peer, active);
+    } else if (now - items.created > 180000) {
       transitStore.delete(peer);
     }
   }
@@ -70,16 +74,39 @@ export default async function handler(req, res) {
   // 1. PULL / DOWNLOAD (PC Vault Receiver or Mobile Web Redirect)
   if (req.method === 'GET') {
     const accept = (req.headers && req.headers['accept']) || '';
-    const item = transitStore.get(peer);
+    const items = transitStore.get(peer);
+    const queue = Array.isArray(items) ? items : (items ? [items] : []);
 
     // If requested by a human browser scanning via native camera app (not polling for file download):
-    if (accept.includes('text/html') && (!item || !item.buffer)) {
+    if (accept.includes('text/html') && queue.length === 0) {
       res.writeHead(302, { Location: `/?mode=scan&peer=${encodeURIComponent(peer)}` });
       return res.end();
     }
 
-    if (!item || !item.buffer) {
+    if (queue.length === 0) {
       return res.status(404).json({ error: 'transit_not_found', peer });
+    }
+
+    // Pop the next queued item (FIFO)
+    const item = queue.shift();
+    if (queue.length === 0) {
+      transitStore.delete(peer);
+    } else {
+      transitStore.set(peer, queue);
+    }
+
+    if (item.remoteUrl) {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('X-BeamDrop-Remote-Url', item.remoteUrl);
+      res.setHeader('X-BeamDrop-Name', encodeURIComponent(item.name || 'beamed-object'));
+      res.setHeader('X-BeamDrop-Size', item.size || 0);
+      res.setHeader('X-BeamDrop-Pending', queue.length);
+      return res.status(200).json({
+        remoteUrl: item.remoteUrl,
+        name: item.name,
+        size: item.size,
+        mime: item.mime
+      });
     }
 
     res.setHeader('Content-Type', item.mime || 'application/octet-stream');
@@ -87,14 +114,12 @@ export default async function handler(req, res) {
     res.setHeader('Content-Length', item.buffer.length);
     res.setHeader('X-BeamDrop-Name', encodeURIComponent(item.name || 'beamed-object'));
     res.setHeader('X-BeamDrop-Size', item.buffer.length);
-
-    // Delete immediately once consumed (One-Time Ephemeral RAM Bridge)
-    transitStore.delete(peer);
+    res.setHeader('X-BeamDrop-Pending', queue.length);
 
     return res.status(200).send(item.buffer);
   }
 
-  // 2. PUSH / UPLOAD (iOS Shortcut Direct HTTP Upload or Extension)
+  // 2. PUSH / UPLOAD (iOS Shortcut Direct HTTP Upload or Multi-File Loop)
   if (req.method === 'POST') {
     const chunks = [];
     req.on('data', (chunk) => {
@@ -104,6 +129,35 @@ export default async function handler(req, res) {
     req.on('end', () => {
       let rawBuffer = Buffer.concat(chunks);
       const contentType = req.headers['content-type'] || '';
+
+      // High-Capacity 1GB Remote Relay Dispatch (Bypasses Vercel 4.5MB payload limit)
+      if (contentType.includes('application/json') || rawBuffer.toString('utf-8').trim().startsWith('{')) {
+        try {
+          const json = JSON.parse(rawBuffer.toString('utf-8'));
+          if (json.remoteUrl) {
+            const existing = transitStore.get(peer);
+            const queue = Array.isArray(existing) ? existing : (existing ? [existing] : []);
+            queue.push({
+              peer,
+              name: json.name || 'beamed_file',
+              mime: json.mime || 'application/octet-stream',
+              size: json.size || 0,
+              remoteUrl: json.remoteUrl,
+              created: Date.now()
+            });
+            transitStore.set(peer, queue);
+
+            return res.status(200).json({
+              success: true,
+              peer,
+              remoteUrl: json.remoteUrl,
+              name: json.name,
+              queuePosition: queue.length,
+              message: 'High-capacity 1GB relay order staged'
+            });
+          }
+        } catch (_) {}
+      }
 
       let finalName = '';
       let finalBuffer = rawBuffer;
@@ -150,7 +204,10 @@ export default async function handler(req, res) {
 
       const size = finalBuffer.length;
 
-      transitStore.set(peer, {
+      // Append to the peer's FIFO queue so multiple photos never overwrite each other
+      const existing = transitStore.get(peer);
+      const queue = Array.isArray(existing) ? existing : (existing ? [existing] : []);
+      queue.push({
         peer,
         name: finalName,
         mime,
@@ -158,12 +215,14 @@ export default async function handler(req, res) {
         buffer: finalBuffer,
         created: Date.now()
       });
+      transitStore.set(peer, queue);
 
       return res.status(200).json({
         success: true,
         peer,
         name: finalName,
         size,
+        queuePosition: queue.length,
         message: 'Object staged in RAM transit'
       });
     });

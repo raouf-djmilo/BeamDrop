@@ -426,9 +426,20 @@ function initReceiveVault() {
     try {
       const res = await fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`);
       if (res.status === 200) {
-        const blob = await res.blob();
-        const rawName = res.headers.get('X-BeamDrop-Name');
-        const fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}.jpg`;
+        const remoteUrlHeader = res.headers.get('X-BeamDrop-Remote-Url');
+        let blob;
+        let fileName = '';
+
+        if (remoteUrlHeader) {
+          const rawName = res.headers.get('X-BeamDrop-Name');
+          fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}`;
+          const dlRes = await fetch(remoteUrlHeader);
+          blob = await dlRes.blob();
+        } else {
+          blob = await res.blob();
+          const rawName = res.headers.get('X-BeamDrop-Name');
+          fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}.jpg`;
+        }
 
         addVaultItem({
           name: fileName,
@@ -445,6 +456,31 @@ function initReceiveVault() {
         a.click();
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+        // Fast drain for multi-file batches
+        let pending = parseInt(res.headers.get('X-BeamDrop-Pending') || '0', 10);
+        while (pending > 0) {
+          const nextRes = await fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`);
+          if (nextRes.status !== 200) break;
+          const nextBlob = await nextRes.blob();
+          const nextRaw = nextRes.headers.get('X-BeamDrop-Name');
+          const nextName = nextRaw ? decodeURIComponent(nextRaw) : `beamed_${Date.now()}.jpg`;
+          addVaultItem({
+            name: nextName,
+            size: nextBlob.size,
+            time: new Date().toLocaleTimeString(),
+            blob: nextBlob
+          });
+          const nextUrl = URL.createObjectURL(nextBlob);
+          const nextA = document.createElement('a');
+          nextA.href = nextUrl;
+          nextA.download = nextName;
+          document.body.appendChild(nextA);
+          nextA.click();
+          document.body.removeChild(nextA);
+          setTimeout(() => URL.revokeObjectURL(nextUrl), 4000);
+          pending = parseInt(nextRes.headers.get('X-BeamDrop-Pending') || '0', 10);
+        }
       }
     } catch (_) {}
   }, 2000);
