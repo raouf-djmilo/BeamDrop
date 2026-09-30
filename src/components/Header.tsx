@@ -1,162 +1,145 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Zap,
   Radio,
-  Download,
-  Share2,
+  Building2,
   Smartphone,
-  Laptop,
-  FolderArchive,
-  FlaskConical,
-  Volume2,
-  VolumeX,
   Info,
   ShieldCheck,
   Cpu,
-  BookOpen
+  Chrome,
+  Download
 } from 'lucide-react';
-import { P2PTransferManager } from '../utils/p2p';
+import { useTransfer } from '../context/TransferContext';
+import { APP_VERSION } from '../config/version';
+
+export type MainTab = 'sender' | 'radar' | 'workspaces' | 'receiver';
 
 interface HeaderProps {
-  activeTab: 'sender' | 'radar' | 'receiver' | 'notebook' | 'extension' | 'simulator';
-  setActiveTab: (tab: 'sender' | 'radar' | 'receiver' | 'notebook' | 'extension' | 'simulator') => void;
-  transferManager: P2PTransferManager;
+  activeTab: MainTab;
+  setActiveTab: (tab: MainTab) => void;
+  onOpenExtensionModal: () => void;
+  showArchitectureModal: boolean;
+  setShowArchitectureModal: (show: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
-  transferManager
+  onOpenExtensionModal,
+  showArchitectureModal,
+  setShowArchitectureModal
 }) => {
-  const [showArchitectureModal, setShowArchitectureModal] = useState(false);
+  const { isConnected, connectedPeers, isQueueSending, currentTransfer } = useTransfer();
+  const peerCount = connectedPeers.length;
+
+  const tabs: Array<{ id: MainTab; label: string; icon: React.ReactNode }> = [
+    { id: 'sender', label: 'Direct Beam', icon: <Zap className="w-4 h-4" /> },
+    { id: 'radar', label: 'Mesh Radar', icon: <Radio className="w-4 h-4 text-emerald-400" /> },
+    { id: 'workspaces', label: 'Workspaces', icon: <Building2 className="w-4 h-4 text-indigo-400" /> },
+    { id: 'receiver', label: 'Receiver', icon: <Smartphone className="w-4 h-4 text-cyan-400" /> }
+  ];
 
   return (
     <>
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Logo & Brand */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('sender')}>
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                <Zap className="w-5 h-5 text-white fill-white" />
+      {/* Floating Centered Liquid Glass Capsule Header (Permanent zero scrollbar, overflow-hidden) */}
+      <header className="sticky top-4 z-40 w-full px-3 sm:px-6 pointer-events-none mb-6">
+        <div className="max-w-5xl mx-auto pointer-events-auto">
+          <div className="liquid-glass-capsule rounded-full px-3 sm:px-5 py-2 flex items-center justify-between gap-2 sm:gap-4 shadow-2xl overflow-hidden">
+            
+            {/* Brand Mark (Glowing Electric Cyan) */}
+            <div
+              onClick={() => setActiveTab('sender')}
+              className="flex items-center space-x-2.5 cursor-pointer group shrink-0"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition-transform">
+                <Zap className="w-4 h-4 text-white fill-white" />
               </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h1 className="text-base font-extrabold text-white tracking-tight">
-                    BeamDrop
-                  </h1>
-                  <span className="text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/50 px-1.5 py-0.5 rounded">
-                    P2P
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Direct Device-to-Device • Zero Cloud Storage
-                </p>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-sm font-extrabold text-white tracking-tight">
+                  BeamDrop
+                </span>
+                <span className="hidden sm:inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                  v{APP_VERSION.full}
+                </span>
               </div>
             </div>
 
-            {/* Architecture / Info Button for mobile */}
-            <div className="md:hidden flex items-center space-x-2">
+            {/* Exactly 4 Clean Navigation Tabs (Zero Scrollbar, no-scrollbar) */}
+            <nav className="flex items-center p-1 rounded-full bg-slate-950/50 border border-white/5 space-x-1 no-scrollbar overflow-hidden shrink-0">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={'relative flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 ' + (
+                      isActive
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    )}
+                  >
+                    {tab.icon}
+                    <span className="hidden xs:inline whitespace-nowrap">{tab.label}</span>
+                    {tab.id === 'radar' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline-block" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Right Utilities: Extension Pill Button + P2P Specs Modal */}
+            <div className="flex items-center space-x-2 shrink-0">
+              {/* Background Stream Pill if running in background */}
+              {isQueueSending && currentTransfer && (
+                <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] font-mono animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span>Streaming {currentTransfer.progress}%</span>
+                </div>
+              )}
+
+              {/* Dedicated Specular Glass Extension Pill */}
+              <button
+                onClick={onOpenExtensionModal}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-white border border-cyan-500/30 transition-all text-xs font-semibold cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
+                title="Unpack or Download Chrome Extension"
+              >
+                <Chrome className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline font-mono text-[11px]">Get Extension</span>
+                <span className="text-[9px] font-mono font-bold bg-cyan-950 px-1 py-0.2 rounded border border-cyan-800/40">
+                  v{APP_VERSION.full}
+                </span>
+              </button>
+
+              {/* Connected Devices Indicator */}
+              <div
+                className={'hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium border ' + (
+                  isConnected || peerCount > 0
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : 'bg-slate-800/60 text-slate-400 border-white/5'
+                )}
+              >
+                <span
+                  className={'w-1.5 h-1.5 rounded-full ' + (
+                    isConnected || peerCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                  )}
+                />
+                <span>
+                  {peerCount > 0 ? peerCount + ' Peer' + (peerCount > 1 ? 's' : '') : 'Ready'}
+                </span>
+              </div>
+
+              {/* Architecture Info Button */}
               <button
                 onClick={() => setShowArchitectureModal(true)}
-                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-                title="System Architecture"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                title="How P2P RAM-to-RAM Works"
               >
-                <Info className="w-4 h-4" />
+                <Info className="w-4 h-4 text-cyan-400" />
               </button>
             </div>
-          </div>
 
-          {/* Navigation Mode Tabs */}
-          <div className="flex items-center space-x-1 bg-slate-900/90 border border-slate-800 p-1 rounded-2xl overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('sender')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'sender'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Beam Objects</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('radar')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'radar'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span>Spider Radar</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60 text-[9px] font-mono font-bold">
-                LIVE
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('receiver')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'receiver'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Receiver</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('notebook')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'notebook'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Notebook Hub</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('extension')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'extension'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <FolderArchive className="w-3.5 h-3.5 text-amber-400" />
-              <span>Extension</span>
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/60 text-[9px] font-mono font-bold">
-                v1.5.2
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('simulator')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                activeTab === 'simulator'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
-              <span>Simulator</span>
-            </button>
-          </div>
-
-          {/* Right Action: Architecture Info Modal */}
-          <div className="hidden md:flex items-center space-x-3">
-            <button
-              onClick={() => setShowArchitectureModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 bg-slate-900/90 border border-slate-800 hover:border-slate-700 hover:text-white transition-colors"
-            >
-              <Info className="w-3.5 h-3.5 text-cyan-400" />
-              <span>How P2P Works</span>
-            </button>
           </div>
         </div>
       </header>
@@ -165,78 +148,58 @@ export const Header: React.FC<HeaderProps> = ({
       {showArchitectureModal && (
         <div
           onClick={() => setShowArchitectureModal(false)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 cursor-default max-h-[85vh] overflow-y-auto custom-scrollbar"
+            className="liquid-glass-card rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 cursor-default max-h-[85vh] overflow-y-auto no-scrollbar"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
                   <Cpu className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">BeamDrop P2P Architecture</h3>
-                  <p className="text-[11px] text-slate-400">Zero database, zero cloud storage</p>
+                  <h3 className="text-sm font-bold text-white">Liquid Glass P2P Kernel</h3>
+                  <p className="text-[11px] text-slate-400 font-mono">Zero Database • Zero Cloud Bandwidth</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowArchitectureModal(false)}
-                className="text-slate-400 hover:text-white text-sm p-1"
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white text-xs cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-slate-300 leading-relaxed">
-              <div className="p-3.5 rounded-2xl bg-cyan-950/30 border border-cyan-500/20 space-y-1">
-                <h4 className="font-bold text-cyan-400 flex items-center space-x-1.5">
+            <div className="space-y-3.5 text-xs text-slate-300 leading-relaxed">
+              <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 space-y-1">
+                <h4 className="font-bold text-cyan-300 flex items-center space-x-1.5">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>1. Direct WebRTC DataChannel (End-to-End Encrypted)</span>
+                  <span>Global State Isolation & Sequential Queue</span>
                 </h4>
                 <p className="text-slate-400">
-                  Files (ZIP, 4K videos, photos) are broken down into 64KB binary chunks and streamed directly from RAM of device A to RAM of device B. The transfer never touches any cloud storage (AWS S3, Firebase, Supabase), which means 0$ hosting costs and 100% privacy.
+                  Transfers run independently in a top-level Context Store. Switching between Direct Beam, Radar, and Workspaces never interrupts an in-flight file. Multi-file uploads are dispatched sequentially to prevent DataChannel buffer exhaustion.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-1">
-                <h4 className="font-bold text-emerald-400 flex items-center space-x-1.5">
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                <h4 className="font-bold text-emerald-300 flex items-center space-x-1.5">
                   <Zap className="w-4 h-4" />
-                  <span>2. LAN Local Network Speeds (30-50+ MB/s)</span>
+                  <span>Adaptive AIMD Sizing & Safari Watchdog</span>
                 </h4>
                 <p className="text-slate-400">
-                  When the sender PC and receiver phone share the same Wi-Fi or local network, WebRTC ICE candidates negotiate a direct local IP route. Traffic stays local without consuming mobile internet data.
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-1">
-                <h4 className="font-bold text-amber-400 flex items-center space-x-1.5">
-                  <Radio className="w-4 h-4" />
-                  <span>3. Instant QR Code Handshake</span>
-                </h4>
-                <p className="text-slate-400">
-                  The extension encodes the WebRTC session ID into a QR code pointing to the lightweight Web Receiver. The mobile camera opens the page without needing any app installation. Small texts can even be encoded directly into the QR code for zero-network scanning!
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-1">
-                <h4 className="font-bold text-purple-400 flex items-center space-x-1.5">
-                  <FolderArchive className="w-4 h-4" />
-                  <span>4. Chrome Extension (Manifest V3)</span>
-                </h4>
-                <p className="text-slate-400">
-                  Includes background service worker and context menu integrations ("Send selection to Phone", "Send link to Phone"), making sending any website content to mobile effortless.
+                  Dynamic chunk sizing scales up to 512KB on ultra-fast LANs and down to 32KB on lossy mobile networks. A 400ms Watchdog safety timer eliminates silent buffer freezes on iOS Safari.
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+            <div className="flex justify-end pt-2 border-t border-white/10">
               <button
                 onClick={() => setShowArchitectureModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold"
+                className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer"
               >
-                Close
+                Got It
               </button>
             </div>
           </div>

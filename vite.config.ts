@@ -298,6 +298,27 @@ export default defineConfig(() => {
             }
 
             // Persistent Team Workspace Mesh Signaling Endpoint (/api/mesh/workspace)
+            // Serve Raw Extension Files for 1-Click Folder Unpacker (/extension/*)
+            if (req.url?.startsWith('/extension/')) {
+              const urlPath = req.url.split('?')[0].replace(/^\/extension\//, '');
+              const filePath = path.resolve(__dirname, 'extension', urlPath);
+              if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                const ext = path.extname(filePath);
+                const mimeMap: Record<string, string> = {
+                  '.json': 'application/json',
+                  '.js': 'application/javascript',
+                  '.html': 'text/html',
+                  '.css': 'text/css',
+                  '.png': 'image/png',
+                  '.svg': 'image/svg+xml'
+                };
+                res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+                res.statusCode = 200;
+                res.end(fs.readFileSync(filePath));
+                return;
+              }
+            }
+
             if (req.url?.startsWith('/api/mesh/workspace')) {
               res.setHeader('Content-Type', 'application/json');
               if (req.method === 'POST') {

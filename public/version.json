@@ -1,13 +1,16 @@
 {
   "name": "BeamDrop",
-  "version": "1.5.2",
-  "latestVersion": "1.5.2",
-  "releaseDate": "2026-09-29",
+  "version": "1.6.0",
+  "latestVersion": "1.6.0",
+  "releaseDate": "2026-09-30",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "updateUrl": "https://beam-drop-mu.vercel.app",
   "highlights": [
+    "\ud83c\udfa8 iOS Liquid Glass Visual Overhaul with Specular Refraction",
+    "\ud83d\udcc1 Native File System 1-Click Folder Unpacker (Zero-ZIP)",
+    "\u26a1 Streamlined 4-Tab Navigation with Zero Scrollbar",
     "\ud83d\udce1 Stable Real Wi-Fi & Hotspot Device Discovery (Clean Mesh Engine)",
     "\u26a1 Zero-latency WebRTC direct LAN file & memory streaming",
     "\ud83e\uddf9 Purged all backend shell loops for 100% lightweight CPU performance",
@@ -15,6 +18,18 @@
     "\u26a1 1-Click Auto Upgrade & Instant Reload directly from extension"
   ],
   "changelog": [
+    {
+      "version": "1.6.0",
+      "date": "2026-09-30",
+      "type": "major",
+      "title": "Apple Liquid Glass Overhaul, 4-Tab Capsule & Native Folder Unpacker",
+      "changes": [
+        "Pure iOS/visionOS Liquid Glass Design System with Specular Edges",
+        "Direct window.showDirectoryPicker 1-Click Folder Unpacker (Zero-ZIP)",
+        "Permanently eliminated top horizontal scrollbars with 4-tab streamlined navigation",
+        "Sequential Queue Worker for high-throughput multi-file transfers"
+      ]
+    },
     {
       "version": "1.5.2",
       "date": "2026-09-29",
