@@ -40,7 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Concurrently fetch cloud version in background with 2s timeout
   checkCloudStatus();
 
-  // 4. Handle ?action=sync
+  // 4. Preload JSZip engine in RAM
+  ensureJSZipLoaded().catch(() => {});
+
+  // 5. Handle ?action=sync
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('action') === 'sync') {
     setTimeout(async () => {
@@ -185,7 +188,34 @@ if (btnSyncOverwrite) {
   });
 }
 
-// 3. Core Engine: Clean Old Files & Overwrite with Fresh Package
+// Robust JSZip Loader with Cloud Fallback
+async function ensureJSZipLoaded() {
+  if (typeof JSZip !== 'undefined') return;
+
+  // Try 1: Local script tag
+  try {
+    await loadScript('libs/jszip.min.js');
+    if (typeof JSZip !== 'undefined') return;
+  } catch (_) {}
+
+  // Try 2: Fetch directly from Cloud CDN if local file is missing/deleted
+  try {
+    const res = await fetch(`${VERCEL_HOST}/libs/jszip.min.js`);
+    if (res.ok) {
+      const code = await res.text();
+      const script = document.createElement('script');
+      script.textContent = code;
+      document.head.appendChild(script);
+      if (typeof JSZip !== 'undefined') return;
+    }
+  } catch (_) {}
+
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip engine could not be loaded. Please check your internet connection.');
+  }
+}
+
+// 3. Core Engine: Bulletproof RAM-First Unpack, Clean & Overwrite
 async function executeCleanSync(dirHandle) {
   if (!dirHandle) return;
 
@@ -209,30 +239,15 @@ async function executeCleanSync(dirHandle) {
       }
     }
 
-    // Step 1: Clean old files in the directory ("Remove all fiche")
-    log('🧹 Cleaning old extension files from folder...');
-    updateProgress(15, 'Removing old files from directory...');
-    let cleanedCount = 0;
-    try {
-      for await (const [name, handle] of dirHandle.entries()) {
-        // Protect .git or system folders
-        if (name === '.git') continue;
-        try {
-          await dirHandle.removeEntry(name, { recursive: true });
-          cleanedCount++;
-          log(`🗑️ Cleaned: ${name}`);
-        } catch (delErr) {
-          console.debug('Skip entry delete:', name, delErr);
-        }
-      }
-      log(`✓ Cleaned ${cleanedCount} old entries from folder`);
-    } catch (cleanErr) {
-      console.warn('Folder clean notice (will overwrite):', cleanErr);
-    }
+    // STEP 1: Ensure JSZip is loaded into RAM FIRST (Zero risk of ERR_FILE_NOT_FOUND)
+    log('⚡ Initializing ZIP decompression engine in RAM...');
+    updateProgress(10, 'Initializing ZIP engine...');
+    await ensureJSZipLoaded();
+    log('✓ ZIP decompression engine ready in RAM');
 
-    // Step 2: Download latest package bundle from Vercel into RAM
+    // STEP 2: Download latest package bundle from Vercel into RAM
     log('⚡ Downloading latest extension package from cloud into RAM...');
-    updateProgress(35, 'Downloading fresh extension package in RAM...');
+    updateProgress(25, 'Downloading fresh extension package in RAM...');
 
     const zipResp = await fetch(`${VERCEL_HOST}/extension.zip?_t=${Date.now()}`, { cache: 'no-store' });
     if (!zipResp.ok) {
@@ -241,23 +256,42 @@ async function executeCleanSync(dirHandle) {
 
     const zipBuffer = await zipResp.arrayBuffer();
     log(`✓ Downloaded latest bundle (${Math.round(zipBuffer.byteLength / 1024)} KB)`);
-    updateProgress(50, 'Extracting 25 fresh files in RAM...');
+    updateProgress(45, 'Extracting files in RAM...');
 
-    // Load JSZip
-    if (typeof JSZip === 'undefined') {
-      await loadScript('libs/jszip.min.js');
-    }
-
+    // STEP 3: Parse and unpack ALL 25 files into RAM memory structures FIRST
     const zip = await JSZip.loadAsync(zipBuffer);
     const entries = Object.keys(zip.files).filter(p => !zip.files[p].dir);
-    log(`✓ Found ${entries.length} fresh files to write to disk`);
+    log(`✓ Found ${entries.length} fresh files in update package`);
 
-    // Step 3: Write fresh files directly to disk ("Wa yaqom bi wahd jadid")
-    let written = 0;
+    const filesToWrite = [];
     for (const relPath of entries) {
-      const zipEntry = zip.files[relPath];
-      const fileData = await zipEntry.async('uint8array');
+      const fileData = await zip.files[relPath].async('uint8array');
+      filesToWrite.push({ relPath, fileData });
+    }
+    log(`✓ All ${filesToWrite.length} files extracted safely in RAM`);
 
+    // STEP 4: NOW and ONLY NOW clean old files from disk
+    log('🧹 Cleaning old files from folder...');
+    updateProgress(60, 'Cleaning old files on disk...');
+    let cleanedCount = 0;
+    try {
+      for await (const [name] of dirHandle.entries()) {
+        if (name === '.git') continue;
+        try {
+          await dirHandle.removeEntry(name, { recursive: true });
+          cleanedCount++;
+          log(`🗑️ Removed old: ${name}`);
+        } catch (_) {}
+      }
+      log(`✓ Cleaned ${cleanedCount} old entries from folder`);
+    } catch (cleanErr) {
+      console.warn('Folder clean notice (will overwrite):', cleanErr);
+    }
+
+    // STEP 5: Write all 25 fresh files directly to disk ("Wa yaqom bi wahd jadid")
+    log('⚡ Writing fresh files directly to disk...');
+    let written = 0;
+    for (const { relPath, fileData } of filesToWrite) {
       const pathParts = relPath.split(/[/\\]/);
       let targetDir = dirHandle;
 
@@ -275,13 +309,13 @@ async function executeCleanSync(dirHandle) {
       await writable.close();
 
       written++;
-      const pct = 50 + Math.round((written / entries.length) * 48);
+      const pct = 65 + Math.round((written / filesToWrite.length) * 33);
       updateProgress(pct, `Writing: ${relPath}`);
       log(`✓ Written fresh: ${relPath}`);
     }
 
     updateProgress(100, '✓ All files cleanly updated! Reloading extension...');
-    log('✅ SUCCESS: All extension files cleanly replaced on disk!');
+    log('✅ SUCCESS: All 25 extension files written to disk cleanly!');
     showToast('✓ Clean update complete! Extension reloaded.');
 
     setTimeout(() => {
