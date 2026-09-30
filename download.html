@@ -1229,10 +1229,18 @@
             triggerBrowserSave(currentDownloadUrl, currentFileEntry.name);
           } catch (_) {}
 
-          // Confirm back to sender
+          // Confirm back to sender with rich device info
           try {
             if (connection && connection.open) {
-              connection.send({ type: 'TRANSFER_SAVED', fileId: msg.fileId });
+              const devName = navigator.userAgent.includes('Mobile') ? '📱 Mobile Phone' : '💻 PC Browser';
+              connection.send({
+                type: 'TRANSFER_COMPLETE_ACK',
+                fileId: currentFileEntry.id,
+                fileName: currentFileEntry.name,
+                device: devName,
+                timestamp: Date.now()
+              });
+              connection.send({ type: 'TRANSFER_SAVED', fileId: currentFileEntry.id });
             }
           } catch (_) {}
         }

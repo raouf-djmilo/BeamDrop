@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import JSZip from 'jszip';
 import {
   FolderArchive,
   FolderCheck,
@@ -55,53 +56,49 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({
 
       setFolderName(dirHandle.name || 'Selected Folder');
 
-      // Fetch dynamic files from server
-      const fileList = [
-        'manifest.json',
-        'popup.html',
-        'popup.js',
-        'style.css',
-        'background.js',
-        'options.html',
-        'options.js'
-      ];
-
-      for (const fname of fileList) {
-        try {
-          const res = await fetch('/extension/' + fname);
-          if (res.ok) {
-            let content = await res.text();
-            // Ensure configured Web Receiver URL is embedded
-            if (fname === 'popup.js' || fname === 'background.js') {
-              content = content.replace(/https:\/\/beam-drop-mu\.vercel\.app/g, targetReceiverUrl);
-            }
-            const fileHandle = await dirHandle.getFileHandle(fname, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
+      // 1. Clean all existing old files in destination folder ("Remove all fiche")
+      try {
+        for await (const [name] of (dirHandle as any).entries()) {
+          if (name !== '.git') {
+            try {
+              await (dirHandle as any).removeEntry(name, { recursive: true });
+            } catch (_) {}
           }
-        } catch (e) {
-          console.warn('Skipped non-essential file:', fname);
         }
+      } catch (cleanErr) {
+        console.warn('Folder pre-clean notice:', cleanErr);
       }
 
-      // Handle icons subfolder
-      try {
-        const iconsDirHandle = await dirHandle.getDirectoryHandle('icons', { create: true });
-        const iconFiles = ['icon16.png', 'icon48.png', 'icon128.png', 'icon-16.png', 'icon-48.png', 'icon-128.png', 'icon.svg'];
-        for (const iconName of iconFiles) {
-          try {
-            const iconRes = await fetch('/extension/icons/' + iconName);
-            if (iconRes.ok) {
-              const blob = await iconRes.blob();
-              const iconFileHandle = await iconsDirHandle.getFileHandle(iconName, { create: true });
-              const iconWritable = await iconFileHandle.createWritable();
-              await iconWritable.write(blob);
-              await iconWritable.close();
-            }
-          } catch (_) {}
+      // 2. Fetch complete extension package bundle
+      const zipRes = await fetch('/extension.zip?_t=' + Date.now());
+      if (!zipRes.ok) {
+        throw new Error(`Failed to download extension package: status ${zipRes.status}`);
+      }
+
+      const zipBuf = await zipRes.arrayBuffer();
+      const zip = await JSZip.loadAsync(zipBuf);
+
+      // 3. Write all fresh files directly to disk
+      for (const relPath of Object.keys(zip.files)) {
+        if (zip.files[relPath].dir) continue;
+        const fileData = await zip.files[relPath].async('uint8array');
+
+        const parts = relPath.split(/[/\\]/);
+        let targetDir = dirHandle;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+          const subDir = parts[i];
+          if (subDir) {
+            targetDir = await targetDir.getDirectoryHandle(subDir, { create: true });
+          }
         }
-      } catch (_) {}
+
+        const fileName = parts[parts.length - 1];
+        const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(fileData);
+        await writable.close();
+      }
 
       setIsUnpacking(false);
       setUnpackedSuccess(true);

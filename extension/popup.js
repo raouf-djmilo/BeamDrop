@@ -1077,6 +1077,17 @@ function setupConnectionHandlers(conn, type) {
       console.log('[BeamDrop] Receiver signaled readiness:', msg.type);
       startTransmission();
     }
+    if (msg && (msg.type === 'TRANSFER_COMPLETE_ACK' || msg.type === 'TRANSFER_SUCCESS')) {
+      console.log('[BeamDrop] Receiver confirmed 100% receipt:', msg.device || 'remote device');
+      isStreaming = false;
+      transferProgressFill.style.width = '100%';
+      transferPercentText.textContent = '100%';
+      transferSpeedText.textContent = 'Completed';
+      transferEtaText.textContent = '0s';
+      showStage('complete');
+      completeSubText.textContent = `Successfully received on ${msg.device || 'device'} with zero cloud storage.`;
+      updateStatus('ready', 'Transfer Complete');
+    }
   });
 
   // 2. Direct hook into native WebRTC RTCDataChannel onopen event
@@ -1110,32 +1121,8 @@ function setupConnectionHandlers(conn, type) {
   }, 100);
   setTimeout(() => clearInterval(pollTimer), 15000);
 
-  // 5. Watch for phone consuming the RAM Transit bridge
-  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
-    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
-    : "https://beam-drop-mu.vercel.app";
-
-  const transitCheckTimer = setInterval(async () => {
-    if (streamStarted && !isStreaming) {
-      clearInterval(transitCheckTimer);
-      return;
-    }
-    try {
-      const resp = await fetch(`${safeBaseUrl}/api/transit?peer=${currentPeerId}`);
-      if (resp.status === 404) {
-        clearInterval(transitCheckTimer);
-        transferProgressFill.style.width = '100%';
-        transferPercentText.textContent = '100%';
-        showStage('complete');
-        completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
-        updateStatus('ready', 'Transfer Complete');
-      }
-    } catch (_) {}
-  }, 1200);
-
   conn.on('close', () => {
     clearInterval(pollTimer);
-    clearInterval(transitCheckTimer);
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
       if (portalRadarText) portalRadarText.textContent = 'Connection closed';
@@ -1359,11 +1346,15 @@ async function startBackpressureStream(conn, file) {
   isStreaming = false;
   releaseExtensionWakeLock();
 
-  setTimeout(() => {
-    showStage('complete');
-    completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
-    updateStatus('ready', 'Transfer Complete');
-  }, 400);
+  // Immediate instant 100% visual completion
+  transferProgressFill.style.width = '100%';
+  transferPercentText.textContent = '100%';
+  transferSpeedText.textContent = 'Completed';
+  transferEtaText.textContent = '0s';
+
+  showStage('complete');
+  completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
+  updateStatus('ready', 'Transfer Complete');
 }
 
 // Reset session
