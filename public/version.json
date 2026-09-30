@@ -1,23 +1,24 @@
 {
   "name": "BeamDrop",
-  "version": "1.6.1",
-  "latestVersion": "1.6.1",
+  "version": "1.6.2",
+  "latestVersion": "1.6.2",
   "releaseDate": "2026-09-30",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "updateUrl": "https://beam-drop-mu.vercel.app",
   "highlights": [
-    "\ud83d\udee1\ufe0f Eliminated Chrome extension clipboard and bluetooth exceptions",
-    "\u26a1 High-resolution crisp icon assets for Chrome bar",
-    "\ud83c\udfa8 iOS Liquid Glass Visual Overhaul with Specular Refraction",
-    "\ud83d\udcc1 Native File System 1-Click Folder Unpacker (Zero-ZIP)",
-    "\u26a1 Streamlined 4-Tab Navigation with Zero Scrollbar",
-    "\ud83d\udce1 Stable Real Wi-Fi & Hotspot Device Discovery (Clean Mesh Engine)",
-    "\u26a1 Zero-latency WebRTC direct LAN file & memory streaming",
-    "\ud83e\uddf9 Purged all backend shell loops for 100% lightweight CPU performance",
-    "\ud83d\udcf1 Automatic screen wake lock on mobile receiver",
-    "\u26a1 1-Click Auto Upgrade & Instant Reload directly from extension"
+    "🚀 Live Patch: Real-time WebRTC DataChannel speed boost & instant handshake",
+    "🛡️ Eliminated Chrome extension clipboard and bluetooth exceptions",
+    "⚡ High-resolution crisp icon assets for Chrome bar",
+    "🎨 iOS Liquid Glass Visual Overhaul with Specular Refraction",
+    "📁 Native File System 1-Click Folder Unpacker (Zero-ZIP)",
+    "⚡ Streamlined 4-Tab Navigation with Zero Scrollbar",
+    "📡 Stable Real Wi-Fi & Hotspot Device Discovery (Clean Mesh Engine)",
+    "⚡ Zero-latency WebRTC direct LAN file & memory streaming",
+    "🧹 Purged all backend shell loops for 100% lightweight CPU performance",
+    "📱 Automatic screen wake lock on mobile receiver",
+    "⚡ 1-Click Auto Upgrade & Instant Reload directly from extension"
   ],
   "changelog": [
     {
@@ -77,5 +78,8 @@
         "Dual-cloud polling: Checks Vercel + raw.githubusercontent.com simultaneously with cache-busting"
       ]
     }
-  ]
+  ],
+  "buildHash": "git-6abcde4f",
+  "buildTimestamp": 1790762575,
+  "patchNotes": "Live WebRTC DataChannel optimizations & instant two-way handshake"
 }

@@ -41,7 +41,7 @@ export interface TextPayload {
 }
 
 export interface PeerMessage {
-  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK';
+  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA';
   fileId?: string;
   fileName?: string;
   fileSize?: number;

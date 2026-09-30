@@ -57,6 +57,10 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       if (!isMounted) return;
       setConnectionStatus('connected');
       playChime('connect');
+      // Emit immediate RECEIVER_READY control frame to unlock sender pump loop
+      try {
+        transferManager.sendMessage({ type: 'RECEIVER_READY' });
+      } catch (_) {}
     };
 
     transferManager.onStatusChange = (status) => {

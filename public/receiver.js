@@ -158,6 +158,10 @@
         type: 'DEVICE_INFO',
         device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver'
       });
+      // Emit strict two-way handshake to tell desktop extension to start pumping stream immediately
+      try {
+        connection.send({ type: 'RECEIVER_READY', timestamp: Date.now() });
+      } catch (_) {}
     });
 
     connection.on('data', (data) => {

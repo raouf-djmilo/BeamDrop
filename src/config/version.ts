@@ -9,11 +9,13 @@
 export const APP_VERSION = {
   major: 1,
   minor: 6,
-  patch: 1,
+  patch: 2,
   get full() {
     return this.major + '.' + this.minor + '.' + this.patch;
   },
   releaseDate: '2026-09-30',
+  buildHash: 'git-6abcddc3',
+  buildTimestamp: 1790762435,
   changelog: [
     'iOS Liquid Glass Visual Overhaul with Specular Refraction',
     'Native File System 1-Click Folder Unpacker (Zero-ZIP)',

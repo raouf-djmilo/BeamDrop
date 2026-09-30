@@ -985,6 +985,10 @@
             }
           };
           conn.send({ type: 'DEVICE_INFO', device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver' });
+          // Emit immediate RECEIVER_READY two-way handshake to unlock desktop sender pump loop
+          try {
+            conn.send({ type: 'RECEIVER_READY', timestamp: Date.now() });
+          } catch (_) {}
         });
 
         conn.on('data', function(msg) { handleIncomingData(msg); });

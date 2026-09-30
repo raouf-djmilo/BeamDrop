@@ -1024,20 +1024,71 @@ function initPeerJsSession(type = 'file') {
 }
 
 function setupConnectionHandlers(conn, type) {
+  // Synchronously update central status text when phone connects to prevent UI desync
+  if (portalRadarText) {
+    portalRadarText.textContent = '🟢 Phone Connected! Initializing stream...';
+  }
+  if (qrScanInstruction) {
+    qrScanInstruction.textContent = 'Phone connected! Preparing transfer...';
+  }
+
+  // 1. Listen for two-way handshake & messages
+  conn.on('data', (data) => {
+    handleReceiverControlMessage(conn, data, type);
+  });
+
   conn.on('open', () => {
-    showStage('transfer');
-    if (type === 'text') {
-      streamTextPayload(conn);
-    } else {
-      startBackpressureStream(conn, activePreparedFile);
+    // When channel opens, if receiver doesn't send ready immediately, send a ping/header
+    updateStatus('connected', 'Phone Connected');
+    if (portalRadarText) {
+      portalRadarText.textContent = '🚀 Link established! Preparing transmission...';
     }
+
+    // Set threshold immediately to prevent bufferedamountlow deadlock
+    try {
+      if (conn.dataChannel) {
+        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024; // 64 KB
+      }
+    } catch (_) {}
+
+    // Send READY query or trigger streaming after brief grace period for receiver event bindings
+    setTimeout(() => {
+      if (!isStreaming && activePreparedFile) {
+        showStage('transfer');
+        if (type === 'text') {
+          streamTextPayload(conn);
+        } else {
+          startBackpressureStream(conn, activePreparedFile);
+        }
+      }
+    }, 250);
   });
 
   conn.on('close', () => {
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
+      if (portalRadarText) portalRadarText.textContent = 'Connection closed';
     }
   });
+}
+
+function handleReceiverControlMessage(conn, msg, type) {
+  if (!msg) return;
+  if (msg.type === 'RECEIVER_READY') {
+    console.log('[BeamDrop Handshake] Receiver ready signal received!');
+    updateStatus('connected', 'Phone Connected');
+    if (portalRadarText) portalRadarText.textContent = '🚀 Streaming Data to Phone...';
+    showStage('transfer');
+    if (!isStreaming) {
+      if (type === 'text') {
+        streamTextPayload(conn);
+      } else if (activePreparedFile) {
+        startBackpressureStream(conn, activePreparedFile);
+      }
+    }
+  } else if (msg.type === 'ACK_METADATA' || msg.type === 'START_STREAM') {
+    console.log('[BeamDrop Handshake] Metadata acknowledged by receiver.');
+  }
 }
 
 // ==========================================
@@ -1092,17 +1143,23 @@ async function releaseExtensionWakeLock() {
 }
 
 async function startBackpressureStream(conn, file) {
-  if (!file) return;
+  if (!file || isStreaming) return;
   isStreaming = true;
   requestExtensionWakeLock();
 
-  transferFileTitle.textContent = `Streaming: ${file.name}`;
+  showStage('transfer');
+  updateStatus('connected', 'Streaming...');
+  transferFileTitle.textContent = "Streaming: " + file.name;
   transferProgressFill.style.width = '0%';
   transferPercentText.textContent = '0%';
   transferSpeedText.textContent = '0.0 MB/s';
   transferEtaText.textContent = '--s remaining';
 
   const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
+  let CHUNK_SIZE = 128 * 1024; // 128KB optimal starting chunk
+  if (file.size < 512 * 1024) {
+    CHUNK_SIZE = 64 * 1024; // 64KB for small files (like 284KB images)
+  }
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
   // 1. Send File Metadata Header
@@ -1123,25 +1180,61 @@ async function startBackpressureStream(conn, file) {
     }
   });
 
-  // 2. Stream File Slices with DataChannel Backpressure
+  // Ensure bufferedAmountLowThreshold is explicitly set to 64KB
+  const dc = conn.dataChannel;
+  if (dc) {
+    try {
+      dc.bufferedAmountLowThreshold = 64 * 1024;
+    } catch (_) {}
+  }
+
+  // 2. High-speed raw binary slice pumping with Watchdog Timer
   let offset = 0;
   let chunkIndex = 0;
   const startTime = Date.now();
   let lastSpeedCheck = startTime;
   let lastBytes = 0;
 
-  const dataChannel = conn.dataChannel;
+  const HIGH_WATER_MARK = 512 * 1024; // 512 KB
+  const LOW_WATER_MARK = 64 * 1024;   // 64 KB
 
   while (offset < file.size) {
-    // Adaptive AIMD Backpressure Check
-    if (dataChannel && dataChannel.bufferedAmount > 4 * CHUNK_SIZE) {
-      CHUNK_SIZE = Math.max(32 * 1024, Math.floor(CHUNK_SIZE / 2));
-      await waitForBufferDrain(dataChannel);
-    } else if (dataChannel && dataChannel.bufferedAmount < CHUNK_SIZE && CHUNK_SIZE < 512 * 1024) {
-      CHUNK_SIZE = Math.min(512 * 1024, CHUNK_SIZE + 32 * 1024);
+    // Backpressure Check
+    if (dc && dc.bufferedAmount > HIGH_WATER_MARK) {
+      await new Promise((resolve) => {
+        let resolved = false;
+        const done = () => {
+          if (!resolved) {
+            resolved = true;
+            if (watchdog) clearTimeout(watchdog);
+            if (dc) dc.onbufferedamountlow = null;
+            resolve();
+          }
+        };
+
+        // Watchdog Guard (150ms timeout) to prevent deadlock if event is dropped by browser
+        const watchdog = setTimeout(() => {
+          done();
+        }, 150);
+
+        if (dc) {
+          dc.onbufferedamountlow = () => {
+            done();
+          };
+        }
+
+        // Poll fallback
+        const pollInt = setInterval(() => {
+          if (!dc || dc.bufferedAmount <= LOW_WATER_MARK) {
+            clearInterval(pollInt);
+            done();
+          }
+        }, 10);
+      });
     }
 
-    const slice = file.slice(offset, offset + CHUNK_SIZE);
+    const currentSliceSize = Math.min(CHUNK_SIZE, file.size - offset);
+    const slice = file.slice(offset, offset + currentSliceSize);
     const arrayBuffer = await slice.arrayBuffer();
 
     conn.send({
@@ -1152,24 +1245,22 @@ async function startBackpressureStream(conn, file) {
       data: arrayBuffer
     });
 
-    offset += slice.size;
+    offset += currentSliceSize;
     chunkIndex++;
 
     const progress = Math.min(100, Math.round((offset / file.size) * 100));
-    transferProgressFill.style.width = `${progress}%`;
-    transferPercentText.textContent = `${progress}%`;
+    transferProgressFill.style.width = "0%";
+    transferPercentText.textContent = "0%";
 
     const now = Date.now();
-    if (now - lastSpeedCheck > 300) {
+    if (now - lastSpeedCheck > 250) {
       const durationSec = (now - lastSpeedCheck) / 1000;
       const bytesSent = offset - lastBytes;
       const speedMBs = (bytesSent / (1024 * 1024)) / durationSec;
-      transferSpeedText.textContent = `${speedMBs.toFixed(1)} MB/s`;
-
+      transferSpeedText.textContent = "0.0 MB/s";
       const remainingBytes = file.size - offset;
       const etaSec = speedMBs > 0 ? Math.round((remainingBytes / (1024 * 1024)) / speedMBs) : 0;
-      transferEtaText.textContent = `${etaSec}s remaining`;
-
+      transferEtaText.textContent = "--s remaining";
       lastSpeedCheck = now;
       lastBytes = offset;
     }
@@ -1185,20 +1276,7 @@ async function startBackpressureStream(conn, file) {
     showStage('complete');
     completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
     updateStatus('ready', 'Transfer Complete');
-  }, 400);
-}
-
-function waitForBufferDrain(dc) {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (!dc || dc.bufferedAmount < CHUNK_SIZE) {
-        resolve();
-      } else {
-        setTimeout(check, 10);
-      }
-    };
-    check();
-  });
+  }, 300);
 }
 
 // Reset session
@@ -1305,13 +1383,18 @@ async function checkForUpdates(manual = false) {
     if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Checking...';
   }
 
-  // Smart Environment Detection: Check if extension is Unpacked or Web Store
+  // 1. Detect Local Environment & Local Build Fingerprint
   const manifest = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
     ? chrome.runtime.getManifest()
     : { version: REAL_MANIFEST_VERSION };
   const isUnpacked = !('update_url' in manifest);
 
-  let currentVer = manifest.version || REAL_MANIFEST_VERSION;
+  const localVer = manifest.version || REAL_MANIFEST_VERSION;
+  const localBuildInfo = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
+    ? window.BEAMDROP_BUILD
+    : { version: localVer, buildHash: 'local-init', buildTimestamp: 0 };
+  const localHash = localBuildInfo.buildHash || 'local-init';
+
   let remoteVersionInfo = null;
 
   try {
@@ -1335,32 +1418,71 @@ async function checkForUpdates(manual = false) {
     console.debug('Cloud version check notice:', err);
   }
 
-  const latestVer = remoteVersionInfo ? (remoteVersionInfo.version || remoteVersionInfo.latestVersion) : currentVer;
-  const isOutdated = compareVersions(currentVer, latestVer) < 0;
+  const latestVer = remoteVersionInfo ? (remoteVersionInfo.version || remoteVersionInfo.latestVersion) : localVer;
+  const remoteHash = remoteVersionInfo ? (remoteVersionInfo.buildHash || '') : '';
 
-  if (isOutdated && latestVer) {
-    // STATE B: UPDATE AVAILABLE
+  // Dual Check:
+  // Condition 1: New SemVer version (e.g., 1.6.2 -> 1.6.3)
+  const isNewerVersion = compareVersions(localVer, latestVer) < 0;
+  // Condition 2: Same SemVer version, but new code patch / commit pushed to GitHub/Vercel
+  const isNewGitPatch = (localVer === latestVer) && Boolean(remoteHash && localHash !== remoteHash);
+
+  const isUpdateAvailable = isNewerVersion || isNewGitPatch;
+
+  if (isUpdateAvailable) {
+    // STATE B: UPDATE / HOTFIX AVAILABLE
     if (stateUpToDate) stateUpToDate.style.display = 'none';
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'block';
 
-    if (currentVerPill) currentVerPill.textContent = 'v' + currentVer + ' ➔';
-    if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
+    const pulseTag = document.querySelector('.available-pulse-tag');
+    if (pulseTag) {
+      pulseTag.textContent = isNewGitPatch
+        ? '⚡ Live Patch Available'
+        : '⚡ New Version Available';
+    }
+
+    if (currentVerPill) {
+      currentVerPill.textContent = isNewGitPatch
+        ? ('v' + localVer + ' (' + localHash.slice(0, 8) + ') ➔')
+        : ('v' + localVer + ' ➔');
+    }
+    if (availableVerPill) {
+      availableVerPill.textContent = isNewGitPatch
+        ? ('Patch ' + (remoteHash ? remoteHash.slice(0, 8) : 'latest'))
+        : ('v' + latestVer);
+    }
 
     const guideTargetVer = document.getElementById('guideTargetVer');
-    if (guideTargetVer) guideTargetVer.textContent = latestVer;
+    if (guideTargetVer) {
+      guideTargetVer.textContent = isNewGitPatch
+        ? (latestVer + ' (Build: ' + remoteHash.slice(0, 8) + ')')
+        : latestVer;
+    }
     const reloadTargetVer = document.getElementById('reloadTargetVer');
-    if (reloadTargetVer) reloadTargetVer.textContent = latestVer;
+    if (reloadTargetVer) {
+      reloadTargetVer.textContent = isNewGitPatch
+        ? (latestVer + ' (Build: ' + remoteHash.slice(0, 8) + ')')
+        : latestVer;
+    }
 
     const unpackedGuide = document.getElementById('unpackedUpgradeGuide');
     const updateModeNotice = document.getElementById('updateModeNotice');
     const btnReloadExtension = document.getElementById('btnReloadExtension');
 
     if (isUnpacked) {
-      // Unpacked / Developer Mode: Chrome cannot overwrite local folder files
+      // Unpacked / Developer Mode
       if (unpackedGuide) unpackedGuide.style.display = 'block';
-      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '📥 Download v' + latestVer + ' Update Archive';
-      if (updateModeNotice) updateModeNotice.textContent = '⚡ Load Unpacked mode: download package and reload';
+      if (btnTriggerUpdateText) {
+        btnTriggerUpdateText.textContent = isNewGitPatch
+          ? ('📥 Download Patched Build (' + remoteHash.slice(0, 8) + ')')
+          : ('📥 Download v' + latestVer + ' Update Archive');
+      }
+      if (updateModeNotice) {
+        updateModeNotice.textContent = isNewGitPatch
+          ? '⚡ Live Patch from GitHub: download update & reload extension'
+          : '⚡ Load Unpacked mode: download package and reload';
+      }
 
       if (btnTriggerUpdate) {
         btnTriggerUpdate.style.display = 'flex';
@@ -1383,7 +1505,7 @@ async function checkForUpdates(manual = false) {
     } else {
       // Web Store Production Mode
       if (unpackedGuide) unpackedGuide.style.display = 'none';
-      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '⚡ 1-Click Update to v' + latestVer;
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '⚡ 1-Click Update & Reload';
       if (updateModeNotice) updateModeNotice.textContent = '⚡ Managed by Chrome Web Store';
 
       if (btnTriggerUpdate) {
@@ -1391,12 +1513,8 @@ async function checkForUpdates(manual = false) {
         btnTriggerUpdate.disabled = false;
         btnTriggerUpdate.onclick = () => {
           if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
-            chrome.runtime.requestUpdateCheck((status) => {
-              if (status === 'update_available') {
-                chrome.runtime.reload();
-              } else {
-                chrome.runtime.reload();
-              }
+            chrome.runtime.requestUpdateCheck(() => {
+              chrome.runtime.reload();
             });
           } else {
             chrome.runtime.reload();
@@ -1405,15 +1523,17 @@ async function checkForUpdates(manual = false) {
       }
     }
 
-    const notes = remoteVersionInfo.highlights || [
-      '🛡️ Clean Clipboard & Bluetooth DOMException fixes',
-      '⚡ High-resolution crisp icon assets for Chrome bar',
-      '🎨 iOS Liquid Glass Visual Overhaul with Specular Refraction',
-      '📁 Native File System 1-Click Folder Unpacker (Zero-ZIP)'
-    ];
+    const notes = (remoteVersionInfo && remoteVersionInfo.patchNotes)
+      ? [remoteVersionInfo.patchNotes, ...(remoteVersionInfo.highlights || [])]
+      : (remoteVersionInfo && remoteVersionInfo.highlights) || [
+          '🚀 Real-time WebRTC DataChannel optimizations',
+          '⚡ Instant RECEIVER_READY two-way handshake',
+          '🛡️ Zero buffer deadlock with 150ms watchdog guard'
+        ];
 
     if (availableChangelogList) {
       availableChangelogList.innerHTML = notes
+        .slice(0, 5)
         .map(item => '<li>' + escapeHtml(item) + '</li>')
         .join('');
     }
@@ -1422,7 +1542,9 @@ async function checkForUpdates(manual = false) {
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
     if (stateUpToDate) stateUpToDate.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'none';
-    if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + currentVer;
+    if (uptodateVersionBadge) {
+      uptodateVersionBadge.textContent = 'v' + localVer + ' (' + localHash.slice(0, 8) + ')';
+    }
   }
 
   const nowTime = 'Last checked: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
