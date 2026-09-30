@@ -8,7 +8,7 @@ if (!VERCEL_RECEIVER_URL || VERCEL_RECEIVER_URL.includes('.run.app') || VERCEL_R
   VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 }
 
-const CHUNK_SIZE = 64 * 1024; // 64KB slices for backpressure streaming
+let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
 // Comprehensive High-Speed STUN + TURN Relay matrix (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
 const EXTENSION_ICE_SERVERS = [
@@ -1129,8 +1129,12 @@ async function startBackpressureStream(conn, file) {
   const dataChannel = conn.dataChannel;
 
   while (offset < file.size) {
+    // Adaptive AIMD Backpressure Check
     if (dataChannel && dataChannel.bufferedAmount > 4 * CHUNK_SIZE) {
+      CHUNK_SIZE = Math.max(32 * 1024, Math.floor(CHUNK_SIZE / 2));
       await waitForBufferDrain(dataChannel);
+    } else if (dataChannel && dataChannel.bufferedAmount < CHUNK_SIZE && CHUNK_SIZE < 512 * 1024) {
+      CHUNK_SIZE = Math.min(512 * 1024, CHUNK_SIZE + 32 * 1024);
     }
 
     const slice = file.slice(offset, offset + CHUNK_SIZE);

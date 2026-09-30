@@ -297,6 +297,67 @@ export default defineConfig(() => {
               }
             }
 
+            // Persistent Team Workspace Mesh Signaling Endpoint (/api/mesh/workspace)
+            if (req.url?.startsWith('/api/mesh/workspace')) {
+              res.setHeader('Content-Type', 'application/json');
+              if (req.method === 'POST') {
+                let bodyStr = '';
+                req.on('data', chunk => { bodyStr += chunk; });
+                req.on('end', () => {
+                  try {
+                    const data = JSON.parse(bodyStr || '{}');
+                    const { slug, pinHash, device } = data;
+                    if (!slug || !pinHash || !device) {
+                      res.statusCode = 400;
+                      res.end(JSON.stringify({ success: false, error: 'Missing workspace credentials' }));
+                      return;
+                    }
+                    if (!(globalThis as any).workspaceRegistry) (globalThis as any).workspaceRegistry = new Map();
+                    let ws = (globalThis as any).workspaceRegistry.get(slug);
+                    if (!ws) {
+                      ws = { pinHash, nodes: new Map() };
+                      (globalThis as any).workspaceRegistry.set(slug, ws);
+                    } else if (ws.pinHash !== pinHash) {
+                      res.statusCode = 403;
+                      res.end(JSON.stringify({ success: false, error: 'Invalid Workspace PIN' }));
+                      return;
+                    }
+                    ws.nodes.set(device.id, { ...device, lastSeen: Date.now() });
+                    // Prune nodes older than 20s
+                    const now = Date.now();
+                    for (const [id, n] of ws.nodes.entries()) {
+                      if (now - n.lastSeen > 20000) ws.nodes.delete(id);
+                    }
+                    res.statusCode = 200;
+                    res.end(JSON.stringify({ success: true, nodes: Array.from(ws.nodes.values()) }));
+                  } catch (e) {
+                    res.statusCode = 500;
+                    res.end(JSON.stringify({ success: false, error: String((e as any)?.message || e) }));
+                  }
+                });
+                return;
+              } else {
+                const parsedUrl = new URL(req.url, 'http://localhost:3000');
+                const slug = parsedUrl.searchParams.get('slug');
+                const pinHash = parsedUrl.searchParams.get('pinHash');
+                if (!(globalThis as any).workspaceRegistry) (globalThis as any).workspaceRegistry = new Map();
+                const ws = slug ? (globalThis as any).workspaceRegistry.get(slug) : null;
+                if (!ws || (pinHash && ws.pinHash !== pinHash)) {
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ success: false, nodes: [] }));
+                  return;
+                }
+                const now = Date.now();
+                for (const [id, n] of ws.nodes.entries()) {
+                  if (now - n.lastSeen > 20000) ws.nodes.delete(id);
+                }
+                res.statusCode = 200;
+                res.end(JSON.stringify({ success: true, nodes: Array.from(ws.nodes.values()) }));
+                return;
+              }
+            }
+
+            
             // 100% Pure JavaScript Mesh Network Endpoint (ZERO OS shell dependencies, ZERO iwgetid/arp/rtnetlink)
             if (req.url?.startsWith('/api/scan-lan')) {
               res.setHeader('Content-Type', 'application/json');

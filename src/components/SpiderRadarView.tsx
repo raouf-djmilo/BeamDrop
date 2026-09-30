@@ -21,8 +21,10 @@ import {
   Crosshair,
   Volume2,
   VolumeX,
-  Plus
+  Plus,
+  Building2
 } from 'lucide-react';
+import { workspaceEngine, WorkspaceNode } from '../utils/engine/workspace';
 import { playChime } from '../utils/audio';
 
 export interface DiscoveredPeer {
@@ -46,6 +48,51 @@ interface SpiderRadarViewProps {
 }
 
 export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTarget }) => {
+  // Persistent Team Workspace State
+  const [workspaceSlug, setWorkspaceSlug] = useState<string>('');
+  const [workspacePin, setWorkspacePin] = useState<string>('');
+  const [isWorkspaceActive, setIsWorkspaceActive] = useState<boolean>(false);
+  const [workspaceNodes, setWorkspaceNodes] = useState<WorkspaceNode[]>([]);
+  const [workspaceError, setWorkspaceError] = useState<string>('');
+
+  const handleJoinWorkspace = async () => {
+    if (!workspaceSlug.trim() || !workspacePin.trim()) return;
+    setWorkspaceError('');
+    const res = await workspaceEngine.announceInWorkspace(
+      workspaceSlug.trim().toLowerCase(),
+      workspacePin.trim(),
+      {
+        id: myDeviceInfo.ip || 'node-' + Math.random().toString(36).slice(2, 7),
+        name: myDeviceInfo.name,
+        deviceType: myDeviceInfo.deviceType,
+        icon: myDeviceInfo.icon
+      }
+    );
+    if (res.success) {
+      setIsWorkspaceActive(true);
+      setWorkspaceNodes(res.nodes);
+      workspaceEngine.startHeartbeat(
+        workspaceSlug.trim().toLowerCase(),
+        workspacePin.trim(),
+        {
+          id: myDeviceInfo.ip || 'node-' + Math.random().toString(36).slice(2, 7),
+          name: myDeviceInfo.name,
+          deviceType: myDeviceInfo.deviceType,
+          icon: myDeviceInfo.icon
+        },
+        (updatedNodes) => setWorkspaceNodes(updatedNodes)
+      );
+    } else {
+      setWorkspaceError(res.error || 'Failed to authenticate in workspace');
+    }
+  };
+
+  const handleLeaveWorkspace = () => {
+    workspaceEngine.stopHeartbeat();
+    setIsWorkspaceActive(false);
+    setWorkspaceNodes([]);
+  };
+
   // Real Network Metadata
   const [networkMeta, setNetworkMeta] = useState<{
     ssid: string;
@@ -406,6 +453,69 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
 
   return (
     <div className="space-y-6">
+      {/* Persistent Team Workspace Bar (Pro Mesh) */}
+      <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-indigo-500/30 bg-gradient-to-r from-slate-950 via-indigo-950/20 to-slate-950 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                <span>Team Workspace Mesh</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">
+                  PRO VIRTUAL ROOM
+                </span>
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              {isWorkspaceActive
+                ? 'Connected to /w/' + workspaceSlug + ' (' + workspaceNodes.length + ' devices online)'
+                : 'Connect distributed team members across different Wi-Fi networks'}
+            </p>
+          </div>
+        </div>
+
+        {!isWorkspaceActive ? (
+          <div className="flex items-center space-x-2 flex-wrap sm:flex-nowrap">
+            <input
+              type="text"
+              placeholder="slug (e.g. design-team)"
+              value={workspaceSlug}
+              onChange={(e) => setWorkspaceSlug(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
+            />
+            <input
+              type="password"
+              placeholder="PIN (4-6 digits)"
+              value={workspacePin}
+              onChange={(e) => setWorkspacePin(e.target.value)}
+              maxLength={6}
+              className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-28"
+            />
+            <button
+              onClick={handleJoinWorkspace}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors shadow-md shadow-indigo-600/20 cursor-pointer"
+            >
+              Join Mesh
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>/w/{workspaceSlug}</span>
+            </div>
+            <button
+              onClick={handleLeaveWorkspace}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+            >
+              Leave
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* 1. Real Network Telemetry HUD Bar */}
       <div className="glass-panel-glow rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-cyan-500/25">
         <div className="flex items-center space-x-3.5">

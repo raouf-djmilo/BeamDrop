@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { P2PTransferManager } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
+import { ephemeralPortalEngine, EphemeralPortalSession } from '../utils/engine/portal';
+import { Clock, Globe, Shield } from 'lucide-react';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { playChime } from '../utils/audio';
 
@@ -47,6 +49,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [textPayload, setTextPayload] = useState<string>(initialTextPayload || '');
   const [directQrMode, setDirectQrMode] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [e2eeKeyHex, setE2eeKeyHex] = useState<string>('');
   const [currentTransfer, setCurrentTransfer] = useState<{
     fileName: string;
     progress: number;
@@ -56,6 +59,8 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [transferCompleted, setTransferCompleted] = useState<boolean>(false);
   const [sentHistory, setSentHistory] = useState<{ name: string; size: number; time: string; type: string }[]>([]);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [active10MinPortal, setActive10MinPortal] = useState<EphemeralPortalSession | null>(null);
+  const [copiedPortalLink, setCopiedPortalLink] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -189,6 +194,31 @@ export const SenderView: React.FC<SenderViewProps> = ({
       ]);
       setTextPayload('');
       setTransferCompleted(true);
+    }
+  };
+
+  const handleCreate10MinPortal = async () => {
+    if (stagedFiles.length === 0) return;
+    let hex = e2eeKeyHex;
+    if (!hex) {
+      hex = await transferManager.setupE2EE();
+      setE2eeKeyHex(hex);
+    }
+    const session = ephemeralPortalEngine.createPortal(
+      transferManager.myPeerId,
+      { name: firstFile.name, size: firstFile.size, type: firstFile.type || 'application/octet-stream' },
+      hex,
+      targetBaseUrl
+    );
+    setActive10MinPortal(session);
+    playChime('connect');
+  };
+
+  const copyPortalLink = () => {
+    if (active10MinPortal) {
+      navigator.clipboard.writeText(active10MinPortal.shareUrl);
+      setCopiedPortalLink(true);
+      setTimeout(() => setCopiedPortalLink(false), 2000);
     }
   };
 
@@ -583,6 +613,58 @@ export const SenderView: React.FC<SenderViewProps> = ({
               showControls={true}
             />
           </div>
+
+          {/* 10-Minute Ephemeral Drop Portal Generator */}
+          {firstFile && (
+            <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/30 text-left space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white">10-Min Ephemeral Portal</p>
+                    <p className="text-[10px] text-slate-400">Single-use expiring link for clients</p>
+                  </div>
+                </div>
+                {!active10MinPortal ? (
+                  <button
+                    onClick={handleCreate10MinPortal}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-all cursor-pointer"
+                  >
+                    Generate Portal
+                  </button>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-[10px] font-bold">
+                    ACTIVE (10:00)
+                  </span>
+                )}
+              </div>
+
+              {active10MinPortal && (
+                <div className="space-y-2 pt-1 border-t border-amber-500/20">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={active10MinPortal.shareUrl}
+                      className="bg-slate-900 border border-slate-800 text-[11px] text-amber-200 font-mono rounded-lg px-2.5 py-1.5 flex-1 select-all focus:outline-none"
+                    />
+                    <button
+                      onClick={copyPortalLink}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 shrink-0 transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedPortalLink ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                    <span>🔒 Client can download anywhere with zero app install</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Direct Session Link Card */}
           <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-slate-800/80 text-left space-y-2">

@@ -13,6 +13,8 @@ import { ReceiverView } from './components/ReceiverView';
 import { ExtensionHub } from './components/ExtensionHub';
 import { SplitSimulator } from './components/SplitSimulator';
 import { DirectDownloadPortal } from './components/DirectDownloadPortal';
+import { PortalView } from './components/PortalView';
+import { Download, Sparkles, X } from 'lucide-react';
 
 export default function App() {
   // Synchronously evaluate URL params BEFORE initial render
@@ -23,6 +25,9 @@ export default function App() {
   const initialMime = urlSearchParams ? decodeURIComponent(urlSearchParams.get('mime') || '') : '';
   const initialMode = urlSearchParams ? urlSearchParams.get('mode') : null;
   const pathIsDownload = typeof window !== 'undefined' && (window.location.pathname.startsWith('/download') || window.location.pathname.startsWith('/dl'));
+  const isPortalPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal');
+  const portalIdMatch = typeof window !== 'undefined' ? window.location.pathname.match(/\/portal\/([^\/]+)/) : null;
+  const portalId = portalIdMatch ? portalIdMatch[1] : '';
 
   const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full');
 
@@ -35,6 +40,28 @@ export default function App() {
   const [urlFileSize, setUrlFileSize] = useState<number>(initialSize);
   const [urlFileMime, setUrlFileMime] = useState<string>(initialMime);
   const [isDirectDownloadMode, setIsDirectDownloadMode] = useState<boolean>(isDirectDownload || pathIsDownload);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBanner(false);
+    }
+    setDeferredPrompt(null);
+  };
   const [statusMessage, setStatusMessage] = useState<string>('Initializing WebRTC...');
 
   // Single shared instance of P2PTransferManager for the main web app
@@ -66,6 +93,18 @@ export default function App() {
   // DIRECT DOWNLOAD GATEWAY:
   // If user opened a QR code or /download link, show ONLY the pure direct file download card!
   // No header, no tabs, no website navigation, no website footer.
+  if (isPortalPath && (portalId || urlPeerId)) {
+    return (
+      <PortalView
+        portalId={portalId || 'active'}
+        expectedPeerId={urlPeerId}
+        expectedFileName={urlFileName}
+        expectedFileSize={urlFileSize}
+        expectedFileMime={urlFileMime}
+      />
+    );
+  }
+
   if (isDirectDownloadMode && urlPeerId) {
     return (
       <DirectDownloadPortal
@@ -80,7 +119,34 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
       {/* Top Navigation */}
-      <Header
+      {showInstallBanner && (
+          <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-white flex items-center justify-between text-xs shadow-lg animate-pulse-slow">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-bold">
+                ⚡
+              </div>
+              <div>
+                <span className="font-bold">Install BeamDrop PWA App</span>
+                <span className="hidden sm:inline text-cyan-100 ml-1.5">• Fast native-like home screen launch & Web Share Target</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleInstallPWA}
+                className="px-3 py-1 rounded-lg bg-white text-slate-900 font-bold hover:bg-slate-100 transition-colors shadow-sm cursor-pointer"
+              >
+                Install App
+              </button>
+              <button
+                onClick={() => setShowInstallBanner(false)}
+                className="p-1 text-white/80 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         transferManager={transferManager}

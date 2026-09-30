@@ -1,4 +1,19 @@
 import Peer, { DataConnection } from 'peerjs';
+import { AdaptiveChunker } from './engine/chunker';
+import {
+  encodeBinaryFrame,
+  decodeBinaryFrame,
+  saveTransferCheckpoint,
+  getTransferCheckpoint,
+  clearTransferCheckpoint,
+  FRAME_HEADER_SIZE
+} from './engine/protocol';
+import {
+  generateQrEntropyKey,
+  importKeyFromHex,
+  encryptChunkPayload,
+  decryptChunkPayload
+} from './engine/crypto';
 
 export interface TransferFile {
   id: string;
@@ -14,6 +29,7 @@ export interface TransferFile {
   speed: number; // bytes/sec
   status: 'pending' | 'transferring' | 'completed' | 'error';
   direction: 'send' | 'receive';
+  encrypted?: boolean;
 }
 
 export interface TextPayload {
@@ -25,16 +41,20 @@ export interface TextPayload {
 }
 
 export interface PeerMessage {
-  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO';
+  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK';
   fileId?: string;
   fileName?: string;
   fileSize?: number;
   fileMime?: string;
   chunkIndex?: number;
   totalChunks?: number;
+  chunkSize?: number;
   data?: ArrayBuffer | string;
   text?: string;
   device?: string;
+  pingTime?: number;
+  encrypted?: boolean;
+  nextExpectedChunk?: number;
 }
 
 export const P2P_ICE_SERVERS: RTCIceServer[] = [
@@ -63,15 +83,34 @@ export const P2P_ICE_SERVERS: RTCIceServer[] = [
   }
 ];
 
-const CHUNK_SIZE = 64 * 1024; // 64 KB chunks
-
 export class P2PTransferManager {
   private peer: Peer | null = null;
   private connection: DataConnection | null = null;
+  // Multi-receiver active connections for QR multi-device beam sessions
+  private activeConnections: Map<string, DataConnection> = new Map();
+  // Multiplexed parallel channels per peer for unordered Head-of-line blocking elimination
+  private subChannels: Map<string, RTCDataChannel[]> = new Map();
+
+  public connectedPeersList: string[] = [];
+  public onPeersChange?: (peers: string[]) => void;
   public myPeerId: string = '';
   public connectedPeerId: string = '';
   public isConnected: boolean = false;
   public isConnecting: boolean = false;
+
+  // Active QR Session token to control validity & instant cancellation
+  public activeSessionToken: string = '';
+  public isSessionActive: boolean = true;
+
+  // 1. Adaptive Chunker instance with RTT tracking
+  public adaptiveChunker: AdaptiveChunker;
+  public currentRtt: number = 10;
+  public currentTierName: string = 'Ultra-LAN / Wi-Fi 6 Direct';
+  public onAdaptiveStats?: (rtt: number, tier: string, chunkSize: number) => void;
+
+  // 2. E2EE Crypto Key (AES-GCM-256)
+  public sessionCryptoKey: CryptoKey | null = null;
+  public sessionRawKeyHex: string = '';
 
   // Callbacks
   public onConnected?: (peerId: string) => void;
@@ -86,11 +125,14 @@ export class P2PTransferManager {
   // Receiving state
   private incomingFiles: Map<string, {
     metadata: TransferFile;
-    chunks: ArrayBuffer[];
+    chunks: Map<number, ArrayBuffer>;
+    receivedIndices: Set<number>;
     receivedBytes: number;
     startTime: number;
     lastSpeedCalcTime: number;
     lastReceivedBytes: number;
+    chunkSize: number;
+    totalChunks: number;
   }> = new Map();
 
   // Sending state
@@ -98,7 +140,32 @@ export class P2PTransferManager {
   private reconnectTimer: any = null;
   private heartbeatTimer: any = null;
 
-  constructor() {}
+  constructor() {
+    this.adaptiveChunker = new AdaptiveChunker((rtt, tier, chunkSize) => {
+      this.currentRtt = rtt;
+      this.currentTierName = tier;
+      this.onAdaptiveStats?.(rtt, tier, chunkSize);
+    });
+  }
+
+  /**
+   * Initializes AES-GCM 256-bit encryption key for QR session
+   */
+  public async setupE2EE(): Promise<string> {
+    const e2ee = await generateQrEntropyKey();
+    this.sessionCryptoKey = e2ee.key;
+    this.sessionRawKeyHex = e2ee.keyId;
+    return this.sessionRawKeyHex;
+  }
+
+  public async setE2EEKeyFromHex(hexKey: string): Promise<void> {
+    try {
+      this.sessionCryptoKey = await importKeyFromHex(hexKey);
+      this.sessionRawKeyHex = hexKey;
+    } catch (e) {
+      console.warn('Failed to import E2EE key:', e);
+    }
+  }
 
   public init(preferredId?: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -112,9 +179,8 @@ export class P2PTransferManager {
         this.peer = new Peer(peerId, {
           debug: 0,
           logFunction: (_logLevel: number, ...args: any[]) => {
-            const str = args.map(a => (a && a.message) || String(a)).join(' ');
+            const str = args.map((a: any) => (a && a.message) || String(a)).join(' ');
             if (str.includes('Lost connection') || str.includes('socket') || str.includes('disconnected')) {
-              // Harmless signaling socket reconnect notice - handled by auto-reconnect
               return;
             }
             if (_logLevel <= 1) {
@@ -142,7 +208,6 @@ export class P2PTransferManager {
           const errMsg = String(err?.message || err?.type || err || '');
           const errType = String(err?.type || '');
 
-          // 1. Signaling server disconnect / socket drop is normal & recoverable
           if (
             errType === 'network' ||
             errType === 'server-error' ||
@@ -158,14 +223,12 @@ export class P2PTransferManager {
             return;
           }
 
-          // 2. Peer not yet online on signaling server
           if (errType === 'peer-unavailable') {
             console.warn('[BeamDrop P2P] Target peer not yet connected to signaling server');
             this.onStatusChange?.('Waiting for peer to connect...');
             return;
           }
 
-          // 3. ID taken - retry with fresh ID
           if (errType === 'unavailable-id') {
             this.init().then(resolve).catch(reject);
             return;
@@ -195,7 +258,6 @@ export class P2PTransferManager {
         if (this.peer.disconnected) {
           this.attemptReconnect();
         } else {
-          // Keep-alive ping to peerjs socket
           try {
             const socket = (this.peer as any).socket;
             if (socket && socket._socket && socket._socket.readyState === WebSocket.OPEN) {
@@ -224,7 +286,6 @@ export class P2PTransferManager {
         try {
           this.peer.reconnect();
         } catch (e) {
-          // If reconnect throws because ID was taken or expired, recreate peer
           try {
             this.init(this.myPeerId).catch(() => {});
           } catch (_) {}
@@ -263,10 +324,18 @@ export class P2PTransferManager {
   private setupConnection(conn: DataConnection) {
     this.connection = conn;
     this.connectedPeerId = conn.peer;
+    this.activeConnections.set(conn.peer, conn);
+    this.connectedPeersList = Array.from(this.activeConnections.keys());
     this.isConnected = true;
     this.isConnecting = false;
-    this.onStatusChange?.('Connected with peer');
+
+    const devCount = this.activeConnections.size;
+    this.onStatusChange?.(`Connected with peer (${devCount} device${devCount > 1 ? 's' : ''})`);
     this.onConnected?.(conn.peer);
+    this.onPeersChange?.(this.connectedPeersList);
+
+    // Setup multiplexed secondary channel if supported
+    this.setupMultiplexedChannels(conn);
 
     // Send device info
     this.sendMessage({
@@ -274,15 +343,34 @@ export class P2PTransferManager {
       device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop / PC'
     });
 
+    // Start RTT Adaptive Probing
+    this.adaptiveChunker.startProbing((pingTime) => {
+      this.sendMessage({ type: 'PING', pingTime });
+    });
+
     conn.on('data', (raw: any) => {
       this.handleIncomingData(raw);
     });
 
     conn.on('close', () => {
-      this.isConnected = false;
-      this.connection = null;
-      this.onStatusChange?.('Peer disconnected');
-      this.onDisconnected?.();
+      this.activeConnections.delete(conn.peer);
+      this.subChannels.delete(conn.peer);
+      this.connectedPeersList = Array.from(this.activeConnections.keys());
+
+      if (this.activeConnections.size > 0) {
+        this.connection = this.activeConnections.values().next().value || null;
+        this.connectedPeerId = this.connection ? this.connection.peer : '';
+        this.isConnected = true;
+        this.onStatusChange?.(`Peer disconnected (${this.activeConnections.size} remaining)`);
+      } else {
+        this.isConnected = false;
+        this.connection = null;
+        this.connectedPeerId = '';
+        this.adaptiveChunker.stopProbing();
+        this.onStatusChange?.('All peers disconnected');
+        this.onDisconnected?.();
+      }
+      this.onPeersChange?.(this.connectedPeersList);
     });
 
     conn.on('error', (err) => {
@@ -291,43 +379,144 @@ export class P2PTransferManager {
     });
   }
 
-  private handleIncomingData(rawMsg: any) {
-    if (!rawMsg || !rawMsg.type) return;
+  private setupMultiplexedChannels(conn: DataConnection) {
+    try {
+      const pc = (conn as any).peerConnection as RTCPeerConnection | undefined;
+      if (pc && typeof pc.createDataChannel === 'function') {
+        const ch1 = pc.createDataChannel(`beam_strip_1`, { ordered: false, maxRetransmits: 30 });
+        ch1.binaryType = 'arraybuffer';
+        ch1.onmessage = (evt) => this.handleIncomingData(evt.data);
 
-    let msg = rawMsg;
+        const ch2 = pc.createDataChannel(`beam_strip_2`, { ordered: false, maxRetransmits: 30 });
+        ch2.binaryType = 'arraybuffer';
+        ch2.onmessage = (evt) => this.handleIncomingData(evt.data);
 
-    // Normalize different sender formats (header / chunk / complete vs FILE_START / FILE_CHUNK / FILE_END)
-    if (msg.type === 'header' && msg.payload) {
-      msg = {
-        type: 'FILE_START',
-        fileId: msg.fileId || msg.payload.id || 'file-' + Date.now(),
-        fileName: msg.payload.name,
-        fileSize: msg.payload.size,
-        fileMime: msg.payload.mimeType || 'application/octet-stream',
-        totalChunks: msg.payload.totalChunks
-      };
-    } else if (msg.type === 'chunk') {
-      let fId = msg.fileId;
-      if (!fId && this.incomingFiles.size > 0) {
-        fId = Array.from(this.incomingFiles.keys())[this.incomingFiles.size - 1];
+        this.subChannels.set(conn.peer, [ch1, ch2]);
       }
-      msg = {
-        type: 'FILE_CHUNK',
-        fileId: fId,
-        chunkIndex: msg.chunkIndex,
-        data: msg.data
-      };
-    } else if (msg.type === 'complete') {
-      let fId = msg.fileId;
-      if (!fId && this.incomingFiles.size > 0) {
-        fId = Array.from(this.incomingFiles.keys())[this.incomingFiles.size - 1];
+    } catch (e) {
+      // Fallback to standard PeerJS data channel
+    }
+  }
+
+  private async handleIncomingData(rawMsg: any) {
+    if (!rawMsg) return;
+
+    // Check if message is a 32-Byte Binary Frame
+    if (rawMsg instanceof ArrayBuffer && rawMsg.byteLength >= FRAME_HEADER_SIZE) {
+      try {
+        const { meta, payload } = decodeBinaryFrame(rawMsg);
+        let finalPayload = payload;
+
+        // If encrypted (flag === 1) and we have sessionCryptoKey
+        if (meta.flags === 1 && this.sessionCryptoKey) {
+          try {
+            finalPayload = await decryptChunkPayload(payload, this.sessionCryptoKey);
+          } catch (decErr) {
+            console.error('[E2EE] Tampered or invalid chunk rejected:', decErr);
+            return;
+          }
+        }
+
+        const entry = this.incomingFiles.get(meta.fileId);
+        if (entry) {
+          entry.chunks.set(meta.chunkIndex, finalPayload);
+          entry.receivedIndices.add(meta.chunkIndex);
+          entry.receivedBytes += finalPayload.byteLength;
+
+          const progress = Math.min(100, Math.round((entry.receivedBytes / entry.metadata.size) * 100));
+          const now = Date.now();
+          const elapsed = (now - entry.lastSpeedCalcTime) / 1000;
+          let speed = entry.metadata.speed;
+          if (elapsed >= 0.25) {
+            const bytesSince = entry.receivedBytes - entry.lastReceivedBytes;
+            speed = bytesSince / elapsed;
+            entry.lastSpeedCalcTime = now;
+            entry.lastReceivedBytes = entry.receivedBytes;
+          }
+
+          entry.metadata.progress = progress;
+          entry.metadata.speed = speed;
+          this.onFileProgress?.(meta.fileId, progress, speed);
+
+          // Save checkpoint periodically
+          if (meta.chunkIndex % 20 === 0 || entry.receivedIndices.size === meta.totalChunks) {
+            saveTransferCheckpoint(
+              meta.fileId,
+              entry.metadata.name,
+              entry.metadata.size,
+              meta.totalChunks,
+              entry.receivedIndices
+            );
+          }
+
+          // Complete transfer if all chunks received
+          if (entry.receivedIndices.size === meta.totalChunks) {
+            const sortedBuffers: ArrayBuffer[] = [];
+            for (let idx = 0; idx < meta.totalChunks; idx++) {
+              const buf = entry.chunks.get(idx);
+              if (buf) sortedBuffers.push(buf);
+            }
+            const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
+            const downloadUrl = URL.createObjectURL(blob);
+            const completedFile: TransferFile = {
+              ...entry.metadata,
+              blob,
+              downloadUrl,
+              previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
+              progress: 100,
+              status: 'completed'
+            };
+            this.onFileReceiveComplete?.(completedFile);
+            clearTransferCheckpoint(meta.fileId);
+            this.incomingFiles.delete(meta.fileId);
+          }
+        }
+        return;
+      } catch (frameErr) {
+        // Fall back to standard JSON parsing
       }
-      msg = {
-        type: 'FILE_END',
-        fileId: fId
-      };
     }
 
+    let msg = rawMsg;
+    if (msg.type === 'PING') {
+      this.sendMessage({ type: 'PONG', pingTime: msg.pingTime });
+      return;
+    }
+    if (msg.type === 'PONG') {
+      this.adaptiveChunker.handlePong(msg.pingTime);
+      return;
+    }
+
+        // Application-Level NACK Handling (Missing-Chunk Recovery for ordered: false)
+    if (msg.type === 'NACK_RETRY' && Array.isArray(msg.missingIndices) && msg.fileId) {
+      console.warn('[P2P NACK] Receiver requested retransmission of missing chunks:', msg.missingIndices);
+      // Sender immediately resends missing chunk indices
+      const entry = (this as any).lastSentFileEntry;
+      if (entry && entry.file && entry.fileId === msg.fileId) {
+        for (const idx of msg.missingIndices) {
+          const start = idx * entry.chunkSize;
+          const end = Math.min(start + entry.chunkSize, entry.file.size);
+          const slice = entry.file.slice(start, end);
+          slice.arrayBuffer().then((buf: ArrayBuffer) => {
+            const frame = encodeBinaryFrame(entry.fileId, idx, entry.totalChunks, buf, entry.isEncrypted ? 1 : 0);
+            this.sendMessage({
+              type: 'FILE_CHUNK',
+              fileId: entry.fileId,
+              chunkIndex: idx,
+              data: frame
+            });
+          });
+        }
+      }
+      return;
+    }
+
+    if (msg.type === 'RESUME_SESSION') {
+      // Receiver requested resuming from chunk index
+      return;
+    }
+
+    // Standard JSON message handling
     switch (msg.type) {
       case 'TEXT_MSG':
         if (msg.text) {
@@ -354,18 +543,20 @@ export class P2PTransferManager {
             progress: 0,
             speed: 0,
             status: 'transferring',
-            direction: 'receive'
+            direction: 'receive',
+            encrypted: Boolean(msg.encrypted)
           };
-
           this.incomingFiles.set(msg.fileId, {
             metadata: newFile,
-            chunks: [],
+            chunks: new Map(),
+            receivedIndices: new Set(),
             receivedBytes: 0,
             startTime: Date.now(),
             lastSpeedCalcTime: Date.now(),
-            lastReceivedBytes: 0
+            lastReceivedBytes: 0,
+            chunkSize: msg.chunkSize || 256 * 1024,
+            totalChunks: msg.totalChunks || 1
           });
-
           this.onFileReceiveStart?.(newFile);
         }
         break;
@@ -374,14 +565,13 @@ export class P2PTransferManager {
         if (msg.fileId && msg.data) {
           const entry = this.incomingFiles.get(msg.fileId);
           if (!entry) return;
-
           const chunk = msg.data as ArrayBuffer;
-          entry.chunks.push(chunk);
+          const idx = msg.chunkIndex ?? entry.receivedIndices.size;
+          entry.chunks.set(idx, chunk);
+          entry.receivedIndices.add(idx);
           entry.receivedBytes += chunk.byteLength;
-
           const progress = Math.min(100, Math.round((entry.receivedBytes / entry.metadata.size) * 100));
 
-          // Calculate speed every 250ms
           const now = Date.now();
           const elapsed = (now - entry.lastSpeedCalcTime) / 1000;
           let speed = entry.metadata.speed;
@@ -394,7 +584,6 @@ export class P2PTransferManager {
 
           entry.metadata.progress = progress;
           entry.metadata.speed = speed;
-
           this.onFileProgress?.(msg.fileId, progress, speed);
         }
         break;
@@ -403,24 +592,21 @@ export class P2PTransferManager {
         if (msg.fileId) {
           const entry = this.incomingFiles.get(msg.fileId);
           if (!entry) return;
-
-          const blob = new Blob(entry.chunks, { type: entry.metadata.type });
-          const downloadUrl = URL.createObjectURL(blob);
-
-          let previewUrl: string | undefined = undefined;
-          if (entry.metadata.type.startsWith('image/')) {
-            previewUrl = downloadUrl;
+          const sortedBuffers: ArrayBuffer[] = [];
+          for (let i = 0; i < (entry.totalChunks || entry.chunks.size); i++) {
+            const b = entry.chunks.get(i);
+            if (b) sortedBuffers.push(b);
           }
-
+          const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
+          const downloadUrl = URL.createObjectURL(blob);
           const completedFile: TransferFile = {
             ...entry.metadata,
             blob,
             downloadUrl,
-            previewUrl,
+            previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
             progress: 100,
             status: 'completed'
           };
-
           this.onFileReceiveComplete?.(completedFile);
           this.incomingFiles.delete(msg.fileId);
         }
@@ -429,16 +615,58 @@ export class P2PTransferManager {
   }
 
   public sendMessage(msg: PeerMessage): boolean {
-    if (!this.connection || !this.isConnected) {
+    if (this.activeConnections.size === 0 && (!this.connection || !this.isConnected)) {
       return false;
     }
-    try {
-      this.connection.send(msg);
-      return true;
-    } catch (e) {
-      console.error('Failed to send message:', e);
-      return false;
+    let anySent = false;
+    this.activeConnections.forEach((conn) => {
+      try {
+        if (conn.open) {
+          conn.send(msg);
+          anySent = true;
+        }
+      } catch (e) {
+        console.error('Failed to send to peer ' + conn.peer, e);
+      }
+    });
+
+    if (!anySent && this.connection && this.isConnected) {
+      try {
+        this.connection.send(msg);
+        return true;
+      } catch (e) {
+        return false;
+      }
     }
+    return anySent;
+  }
+
+  public getConnectedDevicesCount(): number {
+    return Math.max(this.activeConnections.size, this.isConnected ? 1 : 0);
+  }
+
+  public cancelQrSession() {
+    this.isSessionActive = false;
+    this.sendMessage({
+      type: 'TEXT_MSG',
+      text: 'SESSION_CANCELLED_BY_HOST'
+    });
+    this.activeConnections.forEach((conn) => {
+      try { conn.close(); } catch (_) {}
+    });
+    this.activeConnections.clear();
+    this.connectedPeersList = [];
+    this.connection = null;
+    this.isConnected = false;
+    this.adaptiveChunker.stopProbing();
+    this.onPeersChange?.([]);
+    this.onStatusChange?.('QR Session Terminated / Cancelled');
+  }
+
+  public renewQrSession(): string {
+    this.activeSessionToken = 's-' + Math.random().toString(36).substring(2, 9);
+    this.isSessionActive = true;
+    return this.activeSessionToken;
   }
 
   public sendText(text: string): boolean {
@@ -448,56 +676,94 @@ export class P2PTransferManager {
     });
   }
 
+  /**
+   * High-Throughput Adaptive File Streaming:
+   * Uses Dynamic Adaptive Chunks (up to 512KB on LAN) + 32-Byte Binary Framing
+   * + AES-GCM-256 Authentication + Backpressure Control + Round-robin channel striping.
+   */
   public async sendFile(
     file: File,
     onProgress?: (progress: number, speed: number) => void
   ): Promise<void> {
-    if (!this.connection || !this.isConnected) {
+    if (this.activeConnections.size === 0 && (!this.connection || !this.isConnected)) {
       throw new Error('No peer connected');
     }
 
     const fileId = 'file-' + Math.random().toString(36).substring(2, 9);
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const chunkSize = this.adaptiveChunker.currentChunkSize;
+    const totalChunks = Math.ceil(file.size / chunkSize);
+    (this as any).lastSentFileEntry = {
+      file,
+      fileId,
+      chunkSize,
+      totalChunks,
+      isEncrypted: Boolean(this.sessionCryptoKey)
+    };
 
-    // 1. Notify start
+    // 1. Notify Start
     this.sendMessage({
       type: 'FILE_START',
       fileId,
       fileName: file.name,
       fileSize: file.size,
       fileMime: file.type || 'application/octet-stream',
-      totalChunks
+      chunkSize,
+      totalChunks,
+      encrypted: Boolean(this.sessionCryptoKey)
     });
 
     let sentBytes = 0;
     let lastTime = Date.now();
     let lastSent = 0;
 
-    // 2. Stream chunk by chunk
+    // Get active data channels for striping
+    const primaryConn = this.connection || this.activeConnections.values().next().value;
+    const dc = (primaryConn as any)?.dataChannel as RTCDataChannel | undefined;
+    const peerId = primaryConn ? primaryConn.peer : '';
+    const extraChannels = (peerId && this.subChannels.get(peerId)) || [];
+    const allChannels = [dc, ...extraChannels].filter(Boolean) as RTCDataChannel[];
+
+    // 2. Stream Binary Framed Chunks
     for (let i = 0; i < totalChunks; i++) {
-      if (!this.isConnected) {
+      if (!this.isConnected && this.activeConnections.size === 0) {
         throw new Error('Connection lost during file transfer');
       }
 
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, file.size);
       const slice = file.slice(start, end);
-      const buffer = await slice.arrayBuffer();
+      let payload = await slice.arrayBuffer();
 
-      this.sendMessage({
-        type: 'FILE_CHUNK',
-        fileId,
-        chunkIndex: i,
-        totalChunks,
-        data: buffer
-      });
+      let flags = 0;
+      // Per-Chunk Encryption if key active
+      if (this.sessionCryptoKey) {
+        payload = await encryptChunkPayload(payload, this.sessionCryptoKey);
+        flags = 1;
+      }
 
-      sentBytes += buffer.byteLength;
+      // Encode 32-byte binary frame
+      const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
+
+      // Select channel using round-robin striping
+      const targetChannel = allChannels[i % allChannels.length] || dc;
+
+      if (targetChannel && targetChannel.readyState === 'open') {
+        // Backpressure check
+        await this.adaptiveChunker.handleBackpressure(targetChannel);
+        targetChannel.send(frameBuffer);
+      } else {
+        // Fallback to PeerJS connection
+        this.activeConnections.forEach((c) => {
+          if (c.open) (c as any).send(frameBuffer);
+        });
+      }
+
+      sentBytes += (end - start);
       const progress = Math.min(100, Math.round((sentBytes / file.size) * 100));
-
       const now = Date.now();
       const elapsed = (now - lastTime) / 1000;
       let speed = 0;
+
       if (elapsed >= 0.25 || i === totalChunks - 1) {
         speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
         lastTime = now;
@@ -505,21 +771,13 @@ export class P2PTransferManager {
         onProgress?.(progress, speed);
       }
 
-      // Backpressure control: Wait if WebRTC buffer has > 1MB queued
-      const dataChannel = (this.connection as any)?.dataChannel as RTCDataChannel | undefined;
-      if (dataChannel) {
-        while (dataChannel.bufferedAmount > 1024 * 1024) {
-          await new Promise((r) => setTimeout(r, 20));
-        }
-      }
-
-      // Small throttling yield to avoid overwhelming browser DataChannel buffer
+      // Yield event loop every 8 chunks
       if (i % 8 === 0) {
-        await new Promise((r) => setTimeout(r, 4));
+        await new Promise((r) => setTimeout(r, 1));
       }
     }
 
-    // 3. Notify end
+    // 3. Notify End
     this.sendMessage({
       type: 'FILE_END',
       fileId
@@ -529,7 +787,13 @@ export class P2PTransferManager {
   }
 
   public disconnect() {
+    this.adaptiveChunker.stopProbing();
     this.connection?.close();
+    this.activeConnections.forEach((c) => {
+      try { c.close(); } catch (_) {}
+    });
+    this.activeConnections.clear();
+    this.subChannels.clear();
     this.connection = null;
     this.isConnected = false;
   }

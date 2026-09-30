@@ -918,6 +918,44 @@
         }
       });
 
+            // ── E2EE & Binary Frame Protocol Decoder ──
+      let sessionCryptoKey = null;
+      const hashFragment = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+      const keyMatch = hashFragment.match(/key=([0-9a-fA-F]{64})/i);
+      if (keyMatch) {
+        const hex = keyMatch[1];
+        const bytes = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+          bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+        }
+        crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+          .then(function(k) {
+            sessionCryptoKey = k;
+            console.log('[BeamDrop Receiver] E2EE AES-GCM-256 Key loaded from camera hash fragment!');
+          }).catch(function(e) { console.warn('E2EE key import failed:', e); });
+      }
+
+      function decode32ByteFrame(buf) {
+        if (buf.byteLength < 32) return null;
+        const view = new DataView(buf);
+        const uint8 = new Uint8Array(buf);
+        const decoder = new TextDecoder();
+        const fileId = decoder.decode(uint8.subarray(0, 16)).trim();
+        const chunkIndex = view.getUint32(16, false);
+        const totalChunks = view.getUint32(20, false);
+        const payloadLength = view.getUint32(24, false);
+        const flags = view.getUint32(28, false);
+        const payload = buf.slice(32, 32 + payloadLength);
+        return { fileId: fileId, chunkIndex: chunkIndex, totalChunks: totalChunks, flags: flags, payload: payload };
+      }
+
+      async function decryptChunk(packet, key) {
+        if (packet.byteLength < 28) throw new Error('Too short');
+        const iv = new Uint8Array(packet, 0, 12);
+        const ciphertext = new Uint8Array(packet, 12);
+        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, key, ciphertext);
+      }
+
       function initP2P() {
         const receiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
         peer = new Peer(receiverId, {
@@ -998,7 +1036,90 @@
       }
 
       function handleIncomingData(msg) {
+        // Ping/Pong RTT Echo
+        if (msg && msg.type === 'PING') {
+          if (connection && connection.open) {
+            connection.send({ type: 'PONG', pingTime: msg.pingTime });
+          }
+          return;
+        }
+
+        // Binary Frame Stream
+        if (msg instanceof ArrayBuffer && msg.byteLength >= 32) {
+          const frame = decode32ByteFrame(msg);
+          if (frame) {
+            let pPromise = Promise.resolve(frame.payload);
+            if (frame.flags === 1 && sessionCryptoKey) {
+              pPromise = decryptChunk(frame.payload, sessionCryptoKey).catch(function(err) {
+                console.error('[E2EE] Tampered chunk dropped:', err);
+                return null;
+              });
+            }
+            pPromise.then(function(payload) {
+              if (!payload) return;
+              let entry = chunksMap.get(frame.fileId);
+              if (!entry) {
+                entry = {
+                  name: activeFileName || 'Beamed File',
+                  size: expectedSize || 0,
+                  mime: expectedMime || 'application/octet-stream',
+                  chunks: [],
+                  receivedBytes: 0,
+                  lastTime: Date.now(),
+                  lastBytes: 0,
+                  totalChunks: frame.totalChunks
+                };
+                chunksMap.set(frame.fileId, entry);
+              }
+              entry.chunks.push(payload);
+              entry.receivedBytes += payload.byteLength;
+              const pct = Math.min(100, Math.round((entry.receivedBytes / (entry.size || (frame.totalChunks * payload.byteLength))) * 100));
+              progressBarFill.style.width = pct + '%';
+              progressPctLabel.textContent = pct + '%';
+              bytesTransferredLabel.textContent = formatBytes(entry.receivedBytes) + ' / ' + formatBytes(entry.size);
+
+              const now = Date.now();
+              const elapsed = (now - entry.lastTime) / 1000;
+              if (elapsed >= 0.25) {
+                const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
+                transferSpeedText.textContent = formatBytes(speed) + '/s';
+                entry.lastTime  = now;
+                entry.lastBytes = entry.receivedBytes;
+              }
+
+              if (entry.chunks.length === frame.totalChunks) {
+                isCompleted = true;
+                const blob = new Blob(entry.chunks, { type: entry.mime });
+                currentDownloadUrl = URL.createObjectURL(blob);
+                triggerBrowserSave(currentDownloadUrl, activeFileName || entry.name);
+                progressBarFill.style.width = '100%';
+                progressPctLabel.textContent = '100%';
+                transferStatusText.textContent = '✓ File downloaded (E2EE Verified)!';
+                transferSpeedText.textContent  = 'Finished';
+                successBox.style.display = 'flex';
+                pulseRing.style.animation = 'none';
+                btnDownload.disabled = false;
+                btnDownloadText.textContent = '📥 Save Again (' + formatBytes(entry.receivedBytes) + ')';
+                chunksMap.delete(frame.fileId);
+                releaseWakeLock();
+              }
+            });
+            return;
+          }
+        }
+
         if (!msg || !msg.type) return;
+
+        // ─ SESSION CANCELLED HANDLER ─
+        if (msg.type === 'TEXT_MSG' && msg.text === 'SESSION_CANCELLED_BY_HOST') {
+          transferStatusText.textContent = '❌ Session cancelled / deactivated by sender';
+          if (btnDownload) {
+            btnDownload.disabled = true;
+            btnDownload.textContent = 'Session Cancelled';
+          }
+          alert('This QR code transfer session has been cancelled or terminated by the sender.');
+          return;
+        }
 
         // ─ TEXT / LINK PAYLOAD → Notebook Engine ─
         if (msg.type === 'TEXT_PAYLOAD' || msg.type === 'TEXT_MSG') {

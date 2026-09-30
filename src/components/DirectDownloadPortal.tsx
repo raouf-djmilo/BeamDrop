@@ -100,7 +100,23 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       }
     };
 
+    
+
+    transferManager.onTextReceive = (payload) => {
+      if (!isMounted) return;
+      if (payload && payload.text === 'SESSION_CANCELLED_BY_HOST') {
+        setConnectionStatus('error');
+        setErrorMessage('This QR session was cancelled or terminated by the sender.');
+      }
+    };
     // Initialize WebRTC client
+    // Load E2EE Key from camera hash fragment (#key=...)
+    if (typeof window !== 'undefined' && window.location.hash.includes('key=')) {
+      const match = window.location.hash.match(/key=([0-9a-fA-F]{64})/i);
+      if (match) {
+        transferManager.setE2EEKeyFromHex(match[1]);
+      }
+    }
     const myReceiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
     transferManager
       .init(myReceiverId)
