@@ -9,6 +9,13 @@
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" },
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
+    },
+    {
+      "source": "/(.*)\\.shortcut",
+      "headers": [
+        { "key": "Content-Type", "value": "application/x-apple-shortcut" },
+        { "key": "Content-Disposition", "value": "attachment; filename=\"BeamDrop to PC.shortcut\"" }
+      ]
     }
   ],
   "rewrites": [
@@ -17,6 +24,9 @@
     { "source": "/notebook", "destination": "/notebook.html" },
     { "source": "/note", "destination": "/notebook.html" },
     { "source": "/code", "destination": "/notebook.html" },
+    { "source": "/BeamDrop-to-PC.shortcut", "destination": "/BeamDrop-to-PC.shortcut" },
+    { "source": "/shortcuts/(.*)", "destination": "/shortcuts/$1" },
+    { "source": "/extension.zip", "destination": "/extension.zip" },
     { "source": "/((?!api/.*).*)", "destination": "/index.html" }
   ]
 }

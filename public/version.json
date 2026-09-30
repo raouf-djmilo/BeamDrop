@@ -79,7 +79,7 @@
       ]
     }
   ],
-  "buildHash": "git-6abd7f56",
-  "buildTimestamp": 1790803798,
+  "buildHash": "git-6abd85f0",
+  "buildTimestamp": 1790805488,
   "patchNotes": "Live WebRTC DataChannel optimizations & instant two-way handshake"
 }
