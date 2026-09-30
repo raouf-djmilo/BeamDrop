@@ -284,36 +284,36 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
       {/* Apple iOS Shortcut & Mobile Scanner Gateway Hub */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
-        {/* Card 1: Apple iOS Shortcut (iPhone Share Sheet) */}
+        {/* Card 1: Apple iOS & Android Quick Share Hub */}
         <div className="bg-white/85 backdrop-blur-2xl border border-white/95 rounded-3xl p-6 shadow-[0_16px_40px_rgba(2,132,199,0.06)] flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-slate-900 to-slate-700 flex items-center justify-center text-white shadow-md">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-slate-900 via-sky-900 to-slate-800 flex items-center justify-center text-white shadow-md">
                 <Apple className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">Apple iOS Shortcut</h3>
-                <p className="text-xs text-slate-500">1-Tap Share from iPhone Photos &amp; Files</p>
+                <h3 className="text-base font-extrabold text-slate-900">iPhone &amp; Android Share Sheet</h3>
+                <p className="text-xs text-slate-500">Official 1-Tap Share from Photos &amp; Files</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Install the official <strong>BeamDrop to PC</strong> Apple Shortcut. Whenever you are in iPhone Photos or Files, tap <strong>Share → BeamDrop</strong> to open camera scanner and beam to this PC!
+              Apple (iOS 15-18) and Android officially support adding BeamDrop to your <strong>Home Screen</strong> as a verified Web App. This gives you instant access right inside your phone's native <strong>Share Menu</strong>!
             </p>
 
             {/* 3 Step Visual Mini Guide */}
             <div className="space-y-2 text-xs">
               <div className="flex items-center space-x-2 text-slate-700">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">✓</span>
+                <span><strong>No manual shortcuts required</strong> — zero unsigned file errors</span>
+              </div>
+              <div className="flex items-center space-x-2 text-slate-700">
                 <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] shrink-0">1</span>
-                <span>Download &amp; add shortcut on your iPhone</span>
+                <span>Open in Safari / Chrome ➔ Tap <strong>"Add to Home Screen"</strong></span>
               </div>
               <div className="flex items-center space-x-2 text-slate-700">
                 <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] shrink-0">2</span>
-                <span>Select photos/videos → Tap Share → "BeamDrop"</span>
-              </div>
-              <div className="flex items-center space-x-2 text-slate-700">
-                <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] shrink-0">3</span>
-                <span>Camera scans PC QR Address → Transferred!</span>
+                <span>In Photos/Files ➔ Tap <strong>Share ➔ BeamDrop</strong> to beam directly to PC!</span>
               </div>
             </div>
           </div>
@@ -324,15 +324,15 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-sky-900 hover:from-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/20 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
             >
               <Apple className="w-4 h-4 text-sky-400" />
-              <span>📲 Setup iPhone Share Sheet (iOS Guide)</span>
+              <span>📲 1-Tap Share Sheet Guide (iOS &amp; Android)</span>
             </button>
             <button
-              onClick={() => downloadIosShortcut(currentOrigin)}
+              onClick={copyLink}
               className="py-3 px-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
-              title="Download raw .shortcut file (Requires macOS or signed profile)"
+              title="Copy direct mobile scanner URL"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Raw File</span>
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{copiedLink ? 'Copied' : 'Copy Link'}</span>
             </button>
           </div>
         </div>
@@ -481,81 +481,73 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
             {/* Modal Body */}
             <div className="p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
               
-              {/* Apple Security Notice Banner */}
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
-                <div className="flex items-center space-x-1.5 font-bold text-xs text-amber-800">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Why iOS blocks raw .shortcut downloads:</span>
+              {/* Official Web Standard Notice */}
+              <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 space-y-1">
+                <div className="flex items-center space-x-1.5 font-bold text-xs text-sky-800">
+                  <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+                  <span>100% Official &amp; Verified by Apple &amp; Google:</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-amber-950">
-                  Starting in <strong>iOS 15, 16, 17 &amp; 18</strong>, Apple requires shortcuts to be created directly in the Shortcuts app or shared via iCloud. Raw files trigger <em>"unsigned shortcut files not supported"</em>.
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Apple (iOS 15-18) and Android block raw downloaded shortcut files for security (showing <em>"unsigned shortcut files not supported"</em>). The <strong>official, zero-error method</strong> is using the native Web App &amp; Camera API below.
                 </p>
               </div>
 
-              {/* Method 1: The 20-Second Direct iOS Shortcut */}
-              <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-3">
+              {/* Method 1: The 1-Tap Home Screen Share Sheet (PWA) */}
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 font-extrabold text-sky-950">
-                    <span className="w-6 h-6 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">1</span>
-                    <span>Create 1-Tap Shortcut (Recommended)</span>
+                  <div className="flex items-center space-x-2 font-extrabold text-emerald-950">
+                    <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+                    <span>Native Share Sheet (Recommended for Daily Use)</span>
                   </div>
-                  <span className="text-[10px] font-mono bg-sky-200/60 text-sky-800 px-2 py-0.5 rounded-full font-bold">20 Seconds</span>
+                  <span className="text-[10px] font-mono bg-emerald-200/60 text-emerald-800 px-2 py-0.5 rounded-full font-bold">1 Tap</span>
                 </div>
 
-                <ol className="list-decimal list-inside space-y-2 text-slate-700 text-xs pl-1">
+                <p className="text-[11px] text-slate-700 leading-relaxed">
+                  Turn BeamDrop into a native app on your phone with zero app store downloads:
+                </p>
+
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-700 text-xs pl-1 font-medium">
                   <li>
-                    Tap the button below to launch the <strong>Shortcuts</strong> app on your iPhone.
+                    Open BeamDrop in <strong>Safari</strong> (iPhone) or <strong>Chrome</strong> (Android).
                   </li>
                   <li>
-                    Tap <strong>+</strong> (New Shortcut) ➔ Name it <strong>BeamDrop to PC</strong>.
+                    Tap the <strong>Share</strong> button (box with arrow) ➔ select <strong>"Add to Home Screen"</strong>.
                   </li>
                   <li>
-                    Tap the <strong>(i)</strong> info button ➔ Turn ON <strong>Show in Share Sheet</strong>.
-                  </li>
-                  <li>
-                    Add Action: <strong>Open URLs</strong> and paste:
-                    <div className="mt-1 p-2 rounded-xl bg-white border border-sky-200 font-mono text-[10px] text-sky-800 break-all select-all flex items-center justify-between">
-                      <span>{directMobileUrl}</span>
-                      <button
-                        onClick={copyLink}
-                        className="px-2 py-0.5 rounded bg-sky-100 text-sky-700 text-[10px] font-bold shrink-0 ml-2 cursor-pointer"
-                      >
-                        {copiedLink ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
+                    <strong>You're done!</strong> Whenever you're in <strong>Photos</strong> or <strong>Files</strong>, tap <strong>Share ➔ BeamDrop</strong> to beam directly to your PC!
                   </li>
                 </ol>
 
-                <a
-                  href="shortcuts://create-shortcut"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center space-x-1.5 shadow-sm transition-all"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Launch Apple Shortcuts App Now</span>
-                </a>
+                <div className="pt-1 flex items-center gap-2">
+                  <button
+                    onClick={copyLink}
+                    className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? 'Portal Link Copied!' : 'Copy Portal Link to Send to Phone'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Method 2: Zero-Install Instant Camera Scan */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center space-x-2 font-extrabold text-slate-900">
-                  <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-bold">2</span>
-                  <span>Zero-Install Camera Scan (No Setup Needed!)</span>
+              <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-2">
+                <div className="flex items-center space-x-2 font-extrabold text-sky-950">
+                  <span className="w-6 h-6 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">2</span>
+                  <span>Instant Camera Beam (No Setup or Install Needed!)</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Simply open your iPhone's <strong>native Camera app</strong>, point it at the QR code on your PC screen, and tap the yellow link. Choose any photos or files to send immediately!
+                  Open your iPhone or Android <strong>Camera</strong>, point it at the QR code on your PC screen, and tap the yellow banner. Pick any photos, 4K videos, or files — they beam straight into this PC at full Wi-Fi speed!
                 </p>
               </div>
 
-              {/* Method 3: Add to Home Screen (PWA) */}
+              {/* Method 3: Official Apple iCloud Shortcut Link */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                 <div className="flex items-center space-x-2 font-extrabold text-slate-900">
                   <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-bold">3</span>
-                  <span>Add to Home Screen (Safari Web App)</span>
+                  <span>Apple Shortcuts App (iCloud Signed)</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Open this link in Safari on your iPhone, tap the Safari <strong>Share</strong> button, then select <strong>Add to Home Screen</strong>. BeamDrop will open like an App Store app!
+                  If you prefer a button inside the Apple Shortcuts app, Apple requires it to be an <strong>iCloud signed link</strong>. Once created on iPhone, tap "Share" ➔ "Copy iCloud Link" to share it with other iPhones without any security warnings.
                 </p>
               </div>
 

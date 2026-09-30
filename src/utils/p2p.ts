@@ -398,82 +398,127 @@ export class P2PTransferManager {
     }
   }
 
+  private finalizeFileReceive(fileId: string, entry: any) {
+    if (!entry) return;
+    const sortedBuffers: ArrayBuffer[] = [];
+    const count = Math.max(entry.totalChunks || 0, entry.chunks.size);
+    for (let idx = 0; idx < count; idx++) {
+      const buf = entry.chunks.get(idx);
+      if (buf) sortedBuffers.push(buf);
+    }
+    const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
+    const downloadUrl = URL.createObjectURL(blob);
+    const completedFile: TransferFile = {
+      ...entry.metadata,
+      blob,
+      downloadUrl,
+      previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
+      progress: 100,
+      status: 'completed'
+    };
+    this.onFileReceiveComplete?.(completedFile);
+    clearTransferCheckpoint(fileId);
+    this.incomingFiles.delete(fileId);
+  }
+
   private async handleIncomingData(rawMsg: any) {
     if (!rawMsg) return;
 
-    // Check if message is a 32-Byte Binary Frame
-    if (rawMsg instanceof ArrayBuffer && rawMsg.byteLength >= FRAME_HEADER_SIZE) {
-      try {
-        const { meta, payload } = decodeBinaryFrame(rawMsg);
-        let finalPayload = payload;
+    // Check if message is a 32-Byte Binary Frame or raw ArrayBuffer chunk
+    if (rawMsg instanceof ArrayBuffer || ArrayBuffer.isView(rawMsg)) {
+      const buf: ArrayBuffer = rawMsg instanceof ArrayBuffer ? rawMsg : (rawMsg as any).buffer;
+      let handled = false;
 
-        // If encrypted (flag === 1) and we have sessionCryptoKey
-        if (meta.flags === 1 && this.sessionCryptoKey) {
-          try {
-            finalPayload = await decryptChunkPayload(payload, this.sessionCryptoKey);
-          } catch (decErr) {
-            console.error('[E2EE] Tampered or invalid chunk rejected:', decErr);
+      if (buf.byteLength >= FRAME_HEADER_SIZE) {
+        try {
+          const { meta, payload } = decodeBinaryFrame(buf);
+          let finalPayload = payload;
+
+          // If encrypted (flag === 1) and we have sessionCryptoKey
+          if (meta.flags === 1 && this.sessionCryptoKey) {
+            try {
+              finalPayload = await decryptChunkPayload(payload, this.sessionCryptoKey);
+            } catch (decErr) {
+              console.error('[E2EE] Tampered or invalid chunk rejected:', decErr);
+              return;
+            }
+          }
+
+          let entry = this.incomingFiles.get(meta.fileId);
+          if (!entry && this.incomingFiles.size === 1) {
+            entry = this.incomingFiles.values().next().value;
+          }
+
+          if (entry) {
+            entry.chunks.set(meta.chunkIndex, finalPayload);
+            entry.receivedIndices.add(meta.chunkIndex);
+            entry.receivedBytes += finalPayload.byteLength;
+
+            const progress = Math.min(100, Math.round((entry.receivedBytes / entry.metadata.size) * 100));
+            const now = Date.now();
+            const elapsed = (now - entry.lastSpeedCalcTime) / 1000;
+            let speed = entry.metadata.speed;
+            if (elapsed >= 0.25) {
+              const bytesSince = entry.receivedBytes - entry.lastReceivedBytes;
+              speed = bytesSince / elapsed;
+              entry.lastSpeedCalcTime = now;
+              entry.lastReceivedBytes = entry.receivedBytes;
+            }
+
+            entry.metadata.progress = progress;
+            entry.metadata.speed = speed;
+            this.onFileProgress?.(entry.metadata.id, progress, speed);
+
+            // Save checkpoint periodically
+            if (meta.chunkIndex % 20 === 0 || entry.receivedIndices.size === meta.totalChunks) {
+              saveTransferCheckpoint(
+                entry.metadata.id,
+                entry.metadata.name,
+                entry.metadata.size,
+                meta.totalChunks,
+                entry.receivedIndices
+              );
+            }
+
+            // Complete transfer if all chunks received
+            if (entry.receivedIndices.size >= meta.totalChunks || entry.receivedBytes >= entry.metadata.size) {
+              this.finalizeFileReceive(entry.metadata.id, entry);
+            }
+            handled = true;
             return;
           }
+        } catch (frameErr) {
+          // Fall back to raw chunk handling
+        }
+      }
+
+      // Fallback: If not parsed as binary frame, treat as sequential raw chunk
+      if (!handled && this.incomingFiles.size > 0) {
+        const [activeId, activeEntry] = this.incomingFiles.entries().next().value;
+        const idx = activeEntry.receivedIndices.size;
+        activeEntry.chunks.set(idx, buf);
+        activeEntry.receivedIndices.add(idx);
+        activeEntry.receivedBytes += buf.byteLength;
+
+        const progress = Math.min(100, Math.round((activeEntry.receivedBytes / activeEntry.metadata.size) * 100));
+        const now = Date.now();
+        const elapsed = (now - activeEntry.lastSpeedCalcTime) / 1000;
+        let speed = activeEntry.metadata.speed;
+        if (elapsed >= 0.25) {
+          const bytesSince = activeEntry.receivedBytes - activeEntry.lastReceivedBytes;
+          speed = bytesSince / elapsed;
+          activeEntry.lastSpeedCalcTime = now;
+          activeEntry.lastReceivedBytes = activeEntry.receivedBytes;
         }
 
-        const entry = this.incomingFiles.get(meta.fileId);
-        if (entry) {
-          entry.chunks.set(meta.chunkIndex, finalPayload);
-          entry.receivedIndices.add(meta.chunkIndex);
-          entry.receivedBytes += finalPayload.byteLength;
+        activeEntry.metadata.progress = progress;
+        activeEntry.metadata.speed = speed;
+        this.onFileProgress?.(activeId, progress, speed);
 
-          const progress = Math.min(100, Math.round((entry.receivedBytes / entry.metadata.size) * 100));
-          const now = Date.now();
-          const elapsed = (now - entry.lastSpeedCalcTime) / 1000;
-          let speed = entry.metadata.speed;
-          if (elapsed >= 0.25) {
-            const bytesSince = entry.receivedBytes - entry.lastReceivedBytes;
-            speed = bytesSince / elapsed;
-            entry.lastSpeedCalcTime = now;
-            entry.lastReceivedBytes = entry.receivedBytes;
-          }
-
-          entry.metadata.progress = progress;
-          entry.metadata.speed = speed;
-          this.onFileProgress?.(meta.fileId, progress, speed);
-
-          // Save checkpoint periodically
-          if (meta.chunkIndex % 20 === 0 || entry.receivedIndices.size === meta.totalChunks) {
-            saveTransferCheckpoint(
-              meta.fileId,
-              entry.metadata.name,
-              entry.metadata.size,
-              meta.totalChunks,
-              entry.receivedIndices
-            );
-          }
-
-          // Complete transfer if all chunks received
-          if (entry.receivedIndices.size === meta.totalChunks) {
-            const sortedBuffers: ArrayBuffer[] = [];
-            for (let idx = 0; idx < meta.totalChunks; idx++) {
-              const buf = entry.chunks.get(idx);
-              if (buf) sortedBuffers.push(buf);
-            }
-            const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
-            const downloadUrl = URL.createObjectURL(blob);
-            const completedFile: TransferFile = {
-              ...entry.metadata,
-              blob,
-              downloadUrl,
-              previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
-              progress: 100,
-              status: 'completed'
-            };
-            this.onFileReceiveComplete?.(completedFile);
-            clearTransferCheckpoint(meta.fileId);
-            this.incomingFiles.delete(meta.fileId);
-          }
+        if (activeEntry.receivedBytes >= activeEntry.metadata.size || (activeEntry.totalChunks > 1 && activeEntry.receivedIndices.size >= activeEntry.totalChunks)) {
+          this.finalizeFileReceive(activeId, activeEntry);
         }
         return;
-      } catch (frameErr) {
-        // Fall back to standard JSON parsing
       }
     }
 
@@ -563,9 +608,12 @@ export class P2PTransferManager {
 
       case 'FILE_CHUNK':
         if (msg.fileId && msg.data) {
-          const entry = this.incomingFiles.get(msg.fileId);
+          let entry = this.incomingFiles.get(msg.fileId);
+          if (!entry && this.incomingFiles.size === 1) {
+            entry = this.incomingFiles.values().next().value;
+          }
           if (!entry) return;
-          const chunk = msg.data as ArrayBuffer;
+          const chunk = (msg.data instanceof ArrayBuffer ? msg.data : (msg.data as any).buffer) as ArrayBuffer;
           const idx = msg.chunkIndex ?? entry.receivedIndices.size;
           entry.chunks.set(idx, chunk);
           entry.receivedIndices.add(idx);
@@ -584,31 +632,24 @@ export class P2PTransferManager {
 
           entry.metadata.progress = progress;
           entry.metadata.speed = speed;
-          this.onFileProgress?.(msg.fileId, progress, speed);
+          this.onFileProgress?.(entry.metadata.id, progress, speed);
+
+          if (entry.receivedIndices.size >= entry.totalChunks || entry.receivedBytes >= entry.metadata.size) {
+            this.finalizeFileReceive(entry.metadata.id, entry);
+          }
         }
         break;
 
       case 'FILE_END':
-        if (msg.fileId) {
-          const entry = this.incomingFiles.get(msg.fileId);
-          if (!entry) return;
-          const sortedBuffers: ArrayBuffer[] = [];
-          for (let i = 0; i < (entry.totalChunks || entry.chunks.size); i++) {
-            const b = entry.chunks.get(i);
-            if (b) sortedBuffers.push(b);
-          }
-          const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
-          const downloadUrl = URL.createObjectURL(blob);
-          const completedFile: TransferFile = {
-            ...entry.metadata,
-            blob,
-            downloadUrl,
-            previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
-            progress: 100,
-            status: 'completed'
-          };
-          this.onFileReceiveComplete?.(completedFile);
-          this.incomingFiles.delete(msg.fileId);
+        let targetEndId = msg.fileId;
+        let endEntry = targetEndId ? this.incomingFiles.get(targetEndId) : undefined;
+        if (!endEntry && this.incomingFiles.size > 0) {
+          const firstKey = this.incomingFiles.keys().next().value;
+          targetEndId = firstKey;
+          endEntry = this.incomingFiles.get(firstKey);
+        }
+        if (endEntry && targetEndId) {
+          this.finalizeFileReceive(targetEndId, endEntry);
         }
         break;
     }
@@ -744,17 +785,29 @@ export class P2PTransferManager {
       // Encode 32-byte binary frame
       const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
 
-      // Select channel using round-robin striping
-      const targetChannel = allChannels[i % allChannels.length] || dc;
+      // Backpressure check on active RTCDataChannel if available
+      if (dc && dc.readyState === 'open') {
+        await this.adaptiveChunker.handleBackpressure(dc);
+      }
 
-      if (targetChannel && targetChannel.readyState === 'open') {
-        // Backpressure check
-        await this.adaptiveChunker.handleBackpressure(targetChannel);
-        targetChannel.send(frameBuffer);
-      } else {
-        // Fallback to PeerJS connection
+      // Send chunk via PeerJS connection to guarantee seamless cross-browser deserialization
+      let chunkSent = false;
+      if (primaryConn && primaryConn.open) {
+        try {
+          primaryConn.send(frameBuffer);
+          chunkSent = true;
+        } catch (e) {
+          console.warn('[BeamDrop P2P] Primary connection send failed:', e);
+        }
+      }
+      if (!chunkSent) {
         this.activeConnections.forEach((c) => {
-          if (c.open) (c as any).send(frameBuffer);
+          if (c.open) {
+            try {
+              c.send(frameBuffer);
+              chunkSent = true;
+            } catch (_) {}
+          }
         });
       }
 
@@ -771,9 +824,9 @@ export class P2PTransferManager {
         onProgress?.(progress, speed);
       }
 
-      // Yield event loop every 8 chunks
-      if (i % 8 === 0) {
-        await new Promise((r) => setTimeout(r, 1));
+      // Yield event loop every 4 chunks to keep mobile UI responsive and smooth
+      if (i % 4 === 0) {
+        await new Promise((r) => setTimeout(r, 4));
       }
     }
 

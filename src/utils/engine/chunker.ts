@@ -79,27 +79,39 @@ export class AdaptiveChunker {
    * Returns true if channel is safe to send, or false if sender must wait for onbufferedamountlow
    */
   public async handleBackpressure(channel: RTCDataChannel): Promise<void> {
-    const HIGH_WATER_MARK = this.currentChunkSize * 4;
-    const LOW_WATER_MARK = this.currentChunkSize * 2;
+    const HIGH_WATER_MARK = Math.max(64 * 1024, this.currentChunkSize * 4);
+    const LOW_WATER_MARK = Math.max(32 * 1024, this.currentChunkSize * 2);
+
+    try {
+      channel.bufferedAmountLowThreshold = LOW_WATER_MARK;
+    } catch (_) {}
 
     if (channel.bufferedAmount > HIGH_WATER_MARK) {
       // Multiplicative Decrease under buffer congestion
       this.currentChunkSize = Math.max(32 * 1024, Math.floor(this.currentChunkSize / 2));
 
       await new Promise<void>((resolve) => {
-        const checkInterval = setInterval(() => {
-          if (channel.bufferedAmount <= LOW_WATER_MARK) {
-            clearInterval(checkInterval);
+        let finished = false;
+        const done = () => {
+          if (!finished) {
+            finished = true;
+            if (watchdog) clearTimeout(watchdog);
+            if (checkInterval) clearInterval(checkInterval);
             channel.onbufferedamountlow = null;
             resolve();
           }
-        }, 4);
-
-        channel.onbufferedamountlow = () => {
-          clearInterval(checkInterval);
-          channel.onbufferedamountlow = null;
-          resolve();
         };
+
+        // Safety watchdog: never freeze for more than 150ms even if browser fails to trigger onbufferedamountlow
+        const watchdog = setTimeout(done, 150);
+
+        const checkInterval = setInterval(() => {
+          if (!channel || channel.readyState !== 'open' || channel.bufferedAmount <= LOW_WATER_MARK) {
+            done();
+          }
+        }, 10);
+
+        channel.onbufferedamountlow = done;
       });
     } else if (channel.bufferedAmount < LOW_WATER_MARK && this.currentRtt < 20) {
       // Additive Increase when pipe is empty on low latency LAN
