@@ -361,18 +361,35 @@ function initReceiveVault() {
     receiveVaultAddressText.textContent = cryptoAddress;
   }
 
-  // Render QR Code in receiveVaultQrBox using qrcode.min.js
-  if (receiveVaultQrBox && typeof QRCode !== 'undefined') {
-    receiveVaultQrBox.innerHTML = '';
-    const mobileLink = `${VERCEL_RECEIVER_URL}/?mode=scan&peer=${currentPeerId}`;
+  // Render QR Code in receiveVaultQrBox using node-qrcode (QRCode.toCanvas)
+  const mobileLink = `${VERCEL_RECEIVER_URL}/?mode=scan&peer=${currentPeerId}`;
+  const qrCanvas = document.getElementById('receiveVaultQrCanvas');
+  if (qrCanvas && typeof QRCode !== 'undefined' && QRCode.toCanvas) {
     try {
-      new QRCode(receiveVaultQrBox, {
-        text: mobileLink,
+      QRCode.toCanvas(qrCanvas, mobileLink, {
         width: 160,
-        height: 160,
-        colorDark: '#0369a1',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
+        margin: 1,
+        color: { dark: '#0369a1', light: '#ffffff' }
+      }).catch(err => {
+        console.warn('QR canvas render error:', err);
+      });
+    } catch (e) {
+      console.warn('QR render error:', e);
+    }
+  } else if (receiveVaultQrBox && typeof QRCode !== 'undefined') {
+    try {
+      let canvas = receiveVaultQrBox.querySelector('canvas');
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        receiveVaultQrBox.innerHTML = '';
+        receiveVaultQrBox.appendChild(canvas);
+      }
+      QRCode.toCanvas(canvas, mobileLink, {
+        width: 160,
+        margin: 1,
+        color: { dark: '#0369a1', light: '#ffffff' }
+      }).catch(err => {
+        console.warn('QR render fallback error:', err);
       });
     } catch (e) {
       console.warn('QR render error:', e);

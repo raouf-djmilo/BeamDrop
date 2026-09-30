@@ -503,62 +503,63 @@
         </div>
       </div>
     </div>
+  </main>
 
-    <!-- STAGE: RECEIVE VAULT (QR ADDRESS) -->
-    <div id="stageReceive" class="stage-container" style="display: none; flex-direction: column; gap: 10px;">
-      <!-- Crypto-Style Address Card -->
-      <div class="qr-card-container" style="padding: 14px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
-          <span style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">PC Receive Vault</span>
-          <span style="font-size: 10px; font-weight: 700; background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 999px; border: 1px solid #a7f3d0;">🟢 Ready to Receive</span>
-        </div>
+  <!-- STAGE: RECEIVE VAULT (QR ADDRESS) -->
+  <main id="stageReceive" class="stage-container" style="display: none; flex-direction: column; gap: 10px;">
+    <!-- Crypto-Style Address Card -->
+    <div class="qr-card-container" style="padding: 14px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">PC Receive Vault</span>
+        <span style="font-size: 10px; font-weight: 700; background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 999px; border: 1px solid #a7f3d0;">🟢 Ready to Receive</span>
+      </div>
 
-        <div style="background: #ffffff; padding: 10px; border-radius: 16px; border: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2,132,199,0.1); margin-bottom: 8px;">
-          <div id="receiveVaultQrBox" style="width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; margin: 0 auto;"></div>
-        </div>
-
-        <div style="width: 100%; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <span id="receiveVaultAddressText" style="font-family: ui-monospace, monospace; font-size: 11px; font-weight: 800; color: #0369a1;">BD-ADDR-RECEIVE</span>
-          <button id="btnCopyReceiveAddress" type="button" style="padding: 3px 8px; border-radius: 6px; background: #ffffff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10px; font-weight: 700; cursor: pointer;">Copy</button>
-        </div>
-
-        <p style="font-size: 10.5px; color: #64748b; margin: 0 0 10px 0; text-align: center; line-height: 1.35;">
-          Point iPhone or Android camera to beam photos, videos &amp; files directly into this PC.
-        </p>
-
-        <!-- Actions -->
-        <div style="display: flex; gap: 6px; width: 100%;">
-          <button id="btnGetIosShortcut" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: #0f172a; color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-            <span>📲 iOS Shortcut</span>
-          </button>
-          <button id="btnOpenMobileScannerLink" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-            <span>📷 Mobile Web Link</span>
-          </button>
+      <div style="background: #ffffff; padding: 10px; border-radius: 16px; border: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2,132,199,0.1); margin-bottom: 8px;">
+        <div id="receiveVaultQrBox" style="width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+          <canvas id="receiveVaultQrCanvas" style="display: block; border-radius: 8px;"></canvas>
         </div>
       </div>
 
-      <!-- Live Receiving Stream Box -->
-      <div id="receiveLiveStreamCard" style="display: none; background: #ffffff; border: 1.5px solid #38bdf8; border-radius: 14px; padding: 10px; box-shadow: 0 4px 14px rgba(2,132,199,0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-          <span id="receiveIncomingFilename" style="font-size: 11px; font-weight: 700; color: #0f172a; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Receiving...</span>
-          <span id="receiveIncomingPercent" style="font-size: 11px; font-weight: 800; color: #0284c7;">0%</span>
-        </div>
-        <div style="width: 100%; height: 6px; background: #e0f2fe; border-radius: 6px; overflow: hidden;">
-          <div id="receiveIncomingProgressFill" style="width: 0%; height: 100%; background: #0284c7; border-radius: 6px; transition: width 0.15s ease;"></div>
-        </div>
+      <div style="width: 100%; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span id="receiveVaultAddressText" style="font-family: ui-monospace, monospace; font-size: 11px; font-weight: 800; color: #0369a1;">BD-ADDR-RECEIVE</span>
+        <button id="btnCopyReceiveAddress" type="button" style="padding: 3px 8px; border-radius: 6px; background: #ffffff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10px; font-weight: 700; cursor: pointer;">Copy</button>
       </div>
 
-      <!-- Vault History Drawer -->
-      <div style="background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.8); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; font-weight: 700; color: #334155;">Received Vault History (<span id="vaultItemsCount">0</span>)</span>
-        </div>
-        <div id="vaultItemsList" style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
-          <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px 0;">No items received yet</div>
-        </div>
+      <p style="font-size: 10.5px; color: #64748b; margin: 0 0 10px 0; text-align: center; line-height: 1.35;">
+        Point iPhone or Android camera to beam photos, videos &amp; files directly into this PC.
+      </p>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 6px; width: 100%;">
+        <button id="btnGetIosShortcut" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: #0f172a; color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <span>📲 iOS Shortcut</span>
+        </button>
+        <button id="btnOpenMobileScannerLink" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <span>📷 Mobile Web Link</span>
+        </button>
       </div>
     </div>
 
+    <!-- Live Receiving Stream Box -->
+    <div id="receiveLiveStreamCard" style="display: none; background: #ffffff; border: 1.5px solid #38bdf8; border-radius: 14px; padding: 10px; box-shadow: 0 4px 14px rgba(2,132,199,0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+        <span id="receiveIncomingFilename" style="font-size: 11px; font-weight: 700; color: #0f172a; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Receiving...</span>
+        <span id="receiveIncomingPercent" style="font-size: 11px; font-weight: 800; color: #0284c7;">0%</span>
+      </div>
+      <div style="width: 100%; height: 6px; background: #e0f2fe; border-radius: 6px; overflow: hidden;">
+        <div id="receiveIncomingProgressFill" style="width: 0%; height: 100%; background: #0284c7; border-radius: 6px; transition: width 0.15s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Vault History Drawer -->
+    <div style="background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.8); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; font-weight: 700; color: #334155;">Received Vault History (<span id="vaultItemsCount">0</span>)</span>
+      </div>
+      <div id="vaultItemsList" style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px 0;">No items received yet</div>
+      </div>
+    </div>
   </main>
 
   <!-- INCOMING TRANSFER ORDER MODAL (AirDrop-Style Acceptance Modal) -->
