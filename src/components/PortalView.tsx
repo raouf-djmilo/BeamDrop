@@ -137,47 +137,51 @@ export const PortalView: React.FC<PortalViewProps> = ({
   const displaySize = downloadedFile?.size || currentFile?.size || expectedFileSize;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-sky-500 selection:text-white relative overflow-hidden">
+      {/* Background Soft Ambient Light Spheres */}
+      <div className="fixed top-10 left-10 w-96 h-96 bg-sky-300/40 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-10 w-96 h-96 bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10" />
+
       <div className="max-w-md w-full mx-auto space-y-4">
-        <div className={'p-4 rounded-3xl border shadow-xl backdrop-blur-xl flex items-center justify-between transition-colors ' + (
+        <div className={'p-4 rounded-3xl border shadow-md backdrop-blur-xl flex items-center justify-between transition-colors ' + (
           isExpired
-            ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+            ? 'bg-rose-50 border-rose-300 text-rose-800'
             : timeLeftSec < 120
-            ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
-            : 'bg-cyan-950/60 border-cyan-500/30 text-cyan-300'
+            ? 'bg-amber-50 border-amber-300 text-amber-800'
+            : 'bg-white/90 border-sky-300 text-sky-900'
         )}>
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-black/40 flex items-center justify-center shrink-0 border border-white/10">
-              <Clock className={'w-5 h-5 ' + (isExpired ? 'text-rose-400' : 'text-cyan-400 animate-spin-slow')} />
+            <div className="w-10 h-10 rounded-2xl bg-sky-100 flex items-center justify-center shrink-0 border border-sky-200">
+              <Clock className={'w-5 h-5 ' + (isExpired ? 'text-rose-600' : 'text-sky-600 animate-spin-slow')} />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 10-Minute Ephemeral Portal
               </p>
-              <p className="text-[11px] text-slate-400 font-mono">
+              <p className="text-[11px] text-slate-500 font-mono">
                 {isExpired ? 'Link terminated & purged' : 'Single-use encrypted drop'}
               </p>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="font-mono text-xl font-extrabold tracking-tight">
+            <span className="font-mono text-xl font-extrabold tracking-tight text-sky-800">
               {formatTimer(timeLeftSec)}
             </span>
           </div>
         </div>
 
-        <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden space-y-6 text-center">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shadow-lg relative">
-            <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/30 animate-pulse pointer-events-none" />
-            <FileArchive className="w-10 h-10 text-cyan-400" />
+        <div className="bg-white/90 border border-white/95 rounded-3xl p-6 sm:p-8 shadow-[0_25px_60px_rgba(2,132,199,0.15)] relative overflow-hidden space-y-6 text-center backdrop-blur-2xl">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-white border border-sky-200 flex items-center justify-center shadow-md relative">
+            <div className="absolute inset-0 rounded-3xl border-2 border-sky-400/40 animate-pulse pointer-events-none" />
+            <FileArchive className="w-10 h-10 text-sky-600" />
           </div>
 
           <div>
-            <h2 className="text-base font-extrabold text-white truncate max-w-xs mx-auto">
+            <h2 className="text-base font-extrabold text-slate-900 truncate max-w-xs mx-auto">
               {displayName}
             </h2>
-            <p className="text-xs text-slate-400 font-mono mt-1">
+            <p className="text-xs text-slate-500 font-mono mt-1">
               {displaySize > 0 ? formatBytes(displaySize) : 'Encrypted Payload'} • AES-GCM-256
             </p>
           </div>
@@ -185,12 +189,12 @@ export const PortalView: React.FC<PortalViewProps> = ({
           {currentFile && (
             <div className="space-y-2 text-left">
               <div className="flex justify-between text-xs font-mono">
-                <span className="text-cyan-400 font-bold">Streaming ({currentFile.progress}%)</span>
-                <span className="text-slate-400">{formatSpeed(currentFile.speed)}</span>
+                <span className="text-sky-700 font-bold">Streaming ({currentFile.progress}%)</span>
+                <span className="text-slate-500">{formatSpeed(currentFile.speed)}</span>
               </div>
-              <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-slate-800">
+              <div className="w-full bg-sky-100 rounded-full h-3 overflow-hidden p-0.5 border border-sky-300">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-150"
+                  className="h-full bg-gradient-to-r from-sky-500 to-blue-600 rounded-full transition-all duration-150"
                   style={{ width: currentFile.progress + '%' }}
                 />
               </div>
@@ -198,21 +202,21 @@ export const PortalView: React.FC<PortalViewProps> = ({
           )}
 
           {connectionStatus === 'completed' && downloadedFile && (
-            <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center justify-center space-x-2 shadow-xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>File Downloaded to Memory Successfully!</span>
             </div>
           )}
 
           {connectionStatus === 'error' && (
-            <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center justify-center space-x-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-700 text-xs font-semibold flex items-center justify-center space-x-2 shadow-xs">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{errorMessage || 'Connection closed.'}</span>
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-center gap-2">
-            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="pt-2 border-t border-sky-100 text-[11px] text-slate-500 flex items-center justify-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-sky-600" />
             <span>Zero-Knowledge E2EE • Auto-Destroy on Exit</span>
           </div>
         </div>

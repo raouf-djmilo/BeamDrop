@@ -194,17 +194,21 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const fileMeta = getFileTypeMeta(displayMime, displayName);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-sky-500 selection:text-white relative overflow-hidden">
+      {/* Background Soft Ambient Light Spheres */}
+      <div className="fixed top-10 left-10 w-96 h-96 bg-sky-300/40 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-10 w-96 h-96 bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10" />
+
       {/* Centered Isolated Direct Download Box */}
       <main className="max-w-md w-full mx-auto">
-        <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-2xl relative overflow-hidden space-y-6 text-center">
+        <div className="bg-white/90 border border-white/95 rounded-3xl p-6 sm:p-8 shadow-[0_25px_60px_rgba(2,132,199,0.15)] backdrop-blur-2xl relative overflow-hidden space-y-6 text-center">
           {/* Subtle Ambient Light */}
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-sky-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
 
           {/* Large File Icon */}
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center shadow-lg relative">
-            <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/30 animate-pulse pointer-events-none" />
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-white border border-sky-200 flex items-center justify-center shadow-md relative">
+            <div className="absolute inset-0 rounded-3xl border-2 border-sky-400/40 animate-pulse pointer-events-none" />
             {downloadedFile?.previewUrl && isImage ? (
               <img
                 src={downloadedFile.previewUrl}
@@ -222,18 +226,18 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
               <span className={`text-[10px] font-mono uppercase tracking-widest font-bold px-2 py-0.5 rounded-full border ${fileMeta.bgColor} ${fileMeta.textColor} ${fileMeta.borderColor}`}>
                 {fileMeta.badgeLabel}
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-800/40">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-sky-700 font-bold px-2 py-0.5 rounded-full bg-sky-100 border border-sky-300">
                 Direct Download
               </span>
             </div>
-            <h1 className="text-xl font-bold text-white break-words max-w-full pt-1" title={displayName}>
+            <h1 className="text-xl font-bold text-slate-900 break-words max-w-full pt-1" title={displayName}>
               {displayName}
             </h1>
-            <div className="flex items-center justify-center space-x-2 text-xs text-slate-400 font-mono pt-0.5">
-              {displaySize > 0 && <span className="font-semibold text-slate-200">{formatBytes(displaySize)}</span>}
+            <div className="flex items-center justify-center space-x-2 text-xs text-slate-500 font-mono pt-0.5">
+              {displaySize > 0 && <span className="font-semibold text-slate-700">{formatBytes(displaySize)}</span>}
               {displaySize > 0 && <span>•</span>}
-              <span className="text-emerald-400 flex items-center space-x-1">
-                <ShieldCheck className="w-3.5 h-3.5 inline" />
+              <span className="text-emerald-700 font-semibold flex items-center space-x-1">
+                <ShieldCheck className="w-3.5 h-3.5 inline text-emerald-600" />
                 <span>Encrypted P2P Link</span>
               </span>
             </div>
@@ -241,25 +245,25 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
           {/* Real-time Streaming Progress Bar */}
           {currentFile && (
-            <div className="bg-cyan-950/40 border border-cyan-500/40 rounded-2xl p-4 space-y-3 text-left">
+            <div className="bg-sky-50/80 border border-sky-300 rounded-2xl p-4 space-y-3 text-left shadow-xs">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-cyan-300 font-semibold flex items-center space-x-1.5">
-                  <Radio className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
+                <span className="text-sky-900 font-semibold flex items-center space-x-1.5">
+                  <Radio className="w-3.5 h-3.5 animate-pulse text-sky-600" />
                   <span>Streaming directly into device memory...</span>
                 </span>
-                <span className="font-mono text-cyan-400 font-bold">
+                <span className="font-mono text-sky-700 font-bold bg-sky-100 px-2 py-0.5 rounded border border-sky-300">
                   {formatSpeed(currentFile.speed)}
                 </span>
               </div>
 
-              <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-cyan-500/30">
+              <div className="w-full bg-sky-100 rounded-full h-3 overflow-hidden p-0.5 border border-sky-300">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 rounded-full transition-all duration-150"
+                  className="h-full bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 rounded-full transition-all duration-150"
                   style={{ width: `${currentFile.progress}%` }}
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
                 <span>{currentFile.progress}% Complete</span>
                 <span>
                   {formatBytes((currentFile.size * currentFile.progress) / 100)} / {formatBytes(currentFile.size)}
@@ -270,11 +274,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
           {/* Waiting for stream connection state */}
           {!currentFile && !downloadedFile && connectionStatus !== 'error' && (
-            <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 text-center space-y-2">
-              <div className="w-8 h-8 mx-auto rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+            <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 text-center space-y-2">
+              <div className="w-8 h-8 mx-auto rounded-full bg-sky-100 border border-sky-300 flex items-center justify-center text-sky-600">
                 <RefreshCw className="w-4 h-4 animate-spin" />
               </div>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-600 font-medium">
                 {connectionStatus === 'connected'
                   ? 'Connected! Starting direct file download...'
                   : 'Establishing direct device-to-device connection...'}
@@ -284,14 +288,14 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
           {/* Error Message */}
           {connectionStatus === 'error' && (
-            <div className="bg-rose-950/40 border border-rose-500/40 rounded-2xl p-4 text-center space-y-2">
-              <AlertCircle className="w-7 h-7 text-rose-400 mx-auto" />
-              <p className="text-xs text-rose-200">
+            <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 text-center space-y-2">
+              <AlertCircle className="w-7 h-7 text-rose-500 mx-auto" />
+              <p className="text-xs text-rose-700">
                 {errorMessage || 'Connection failed. Please rescan the QR code.'}
               </p>
               <button
                 onClick={() => window.location.reload()}
-                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold"
+                className="px-4 py-1.5 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
               >
                 Retry
               </button>
@@ -300,11 +304,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
 
           {/* Complete Success Alert */}
           {downloadedFile && (
-            <div className="bg-emerald-950/50 border border-emerald-500/40 rounded-2xl p-3.5 flex items-center space-x-3 text-xs text-left">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3.5 flex items-center space-x-3 text-xs text-left shadow-xs">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <p className="font-bold text-white">Saved to Downloads!</p>
-                <p className="text-slate-300 text-[11px]">
+                <p className="font-bold text-slate-900">Saved to Downloads!</p>
+                <p className="text-slate-600 text-[11px]">
                   File has been downloaded directly to your phone.
                 </p>
               </div>
@@ -315,7 +319,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           <button
             onClick={handleManualDownloadClick}
             disabled={!downloadedFile}
-            className="w-full py-4 px-6 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-cyan-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full py-4 px-6 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-sky-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Download className="w-5 h-5" />
             <span>
@@ -332,18 +336,18 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
             <div className="space-y-2 pt-1">
               <button
                 onClick={() => setShowPreview(!showPreview)}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+                className="w-full py-2 bg-white hover:bg-sky-50 border border-sky-200 text-slate-700 hover:text-sky-700 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
               >
-                <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                <Eye className="w-3.5 h-3.5 text-sky-600" />
                 <span>{showPreview ? 'Hide Photo' : 'Preview Photo'}</span>
               </button>
 
               {showPreview && (
-                <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black/60 max-h-72 flex items-center justify-center p-2">
+                <div className="rounded-2xl overflow-hidden border border-sky-200 bg-sky-50/50 max-h-72 flex items-center justify-center p-2">
                   <img
                     src={downloadedFile.previewUrl}
                     alt={downloadedFile.name}
-                    className="max-h-64 max-w-full rounded-xl object-contain shadow-lg"
+                    className="max-h-64 max-w-full rounded-xl object-contain shadow-md"
                   />
                 </div>
               )}
@@ -354,14 +358,14 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
             <div className="space-y-2 pt-1">
               <button
                 onClick={() => setShowPreview(!showPreview)}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+                className="w-full py-2 bg-white hover:bg-sky-50 border border-sky-200 text-slate-700 hover:text-sky-700 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
               >
-                <Film className="w-3.5 h-3.5 text-purple-400" />
+                <Film className="w-3.5 h-3.5 text-indigo-600" />
                 <span>{showPreview ? 'Hide Video' : 'Play Video'}</span>
               </button>
 
               {showPreview && (
-                <div className="rounded-2xl overflow-hidden border border-slate-700 bg-black max-h-72">
+                <div className="rounded-2xl overflow-hidden border border-sky-200 bg-black max-h-72">
                   <video
                     controls
                     playsInline
@@ -374,7 +378,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           )}
 
           {/* Minimal Privacy Guarantee Tag */}
-          <p className="text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-800/80">
+          <p className="text-[11px] text-slate-500 font-mono pt-2 border-t border-sky-100">
             🔒 Direct Device-to-Device Stream • Zero Cloud Storage
           </p>
         </div>

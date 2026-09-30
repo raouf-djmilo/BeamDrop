@@ -1,4 +1,4 @@
-/* Glassmorphism Mobile-Optimized Receiver Stylesheet */
+/* Liquid Glass Sky Blue Light Receiver Stylesheet */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -7,25 +7,26 @@
 
 body {
   min-height: 100vh;
-  background-color: #0b0f19;
-  color: #f8fafc;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 45%, #bae6fd 100%) fixed;
+  color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px;
+  padding: 24px 16px;
   line-height: 1.5;
 }
 
 .receiver-card {
   width: 100%;
   max-width: 440px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 28px;
   padding: 24px;
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 20px -5px rgba(6, 182, 212, 0.15);
+  box-shadow: 0 20px 50px rgba(2, 132, 199, 0.12), inset 0 1px 1px rgba(255, 255, 255, 1);
   margin-top: 10px;
 }
 
@@ -34,7 +35,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid rgba(186, 230, 253, 0.7);
   margin-bottom: 18px;
 }
 
@@ -48,11 +49,11 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.35);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
   color: white;
 }
 
@@ -68,15 +69,15 @@ body {
 }
 
 .status-badge.connecting {
-  background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.3);
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
 }
 
 .status-badge.connected {
-  background: rgba(16, 185, 129, 0.12);
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.3);
+  background: #d1fae5;
+  color: #047857;
+  border-color: #a7f3d0;
 }
 
 .status-dot {
@@ -96,8 +97,8 @@ body {
 }
 
 .transfer-box {
-  background: rgba(6, 182, 212, 0.08);
-  border: 1px solid rgba(6, 182, 212, 0.35);
+  background: #f0f9ff;
+  border: 1.5px solid #bae6fd;
   border-radius: 20px;
   padding: 18px;
   margin-bottom: 20px;
@@ -109,14 +110,15 @@ body {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  color: #0f172a;
   margin-bottom: 10px;
 }
 
 .progress-track {
   width: 100%;
   height: 10px;
-  background: #1e293b;
+  background: #e0f2fe;
   border-radius: 9999px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -124,7 +126,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
   border-radius: 9999px;
   transition: width 0.15s ease;
 }
@@ -133,7 +135,8 @@ body {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a3b8;
+  color: #0284c7;
+  font-weight: 600;
   font-family: ui-monospace, monospace;
 }
 
@@ -141,20 +144,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34d399;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
   padding: 10px 14px;
   border-radius: 14px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: 14px;
 }
 
 .btn-primary {
   width: 100%;
   padding: 12px 18px;
-  background: linear-gradient(135deg, #0284c7, #2563eb);
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -178,11 +181,12 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: #ffffff;
+  border: 1px solid rgba(186, 230, 253, 0.9);
   border-radius: 16px;
   padding: 14px;
   margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.05);
 }
 
 .preview-thumb {
@@ -190,5 +194,5 @@ body {
   height: 52px;
   border-radius: 10px;
   object-fit: cover;
-  background: #0f172a;
+  background: #e0f2fe;
 }

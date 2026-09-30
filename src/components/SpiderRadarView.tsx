@@ -454,21 +454,21 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
   return (
     <div className="space-y-6">
       {/* Persistent Team Workspace Bar (Pro Mesh) */}
-      <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-indigo-500/30 bg-gradient-to-r from-slate-950 via-indigo-950/20 to-slate-950 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white/85 backdrop-blur-2xl rounded-3xl p-4 sm:p-5 border border-indigo-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[0_12px_36px_rgba(99,102,241,0.08)]">
         <div className="flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0 shadow-xs">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <span>Team Workspace Mesh</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
                   PRO VIRTUAL ROOM
                 </span>
               </h3>
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">
+            <p className="text-xs text-slate-500 font-mono mt-0.5">
               {isWorkspaceActive
                 ? 'Connected to /w/' + workspaceSlug + ' (' + workspaceNodes.length + ' devices online)'
                 : 'Connect distributed team members across different Wi-Fi networks'}
@@ -483,7 +483,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
               placeholder="slug (e.g. design-team)"
               value={workspaceSlug}
               onChange={(e) => setWorkspaceSlug(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
+              className="bg-indigo-50/60 border border-indigo-200 rounded-xl px-3 py-1.5 text-xs text-indigo-950 font-mono placeholder-indigo-400 focus:outline-none focus:border-indigo-500 w-36 shadow-xs"
             />
             <input
               type="password"
@@ -491,7 +491,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
               value={workspacePin}
               onChange={(e) => setWorkspacePin(e.target.value)}
               maxLength={6}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-28"
+              className="bg-indigo-50/60 border border-indigo-200 rounded-xl px-2.5 py-1.5 text-xs text-indigo-950 font-mono placeholder-indigo-400 focus:outline-none focus:border-indigo-500 w-28 shadow-xs"
             />
             <button
               onClick={handleJoinWorkspace}
@@ -502,13 +502,13 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           </div>
         ) : (
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-700 text-xs font-mono font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>/w/{workspaceSlug}</span>
             </div>
             <button
               onClick={handleLeaveWorkspace}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium cursor-pointer shadow-xs"
             >
               Leave
             </button>
@@ -517,34 +517,34 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
       </div>
 
       {/* 1. Real Network Telemetry HUD Bar */}
-      <div className="glass-panel-glow rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-cyan-500/25">
+      <div className="bg-white/90 backdrop-blur-2xl rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-sky-200/90 shadow-[0_12px_36px_rgba(2,132,199,0.08)]">
         <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
-            <Radio className="w-6 h-6 text-white animate-pulse" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20 shrink-0 text-white">
+            <Radio className="w-6 h-6 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-extrabold text-white tracking-tight flex items-center gap-1.5">
+              <h2 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
                 <span>{networkMeta.ssid}</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
               </h2>
               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
                 networkMeta.isHotspot
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                  : 'bg-sky-50 text-sky-800 border-sky-300'
               }`}>
                 {networkMeta.isHotspot ? '🔥 HOTSPOT MESH' : '📶 REAL WI-FI LAN'}
               </span>
             </div>
-            <p className="text-xs text-slate-400 flex items-center flex-wrap gap-2 mt-0.5 font-mono">
-              <span className="inline-flex items-center text-emerald-400 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1.5 animate-pulse"></span>
+            <p className="text-xs text-slate-600 flex items-center flex-wrap gap-2 mt-0.5 font-mono">
+              <span className="inline-flex items-center text-emerald-700 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1.5 animate-pulse"></span>
                 Connected to Mesh
               </span>
               <span>•</span>
-              <span className="text-cyan-300 font-bold">Room: {roomHash || 'Auto (Same Wi-Fi)'}</span>
+              <span className="text-sky-700 font-bold">Room: {roomHash || 'Auto (Same Wi-Fi)'}</span>
               <span>•</span>
-              <span className="text-slate-300">Public IP: <strong className="text-white font-mono">{myDeviceInfo.ip}</strong></span>
+              <span className="text-slate-600">Public IP: <strong className="text-slate-900 font-mono font-bold">{myDeviceInfo.ip}</strong></span>
             </p>
           </div>
         </div>
@@ -553,14 +553,14 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           <button
             onClick={() => setAudioFeedback(!audioFeedback)}
             title={audioFeedback ? 'Disable Radar Sound' : 'Enable Radar Sound'}
-            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+            className="p-2.5 rounded-xl bg-white border border-sky-200 hover:border-sky-300 text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-all cursor-pointer shadow-xs"
           >
-            {audioFeedback ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+            {audioFeedback ? <Volume2 className="w-4 h-4 text-sky-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
           </button>
 
           <button
             onClick={() => queryLocalMeshBackend()}
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-white font-semibold text-xs transition-all shadow-md cursor-pointer bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/25"
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-white font-semibold text-xs transition-all shadow-md cursor-pointer bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 shadow-sky-500/25"
             title="Scan Mesh Nodes"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -570,43 +570,43 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
       </div>
 
       {/* 2. ACTIVE MESH SIGNALING & PAIRING STATUS BAR */}
-      <div className="glass-panel rounded-2xl p-4 border border-cyan-500/20 bg-slate-950/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="glass-panel rounded-2xl p-4 border border-sky-200/80 shadow-[0_8px_24px_rgba(2,132,199,0.06)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sky-100">
           <div className="flex items-center space-x-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
             <div>
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Active Mesh Presence Engine
               </span>
-              <span className="text-[11px] text-cyan-300 ml-2 font-mono">
+              <span className="text-[11px] text-sky-700 ml-2 font-mono font-semibold">
                 Auto-discovering phones & PCs on same Wi-Fi
               </span>
             </div>
           </div>
           <div className="flex items-center space-x-3 text-xs font-mono">
-            <span className="text-slate-400">
-              Room: <strong className="text-cyan-400">{roomHash || 'Auto (Same Wi-Fi)'}</strong>
+            <span className="text-slate-500">
+              Room: <strong className="text-sky-700 font-bold">{roomHash || 'Auto (Same Wi-Fi)'}</strong>
             </span>
             <span>•</span>
-            <span className="text-slate-400">
-              Online Discovered: <strong className="text-emerald-400">{discoveredPeers.length}</strong>
+            <span className="text-slate-500">
+              Online Discovered: <strong className="text-emerald-700 font-bold">{discoveredPeers.length}</strong>
             </span>
           </div>
         </div>
 
         {/* Dynamic Connection Instructions & Private Room PIN */}
         <div className="mt-3 pt-1 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2 text-slate-300 text-[11px]">
+          <div className="flex items-center space-x-2 text-slate-600 text-[11px]">
             <span className="text-base shrink-0">📱</span>
             <span>
-              Open <strong className="text-cyan-400 font-mono">https://beam-drop-mu.vercel.app</strong> on your phone (same Wi-Fi) to appear instantly on radar!
+              Open <strong className="text-sky-700 font-mono font-bold">https://beam-drop-mu.vercel.app</strong> on your phone (same Wi-Fi) to appear instantly on radar!
             </span>
           </div>
 
           {/* Room PIN Tool for Public Wi-Fi Collision Isolation */}
           <div className="flex items-center space-x-1.5 shrink-0" title="Set an optional 4-digit PIN to isolate devices on public Wi-Fi (cafes, universities)">
-            <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className="text-slate-400 whitespace-nowrap">Private Room PIN:</span>
+            <Shield className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            <span className="text-slate-500 whitespace-nowrap">Private Room PIN:</span>
             <input
               type="text"
               value={roomPin}
@@ -620,7 +620,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                 setDiscoveredPeers([]);
               }}
               placeholder="Optional"
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-cyan-300 font-mono text-xs w-20 text-center focus:outline-none focus:border-cyan-400"
+              className="bg-white border border-sky-300 rounded-lg px-2 py-1 text-sky-800 font-mono text-xs w-20 text-center focus:outline-none focus:border-sky-500 shadow-xs"
             />
           </div>
         </div>
@@ -628,21 +628,21 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
       {/* Main Grid: Radar Screen & Devices List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Radar Screen (7 cols) */}
-        <div className="lg:col-span-7 glass-panel rounded-3xl p-6 border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="lg:col-span-7 glass-panel rounded-3xl p-6 border border-white/95 shadow-[0_16px_40px_rgba(2,132,199,0.08)] flex flex-col items-center justify-center relative overflow-hidden">
           {/* Subtle Radar Background Grid */}
           <div className="w-full max-w-[440px] aspect-square relative flex items-center justify-center">
             {/* Concentric Circle Rings */}
-            <div className="absolute inset-0 rounded-full border border-cyan-500/15 pointer-events-none"></div>
-            <div className="absolute inset-[15%] rounded-full border border-cyan-500/20 pointer-events-none"></div>
-            <div className="absolute inset-[35%] rounded-full border border-cyan-500/30 pointer-events-none"></div>
-            <div className="absolute inset-[55%] rounded-full border border-cyan-500/40 pointer-events-none"></div>
+            <div className="absolute inset-0 rounded-full border border-sky-400/20 pointer-events-none"></div>
+            <div className="absolute inset-[15%] rounded-full border border-sky-400/25 pointer-events-none"></div>
+            <div className="absolute inset-[35%] rounded-full border border-sky-400/35 pointer-events-none"></div>
+            <div className="absolute inset-[55%] rounded-full border border-sky-400/45 pointer-events-none"></div>
 
             {/* Radial Spider Web Spokes */}
-            <div className="absolute inset-x-0 top-1/2 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent pointer-events-none"></div>
-            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-gradient-to-b from-transparent via-cyan-500/20 to-transparent pointer-events-none"></div>
+            <div className="absolute inset-x-0 top-1/2 h-[1px] bg-gradient-to-r from-transparent via-sky-400/30 to-transparent pointer-events-none"></div>
+            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-gradient-to-b from-transparent via-sky-400/30 to-transparent pointer-events-none"></div>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-full h-[1px] bg-cyan-500/10 rotate-45"></div>
-              <div className="w-full h-[1px] bg-cyan-500/10 -rotate-45"></div>
+              <div className="w-full h-[1px] bg-sky-400/15 rotate-45"></div>
+              <div className="w-full h-[1px] bg-sky-400/15 -rotate-45"></div>
             </div>
 
             {/* Rotating Cyber Radar Sweep */}
@@ -650,10 +650,10 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
 
             {/* Center Local User Node ("Jihezi") */}
             <div className="absolute z-10 flex flex-col items-center">
-              <div className="w-10 h-10 rounded-2xl bg-cyan-500 text-white flex items-center justify-center shadow-lg shadow-cyan-500/50 border border-white/20">
+              <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/40 border border-white/40">
                 <Laptop className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-mono font-bold text-cyan-300 bg-slate-950/80 px-2 py-0.5 rounded-full mt-1 border border-cyan-500/30">
+              <span className="text-[10px] font-mono font-bold text-sky-800 bg-white px-2 py-0.5 rounded-full mt-1 border border-sky-300 shadow-xs">
                 You ({myDeviceInfo.ip !== 'Detecting...' ? myDeviceInfo.ip : 'Local'})
               </span>
             </div>
@@ -694,9 +694,9 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   </div>
 
                   {/* Tooltip on Hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-xl bg-slate-900/95 border border-cyan-500/40 text-white text-[11px] font-medium whitespace-nowrap shadow-xl pointer-events-none flex flex-col items-center z-30">
-                    <span className="font-bold text-cyan-300">{peer.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{peer.ip} • {peer.latency}ms</span>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-xl bg-white/95 border border-sky-300 text-slate-800 text-[11px] font-medium whitespace-nowrap shadow-xl pointer-events-none flex flex-col items-center z-30">
+                    <span className="font-bold text-sky-800">{peer.name}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">{peer.ip} • {peer.latency}ms</span>
                   </div>
                 </div>
               );
@@ -704,17 +704,17 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           </div>
 
           {/* Radar Legend Footer */}
-          <div className="w-full mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-around text-xs text-slate-400">
+          <div className="w-full mt-6 pt-4 border-t border-sky-100 flex items-center justify-around text-xs text-slate-500">
             <div className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               <span>Smartphones (Android/iOS)</span>
             </div>
             <div className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
               <span>PCs & Laptops</span>
             </div>
             <div className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
               <span>Gateway / Router</span>
             </div>
           </div>
@@ -723,59 +723,59 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
         {/* Discovered Devices Column (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Category Filter Pills */}
-          <div className="flex items-center space-x-1.5 bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl overflow-x-auto">
+          <div className="flex items-center space-x-1.5 bg-white/80 border border-sky-200/80 p-1.5 rounded-2xl overflow-x-auto shadow-xs">
             <button
               onClick={() => setActiveFilter('all')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeFilter === 'all'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
               }`}
             >
               <span>All</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {discoveredPeers.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveFilter('phone')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeFilter === 'phone'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'
               }`}
             >
               <span>📱 Phones</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {phoneCount}
               </span>
             </button>
 
             <button
               onClick={() => setActiveFilter('laptop')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeFilter === 'laptop'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
               }`}
             >
               <span>💻 PCs</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {pcCount}
               </span>
             </button>
 
             <button
               onClick={() => setActiveFilter('router')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeFilter === 'router'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-amber-700 hover:bg-amber-50'
               }`}
             >
               <span>🌐 Gateway</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {routerCount}
               </span>
             </button>
@@ -784,10 +784,10 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           {/* Cards List */}
           <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
             {filteredPeers.length === 0 ? (
-              <div className="text-center py-10 px-4 glass-panel rounded-3xl border border-slate-800 text-slate-400 space-y-3">
-                <Radio className="w-10 h-10 mx-auto text-cyan-400 animate-pulse" />
+              <div className="text-center py-10 px-4 glass-panel rounded-3xl border border-white/95 text-slate-500 space-y-3 shadow-[0_12px_36px_rgba(2,132,199,0.06)]">
+                <Radio className="w-10 h-10 mx-auto text-sky-500 animate-pulse" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">
+                  <p className="text-sm font-bold text-slate-900">
                     No other devices detected in this Wi-Fi room yet
                   </p>
                   <p className="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto leading-relaxed">
@@ -797,7 +797,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                 {true && (
                   <button
                     onClick={() => queryLocalMeshBackend()}
-                    className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-md shadow-cyan-600/20 cursor-pointer inline-flex items-center space-x-1.5 transition-all"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white font-semibold text-xs shadow-md shadow-sky-500/20 cursor-pointer inline-flex items-center space-x-1.5 transition-all"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Refresh Mesh Presence</span>
@@ -815,34 +815,34 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                     onClick={() => setSelectedPeer(peer)}
                     className={`glass-panel rounded-2xl p-3.5 border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                       isSelected
-                        ? 'border-cyan-400/80 bg-slate-900/95 shadow-lg shadow-cyan-500/10'
-                        : 'border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+                        ? 'border-sky-400 bg-sky-50/90 shadow-md shadow-sky-500/10'
+                        : 'border-sky-200/70 hover:border-sky-300 hover:bg-white/90 shadow-xs'
                     }`}
                   >
                     <div className="flex items-center space-x-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-lg relative shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-sky-200 flex items-center justify-center text-lg relative shrink-0 shadow-xs">
                         <span>{peer.icon}</span>
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-950 absolute -bottom-0.5 -right-0.5"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white absolute -bottom-0.5 -right-0.5"></span>
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center space-x-1.5">
-                          <p className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-[200px]">
+                          <p className="text-xs font-bold text-slate-900 truncate max-w-[150px] sm:max-w-[200px]">
                             {peer.name}
                           </p>
                           <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold ${
                             peer.protocol === 'hotspot'
-                              ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                              : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                              : 'bg-sky-100 text-sky-800 border border-sky-300'
                           }`}>
                             {peer.protocol === 'hotspot' ? '🔥 Hotspot' : '📶 5GHz'}
                           </span>
                         </div>
 
-                        <div className="flex items-center space-x-2 mt-1 text-[11px] font-mono text-slate-400">
-                          <span className="text-cyan-400">{peer.ip}</span>
+                        <div className="flex items-center space-x-2 mt-1 text-[11px] font-mono text-slate-500">
+                          <span className="text-sky-700 font-semibold">{peer.ip}</span>
                           <span>•</span>
-                          <span className="text-emerald-400 font-bold">{peer.latency}ms</span>
+                          <span className="text-emerald-700 font-bold">{peer.latency}ms</span>
                           {maskedMac && (
                             <>
                               <span>•</span>

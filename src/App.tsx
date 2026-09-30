@@ -93,10 +93,10 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white relative overflow-x-hidden">
       {/* Background Soft Ambient Light Spheres (Liquid Glass Backdrop) */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
-      <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
+      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-sky-300/40 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
+      <div className="fixed bottom-0 right-1/4 w-[450px] h-[450px] bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
 
       {/* PWA Native Install Banner */}
       {showInstallBanner && (
@@ -174,27 +174,27 @@ function MainApp() {
         receiverBaseUrl={receiverBaseUrl}
       />
 
-      {/* Modern Minimal Glass Footer */}
-      <footer className="border-t border-white/5 bg-slate-950/60 backdrop-blur-md py-4 px-6 text-center text-xs text-slate-500">
+      {/* Modern Liquid Glass Sky Blue Light Footer */}
+      <footer className="border-t border-sky-200/80 bg-white/70 backdrop-blur-md py-4 px-6 text-center text-xs text-slate-600 shadow-[0_-4px_20px_rgba(2,132,199,0.04)]">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2 font-mono text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span className="text-slate-400 font-semibold">BeamDrop Liquid Glass v1.6.0 Pro</span>
-            <span>•</span>
-            <span>Zero Cloud Storage & Database</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="text-slate-700 font-semibold">BeamDrop Liquid Glass v1.6.0 Pro</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-500">Zero Cloud Storage & Database</span>
           </div>
 
           <div className="flex items-center space-x-4 text-[11px]">
             <button
               onClick={() => setShowExtensionModal(true)}
-              className="text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer font-mono"
+              className="text-sky-600 hover:text-sky-800 transition-colors cursor-pointer font-mono font-semibold"
             >
               Chrome Extension Unpacker (v1.6.0)
             </button>
-            <span>•</span>
-            <span className="text-slate-400">AES-GCM-256 E2EE</span>
-            <span>•</span>
-            <span className="text-emerald-400 font-medium">512KB LAN AIMD</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-600">AES-GCM-256 E2EE</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-emerald-600 font-semibold">512KB LAN AIMD</span>
           </div>
         </div>
       </footer>

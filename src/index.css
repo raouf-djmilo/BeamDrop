@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+:root {
+  --primary-sky: #0284c7;
+  --primary-blue: #2563eb;
+  --bg-gradient-start: #f0f9ff;
+  --bg-gradient-mid: #e0f2fe;
+  --bg-gradient-end: #bae6fd;
+  --glass-surface: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.95);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+}
+
 @layer utilities {
   @keyframes radarSweep {
     0% { transform: rotate(0deg); }
@@ -16,6 +28,11 @@
     0%, 100% { opacity: 0.4; transform: scale(1); }
     50% { opacity: 0.8; transform: scale(1.05); }
   }
+
+  @keyframes liquidShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
 
 .radar-sweep-beam {
@@ -25,7 +42,7 @@
   width: 50%;
   height: 50%;
   transform-origin: 0% 0%;
-  background: conic-gradient(from 0deg, rgba(56, 189, 248, 0.35) 0deg, rgba(56, 189, 248, 0) 65deg);
+  background: conic-gradient(from 0deg, rgba(2, 132, 199, 0.3) 0deg, rgba(56, 189, 248, 0) 65deg);
   animation: radarSweep 4s linear infinite;
   pointer-events: none;
   border-radius: 100% 0 0 0;
@@ -39,16 +56,52 @@
 }
 
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 36px rgba(2, 132, 199, 0.08), inset 0 1px 1px rgba(255, 255, 255, 1);
+  color: #0f172a;
 }
 
 .glass-panel-glow {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 8px 32px rgba(2, 132, 199, 0.15);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 1);
+  box-shadow: 0 16px 45px rgba(2, 132, 199, 0.12), inset 0 1px 1px rgba(255, 255, 255, 1);
+  color: #0f172a;
 }
+
+.liquid-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 16px 45px rgba(2, 132, 199, 0.1), inset 0 1px 1px rgba(255, 255, 255, 1);
+  color: #0f172a;
+}
+
+.liquid-glass-capsule {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 36px rgba(2, 132, 199, 0.1), inset 0 1px 1px rgba(255, 255, 255, 1);
+  color: #0f172a;
+}
+
+.liquid-glass-input {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #bae6fd;
+  color: #0f172a;
+  box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.04);
+  transition: all 0.2s ease;
+}
+
+.liquid-glass-input:focus {
+  border-color: #0284c7;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+

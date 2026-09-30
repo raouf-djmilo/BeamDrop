@@ -377,8 +377,8 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
       {/* Label and Sublabel */}
       {(label || sublabel) && (
         <div className="text-center mt-3 max-w-[280px]">
-          {label && <p className="text-xs font-bold text-slate-100">{label}</p>}
-          {sublabel && <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{sublabel}</p>}
+          {label && <p className="text-xs font-bold text-slate-900">{label}</p>}
+          {sublabel && <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{sublabel}</p>}
         </div>
       )}
 
@@ -389,7 +389,7 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
           <button
             onClick={handleDownloadWatermarked}
             disabled={isGeneratingCard}
-            className="w-full py-2.5 px-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
+            className="w-full py-2.5 px-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
             title="Download high-resolution QR card with BeamDrop watermark"
           >
             <Download className="w-3.5 h-3.5" />
@@ -400,17 +400,17 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
               onClick={handleCopyLink}
-              className="py-2 px-2.5 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/80 hover:border-cyan-500/50 text-slate-200 rounded-xl font-medium flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+              className="py-2 px-2.5 bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-400 text-slate-700 rounded-xl font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
               title="Copy direct download URL"
             >
               {copiedLink ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">Link Copied!</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700 font-semibold">Link Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 text-cyan-400" />
+                  <Copy className="w-3.5 h-3.5 text-sky-600" />
                   <span>Copy Link</span>
                 </>
               )}
@@ -418,17 +418,17 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
 
             <button
               onClick={handleCopyQrImage}
-              className="py-2 px-2.5 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/80 hover:border-cyan-500/50 text-slate-200 rounded-xl font-medium flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+              className="py-2 px-2.5 bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-400 text-slate-700 rounded-xl font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
               title="Copy QR image to clipboard for WhatsApp, Slack, Discord"
             >
               {copiedImage ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">QR Copied!</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700 font-semibold">QR Copied!</span>
                 </>
               ) : (
                 <>
-                  <QrIcon className="w-3.5 h-3.5 text-cyan-400" />
+                  <QrIcon className="w-3.5 h-3.5 text-sky-600" />
                   <span>Copy QR Code</span>
                 </>
               )}
@@ -437,14 +437,14 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
 
           {/* BeamDrop Brand Watermark Micro-tag */}
           <div className="pt-1 flex items-center justify-center space-x-2 text-[10px] text-slate-500 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
             <span>BeamDrop Watermark Engine</span>
             <span>•</span>
             <a
               href={value}
               target="_blank"
               rel="noreferrer"
-              className="text-slate-400 hover:text-cyan-400 flex items-center space-x-1"
+              className="text-slate-500 hover:text-sky-700 flex items-center space-x-1 font-semibold"
             >
               <span>Test Link</span>
               <ExternalLink className="w-2.5 h-2.5" />

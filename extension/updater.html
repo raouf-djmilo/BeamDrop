@@ -3,85 +3,146 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BeamDrop Extension Auto-Updater (Zero-ZIP)</title>
+  <title>BeamDrop Extension Studio - Update & Injector</title>
   <link rel="stylesheet" href="style.css">
   <style>
+    :root {
+      --sky-50: #f0f9ff;
+      --sky-100: #e0f2fe;
+      --sky-200: #bae6fd;
+      --sky-300: #7dd3fc;
+      --sky-400: #38bdf8;
+      --sky-500: #0ea5e9;
+      --sky-600: #0284c7;
+      --sky-700: #0369a1;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       width: 100% !important;
       min-height: 100vh !important;
       max-height: none !important;
       overflow-y: auto !important;
       margin: 0;
-      padding: 32px 24px;
+      padding: 40px 20px;
       display: flex;
       justify-content: center;
       align-items: flex-start;
-      background: #080c16;
-      background-image: 
-        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
-        radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--slate-900);
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 45%, #bae6fd 100%);
+      background-attachment: fixed;
+    }
+
+    /* Ambient Liquid Specular Glow */
+    .liquid-bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.65;
+    }
+    .orb-1 {
+      top: -10%;
+      left: 15%;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(14, 165, 233, 0) 70%);
+    }
+    .orb-2 {
+      bottom: -10%;
+      right: 15%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(186, 230, 253, 0.6) 0%, rgba(2, 132, 199, 0) 70%);
     }
 
     .updater-container {
+      position: relative;
+      z-index: 10;
       width: 100%;
-      max-width: 580px;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(28px) saturate(180%);
-      -webkit-backdrop-filter: blur(28px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 28px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      padding: 32px 28px;
+      max-width: 620px;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(30px) saturate(190%);
+      -webkit-backdrop-filter: blur(30px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 32px;
+      box-shadow: 
+        0 20px 50px rgba(2, 132, 199, 0.12),
+        0 4px 16px rgba(15, 23, 42, 0.04),
+        inset 0 1px 1px rgba(255, 255, 255, 1);
+      padding: 36px 32px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 22px;
     }
 
     .updater-header {
       display: flex;
       align-items: center;
-      gap: 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      padding-bottom: 18px;
+      gap: 16px;
+      border-bottom: 1px solid rgba(14, 165, 233, 0.15);
+      padding-bottom: 20px;
     }
 
     .brand-icon-cradle {
-      width: 52px;
-      height: 52px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 8px 24px rgba(6, 182, 212, 0.35);
+      font-size: 28px;
+      box-shadow: 0 10px 25px rgba(2, 132, 199, 0.3);
+      color: #fff;
     }
 
     .header-text h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 800;
       letter-spacing: -0.02em;
-      color: #f8fafc;
+      color: #0f172a;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+
+    .version-pill {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0284c7;
+      background: rgba(2, 132, 199, 0.12);
+      border: 1px solid rgba(2, 132, 199, 0.25);
+      padding: 3px 9px;
+      border-radius: 20px;
+      text-transform: uppercase;
     }
 
     .header-text p {
-      margin: 4px 0 0 0;
+      margin: 5px 0 0 0;
       font-size: 13px;
-      color: #94a3b8;
+      color: #475569;
+      font-weight: 500;
     }
 
+    /* Glass Status Card */
     .status-card {
-      background: rgba(2, 6, 23, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(186, 230, 253, 0.6);
+      border-radius: 20px;
       padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.06);
     }
 
     .status-row {
@@ -92,147 +153,240 @@
     }
 
     .status-label {
-      color: #94a3b8;
+      color: #64748b;
+      font-weight: 600;
     }
 
     .status-value {
       font-family: ui-monospace, monospace;
       font-weight: 700;
-      color: #38bdf8;
+      color: #0f172a;
     }
 
+    .status-value.cloud {
+      color: #0284c7;
+    }
+
+    /* Folder Status Capsule */
     .folder-pill {
+      margin-top: 4px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: rgba(224, 242, 254, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.4);
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(6, 182, 212, 0.1);
-      border: 1px solid rgba(6, 182, 212, 0.25);
-      border-radius: 12px;
-      padding: 10px 14px;
-      color: #38bdf8;
+      justify-content: space-between;
       font-size: 13px;
       font-weight: 600;
+      color: #0369a1;
     }
 
     .folder-pill.not-linked {
-      background: rgba(245, 158, 11, 0.1);
-      border-color: rgba(245, 158, 11, 0.3);
-      color: #fbbf24;
+      background: rgba(254, 243, 199, 0.7);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #b45309;
     }
 
-    .step-guide {
-      background: rgba(15, 23, 42, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 16px;
-      padding: 16px 20px;
-    }
-
-    .step-guide h3 {
-      margin: 0 0 10px 0;
+    /* Steps Action Grid (The 3 Buttons) */
+    .steps-section-title {
       font-size: 13px;
-      color: #cbd5e1;
-      font-weight: 700;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #0284c7;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
     }
 
-    .step-guide ol {
-      margin: 0;
-      padding-left: 20px;
-      color: #94a3b8;
-      font-size: 12.5px;
-      line-height: 1.6;
+    .steps-button-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
-    .btn-action-primary {
-      background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
-      color: #ffffff;
-      border: none;
-      border-radius: 14px;
-      padding: 14px 20px;
+    .btn-action {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-radius: 18px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      box-shadow: 0 8px 24px rgba(6, 182, 212, 0.3);
-      transition: all 0.2s ease;
-      width: 100%;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      outline: none;
+      text-align: left;
     }
 
-    .btn-action-primary:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 28px rgba(6, 182, 212, 0.45);
+    .btn-action:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+    .btn-action:active:not(:disabled) {
+      transform: translateY(0);
     }
 
-    .btn-action-primary:disabled {
-      opacity: 0.6;
+    .btn-action:disabled {
+      opacity: 0.55;
       cursor: not-allowed;
+      transform: none !important;
     }
 
-    .btn-action-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      color: #cbd5e1;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 14px;
-      padding: 12px 18px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s;
-      width: 100%;
+    /* Button 1: Select Folder */
+    .btn-step1 {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(14, 165, 233, 0.4);
+      color: #0369a1;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08);
+    }
+    .btn-step1:hover:not(:disabled) {
+      background: #ffffff;
+      border-color: #0284c7;
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.16);
     }
 
-    .btn-action-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
+    /* Button 2: Clean Folder */
+    .btn-step2 {
+      background: rgba(255, 241, 242, 0.85);
+      border-color: rgba(244, 63, 94, 0.35);
+      color: #be123c;
+      box-shadow: 0 4px 14px rgba(244, 63, 94, 0.08);
+    }
+    .btn-step2:hover:not(:disabled) {
+      background: #fff1f2;
+      border-color: #e11d48;
+      box-shadow: 0 6px 20px rgba(244, 63, 94, 0.16);
+    }
+
+    /* Button 3: Inject All Files (Primary Hero) */
+    .btn-step3 {
+      background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
       color: #ffffff;
+      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .btn-step3:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+      box-shadow: 0 12px 30px rgba(2, 132, 199, 0.45);
     }
 
-    .progress-bar-wrap {
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 999px;
-      height: 8px;
-      overflow: hidden;
+    /* Master 1-Click Sync */
+    .btn-master {
+      background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+      color: #ffffff;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+      border-color: rgba(255, 255, 255, 0.4);
+      margin-top: 6px;
+    }
+    .btn-master:hover:not(:disabled) {
+      box-shadow: 0 12px 30px rgba(16, 185, 129, 0.42);
+      transform: translateY(-2px);
+    }
+
+    .btn-meta-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.08);
+    }
+    .btn-step3 .btn-meta-tag, .btn-master .btn-meta-tag {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    /* Progress Indicator */
+    .progress-section {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(186, 230, 253, 0.6);
+      border-radius: 18px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0369a1;
+    }
+
+    .progress-track {
       width: 100%;
+      height: 10px;
+      background: rgba(224, 242, 254, 0.8);
+      border-radius: 10px;
+      overflow: hidden;
     }
 
-    .progress-bar-fill {
+    .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #06b6d4, #10b981);
       width: 0%;
+      background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
+      border-radius: 10px;
       transition: width 0.2s ease;
     }
 
-    .log-stream {
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-family: ui-monospace, monospace;
-      font-size: 11.5px;
-      color: #94a3b8;
-      max-height: 120px;
+    /* Terminal Console Log Output */
+    .log-terminal {
+      background: #f8fafc;
+      border: 1px solid rgba(186, 230, 253, 0.9);
+      border-radius: 18px;
+      padding: 16px 18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #1e293b;
+      height: 160px;
       overflow-y: auto;
+      line-height: 1.6;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .log-terminal div {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .toast-success {
       display: none;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      border-radius: 16px;
+      padding: 14px 18px;
+      color: #047857;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
     }
   </style>
 </head>
 <body>
+  <!-- Ambient Liquid Glow Elements -->
+  <div class="liquid-bg-orb orb-1"></div>
+  <div class="liquid-bg-orb orb-2"></div>
 
   <div class="updater-container">
+    <!-- Header -->
     <div class="updater-header">
       <div class="brand-icon-cradle">⚡</div>
       <div class="header-text">
-        <h1>BeamDrop Zero-ZIP Updater <span class="available-ver-badge" id="appVerBadge">v1.6.2</span></h1>
-        <p>Direct In-Place Disk Synchronization via File System Access API</p>
+        <h1>
+          BeamDrop Studio
+          <span class="version-pill" id="appVerBadge">v1.6.2</span>
+        </h1>
+        <p>Direct File System Injector • Liquid Glass Blue Sky Edition</p>
       </div>
     </div>
 
-    <!-- Status Overview -->
+    <!-- Status Card -->
     <div class="status-card">
       <div class="status-row">
         <span class="status-label">Installed Build:</span>
@@ -240,61 +394,71 @@
       </div>
       <div class="status-row">
         <span class="status-label">Latest Cloud Build:</span>
-        <span class="status-value" id="cloudVer">Checking...</span>
+        <span class="status-value cloud" id="cloudVer">Checking...</span>
       </div>
       <div class="status-row">
         <span class="status-label">Build Fingerprint (Hash):</span>
         <span class="status-value" id="buildHashText">Checking...</span>
       </div>
 
-      <div id="linkedFolderStatus" class="folder-pill not-linked">
-        <span>⚠️</span>
-        <span id="linkedFolderName">No local folder linked yet</span>
+      <!-- Linked Folder Capsule -->
+      <div class="folder-pill not-linked" id="linkedFolderStatus">
+        <span>📁 <strong>No folder selected yet</strong></span>
+        <span style="font-size: 11px; opacity: 0.85;">Click Step 1 below</span>
       </div>
     </div>
 
-    <!-- Step Guide -->
-    <div class="step-guide">
-      <h3>💡 Clean 1-Click In-Place Synchronization:</h3>
-      <ol>
-        <li>Click <strong>Select Folder & Clean-Overwrite</strong> and pick your extension directory.</li>
-        <li>The updater removes any old/stale code and writes all 25 fresh files directly from the cloud.</li>
-        <li>The extension reloads cleanly on disk with zero zip extractions!</li>
-      </ol>
+    <!-- 3 Action Buttons Requested by User -->
+    <div class="steps-section-title">
+      <span>🛠️ 3-Step Clean Extension Manager:</span>
     </div>
 
-    <!-- Dynamic Actions -->
-    <div id="actionArea" style="display: flex; flex-direction: column; gap: 10px;">
-      <button id="btnSelectAndSync" class="btn-action-primary" type="button">
-        <span>📁 Select Folder & Clean-Overwrite All Files</span>
+    <div class="steps-button-stack">
+      <!-- BUTTON 1: Select Folder -->
+      <button id="btnStep1Select" class="btn-action btn-step1">
+        <span>📁 <strong>Step 1: Select Extension Folder</strong></span>
+        <span class="btn-meta-tag">Select "EXTN"</span>
       </button>
 
-      <button id="btnSyncOverwrite" class="btn-action-secondary" type="button" style="display: none; border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.12); color: #38bdf8;">
-        <span id="btnSyncOverwriteText">⚡ Overwrite Stored Folder (1-Click)</span>
+      <!-- BUTTON 2: Clean Folder -->
+      <button id="btnStep2Clean" class="btn-action btn-step2">
+        <span>🧹 <strong>Step 2: Clean Folder (Remove Old Files)</strong></span>
+        <span class="btn-meta-tag">Clean Disk</span>
+      </button>
+
+      <!-- BUTTON 3: Inject All Fresh Files -->
+      <button id="btnStep3Inject" class="btn-action btn-step3">
+        <span>🚀 <strong>Step 3: Inject All 21 Extension Files</strong></span>
+        <span class="btn-meta-tag">Cloud Stream</span>
+      </button>
+
+      <!-- MASTER 1-CLICK SYNC BUTTON -->
+      <button id="btnMasterSync" class="btn-action btn-master">
+        <span>⚡ <strong>1-Click Full Sync (Select + Clean + Inject)</strong></span>
+        <span class="btn-meta-tag">Automated</span>
       </button>
     </div>
 
-    <!-- Progress Wrap -->
-    <div id="syncProgressWrap" style="display: none; flex-direction: column; gap: 8px;">
-      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1;">
-        <span id="syncProgressLabel">Writing files to disk...</span>
-        <span id="syncProgressPercent" class="font-mono">0%</span>
+    <!-- Live Progress Section -->
+    <div class="progress-section" id="syncProgressWrap" style="display: none;">
+      <div class="progress-header">
+        <span id="syncProgressLabel">Preparing...</span>
+        <span id="syncProgressPercent">0%</span>
       </div>
-      <div class="progress-bar-wrap">
-        <div id="syncProgressFill" class="progress-bar-fill"></div>
+      <div class="progress-track">
+        <div class="progress-fill" id="syncProgressFill"></div>
       </div>
     </div>
 
-    <!-- Live Console Log Stream -->
-    <div id="logStream" class="log-stream"></div>
+    <!-- Terminal Log Stream -->
+    <div class="log-terminal" id="logStream" style="display: none;"></div>
 
     <!-- Success Toast Notification -->
-    <div id="toastSuccess" style="display: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 12px 16px; color: #34d399; font-size: 13px; font-weight: 700; text-align: center; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);">
-      ✓ Files updated successfully! Extension reloaded.
+    <div id="toastSuccess" class="toast-success">
+      ✓ All 21 files injected successfully! Extension reloaded.
     </div>
   </div>
 
-  <script src="libs/jszip.min.js"></script>
   <script src="folderStore.js"></script>
   <script src="buildInfo.js"></script>
   <script src="updater.js"></script>
