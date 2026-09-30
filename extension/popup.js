@@ -983,11 +983,18 @@ function initPeerJsSession(type = 'file') {
     console.log('[BeamDrop] Receiver Connected:', conn.peer);
     activeConnection = conn;
     updateStatus('connected', 'Phone Connected');
+    if (portalRadarText) {
+      portalRadarText.textContent = '🟢 Phone Connected! Starting stream...';
+    }
+    if (qrScanInstruction) {
+      qrScanInstruction.textContent = 'Phone connected! Preparing transfer...';
+    }
     setupConnectionHandlers(conn, type);
   });
 
   peer.on('disconnected', () => {
-    if (peer && !peer.destroyed) {
+    // Only reconnect signaling if there is NO active P2P transfer session
+    if (!activeConnection && peer && !peer.destroyed) {
       try { peer.reconnect(); } catch (e) {}
     }
   });
@@ -1005,8 +1012,9 @@ function initPeerJsSession(type = 'file') {
       errMsg.includes('Lost connection') ||
       errMsg.includes('socket')
     ) {
-      console.warn('[BeamDrop] Signaling socket notice (reconnecting):', errMsg || errType);
-      if (peer && !peer.destroyed && peer.disconnected) {
+      // Signaling server socket notices: WebRTC P2P direct stream continues undisturbed
+      // Only reconnect signaling if not actively connected to peer
+      if (!activeConnection && peer && !peer.destroyed && peer.disconnected) {
         try { peer.reconnect(); } catch (e) {}
       }
       return;
@@ -1037,31 +1045,33 @@ function setupConnectionHandlers(conn, type) {
     handleReceiverControlMessage(conn, data, type);
   });
 
-  conn.on('open', () => {
-    // When channel opens, if receiver doesn't send ready immediately, send a ping/header
-    updateStatus('connected', 'Phone Connected');
+  const triggerStreamNow = () => {
+    if (isStreaming) return;
+    updateStatus('connected', 'Streaming...');
+    showStage('transfer');
     if (portalRadarText) {
-      portalRadarText.textContent = '🚀 Link established! Preparing transmission...';
+      portalRadarText.textContent = '🚀 Streaming to Phone...';
     }
+    if (type === 'text') {
+      streamTextPayload(conn);
+    } else if (activePreparedFile) {
+      startBackpressureStream(conn, activePreparedFile);
+    }
+  };
 
-    // Set threshold immediately to prevent bufferedamountlow deadlock
+  // Immediate start if dataChannel is already open
+  if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
+    triggerStreamNow();
+  }
+
+  conn.on('open', () => {
+    updateStatus('connected', 'Phone Connected');
     try {
       if (conn.dataChannel) {
-        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024; // 64 KB
+        conn.dataChannel.bufferedAmountLowThreshold = 64 * 1024;
       }
     } catch (_) {}
-
-    // Send READY query or trigger streaming after brief grace period for receiver event bindings
-    setTimeout(() => {
-      if (!isStreaming && activePreparedFile) {
-        showStage('transfer');
-        if (type === 'text') {
-          streamTextPayload(conn);
-        } else {
-          startBackpressureStream(conn, activePreparedFile);
-        }
-      }
-    }, 250);
+    triggerStreamNow();
   });
 
   conn.on('close', () => {
@@ -1778,9 +1788,7 @@ async function scanSpiderNetwork(isManual = false) {
   // PairDrop / Snapdrop Architecture: Discover devices sharing same Wi-Fi / Public IP
   const pinParam = currentRadarRoomPin ? `&pin=${encodeURIComponent(currentRadarRoomPin)}` : '';
   const cloudEndpoints = [
-    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}${pinParam}`,
-    `http://localhost:3000/api/mesh/devices?_t=${Date.now()}${pinParam}`,
-    `http://localhost:3001/api/mesh/devices?_t=${Date.now()}${pinParam}`
+    `${VERCEL_RECEIVER_URL}/api/mesh/devices?_t=${Date.now()}${pinParam}`
   ];
 
   for (const ep of cloudEndpoints) {
