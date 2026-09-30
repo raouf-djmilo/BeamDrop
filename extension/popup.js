@@ -395,6 +395,40 @@ function initReceiveVault() {
       console.warn('QR render error:', e);
     }
   }
+
+  // Poll Transit for incoming files from iOS Shortcuts & direct uploads
+  if (window._receiveTransitTimer) clearInterval(window._receiveTransitTimer);
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  window._receiveTransitTimer = setInterval(async () => {
+    if (!currentPeerId) return;
+    try {
+      const res = await fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`);
+      if (res.status === 200) {
+        const blob = await res.blob();
+        const rawName = res.headers.get('X-BeamDrop-Name');
+        const fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}.jpg`;
+
+        addVaultItem({
+          name: fileName,
+          size: blob.size,
+          time: new Date().toLocaleTimeString(),
+          blob: blob
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+    } catch (_) {}
+  }, 2000);
 }
 
 if (btnCopyReceiveAddress) {

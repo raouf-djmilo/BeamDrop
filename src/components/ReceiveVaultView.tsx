@@ -124,6 +124,59 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
     };
   }, [transferManager, autoDownload]);
 
+  // Listen for incoming files via Ephemeral In-Memory Transit (iOS Shortcut Direct HTTP Upload)
+  useEffect(() => {
+    if (!peerId || peerId === 'initializing') return;
+
+    let isPolling = true;
+    const pollTransit = async () => {
+      if (!isPolling) return;
+      try {
+        const res = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}`);
+        if (res.status === 200) {
+          const blob = await res.blob();
+          const rawName = res.headers.get('X-BeamDrop-Name');
+          const fileName = rawName ? decodeURIComponent(rawName) : `received_media_${Date.now()}.jpg`;
+
+          const newFile: TransferFile = {
+            id: 'transit-' + Date.now(),
+            name: fileName,
+            size: blob.size,
+            type: blob.type || 'image/jpeg',
+            progress: 100,
+            speed: blob.size,
+            status: 'completed',
+            blob: blob
+          };
+
+          setVaultFiles((prev) => [newFile, ...prev]);
+          playChime('complete');
+
+          if (autoDownload) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+          }
+        }
+      } catch (_) {}
+
+      if (isPolling) {
+        setTimeout(pollTransit, 1800);
+      }
+    };
+
+    const timer = setTimeout(pollTransit, 1800);
+    return () => {
+      isPolling = false;
+      clearTimeout(timer);
+    };
+  }, [peerId, autoDownload]);
+
   const copyAddress = () => {
     navigator.clipboard.writeText(cryptoAddress);
     setCopiedAddress(true);

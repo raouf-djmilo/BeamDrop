@@ -396,8 +396,54 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
           </div>
         )}
 
-        {/* Camera Viewfinder View */}
-        {transferStatus !== 'completed' && transferStatus !== 'transferring' && (
+        {/* Stage 1: When PC is Connected */}
+        {targetPeerId && transferStatus !== 'completed' && transferStatus !== 'transferring' && (
+          <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 border-2 border-emerald-300 rounded-3xl p-5 space-y-4 shadow-sm animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Receiver Address Locked
+                  </span>
+                  <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">Target PC: {targetPeerId}</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setTargetPeerId('');
+                  startCamera();
+                }}
+                className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold cursor-pointer"
+              >
+                Rescan QR
+              </button>
+            </div>
+
+            {/* Quick Action Buttons to Pick Photos / Files */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="py-4 px-3 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/25 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all"
+              >
+                <ImageIcon className="w-5 h-5" />
+                <span>Choose Photos / Media</span>
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="py-4 px-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/25 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all"
+              >
+                <FileText className="w-5 h-5" />
+                <span>Select Files / Zip</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Stage 2: Camera Viewfinder (Only when peer is NOT known yet) */}
+        {!targetPeerId && transferStatus !== 'completed' && transferStatus !== 'transferring' && (
           <div className="space-y-4">
             {cameraActive ? (
               <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-900 border-2 border-sky-400 shadow-inner flex items-center justify-center">
@@ -476,26 +522,8 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
                 </div>
               </div>
             )}
-
-            {/* Target Address Card if Recognized */}
-            {targetPeerId && (
-              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs text-emerald-800">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-semibold">Target PC Connected:</span>
-                  <span className="font-mono font-bold text-emerald-900">{targetPeerId}</span>
-                </div>
-                <button
-                  onClick={() => {
-                    setTargetPeerId('');
-                    startCamera();
-                  }}
-                  className="text-[11px] text-emerald-700 hover:text-emerald-900 underline font-semibold"
-                >
-                  Change
-                </button>
-              </div>
-            )}
+          </div>
+        )}
 
             {/* Media & Files Drawer */}
             <div className="space-y-3">
@@ -584,8 +612,6 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
                 </span>
               </button>
             )}
-          </div>
-        )}
       </div>
     </div>
   );
