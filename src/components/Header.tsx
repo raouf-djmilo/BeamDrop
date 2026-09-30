@@ -15,7 +15,7 @@ import {
 import { useTransfer } from '../context/TransferContext';
 import { APP_VERSION } from '../config/version';
 
-export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces' | 'receiver';
+export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces';
 
 interface HeaderProps {
   activeTab: MainTab;
@@ -37,12 +37,41 @@ export const Header: React.FC<HeaderProps> = ({
   const { isConnected, connectedPeers, isQueueSending, currentTransfer } = useTransfer();
   const peerCount = connectedPeers.length;
 
-  const tabs: Array<{ id: MainTab; label: string; icon: React.ReactNode }> = [
-    { id: 'sender', label: 'Direct Beam', icon: <Zap className="w-4 h-4" /> },
-    { id: 'receive', label: 'Receive (QR)', icon: <QrCode className="w-4 h-4 text-sky-600" /> },
-    { id: 'radar', label: 'Mesh Radar', icon: <Radio className="w-4 h-4 text-emerald-500" /> },
-    { id: 'workspaces', label: 'Workspaces', icon: <Building2 className="w-4 h-4 text-indigo-500" /> },
-    { id: 'receiver', label: 'Device Bridge', icon: <Smartphone className="w-4 h-4 text-cyan-600" /> }
+  const tabs: Array<{
+    id: MainTab;
+    label: string;
+    subLabel: string;
+    icon: React.ReactNode;
+    activeStyle: string;
+  }> = [
+    {
+      id: 'sender',
+      label: 'Send',
+      subLabel: 'PC ➔ Phone',
+      icon: <Zap className="w-4 h-4 shrink-0" />,
+      activeStyle: 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/30'
+    },
+    {
+      id: 'receive',
+      label: 'Receive',
+      subLabel: 'Phone ➔ PC',
+      icon: <QrCode className="w-4 h-4 shrink-0" />,
+      activeStyle: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30'
+    },
+    {
+      id: 'radar',
+      label: 'Radar',
+      subLabel: 'Nearby',
+      icon: <Radio className="w-4 h-4 shrink-0" />,
+      activeStyle: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30'
+    },
+    {
+      id: 'workspaces',
+      label: 'Rooms',
+      subLabel: 'Workspaces',
+      icon: <Building2 className="w-4 h-4 shrink-0" />,
+      activeStyle: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/30'
+    }
   ];
 
   return (
@@ -50,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Floating Centered Liquid Glass Capsule Header (Permanent zero scrollbar, overflow-hidden) */}
       <header className="sticky top-4 z-40 w-full px-3 sm:px-6 pointer-events-none mb-6">
         <div className="max-w-5xl mx-auto pointer-events-auto">
-          <div className="bg-white/80 backdrop-blur-2xl border border-white/95 rounded-full px-3 sm:px-5 py-2 flex items-center justify-between gap-2 sm:gap-4 shadow-[0_12px_36px_rgba(2,132,199,0.12)] overflow-hidden">
+          <div className="bg-white/85 backdrop-blur-2xl border border-white/95 rounded-full px-3 sm:px-5 py-2 flex items-center justify-between gap-2 sm:gap-4 shadow-[0_12px_36px_rgba(2,132,199,0.12)] overflow-hidden">
             
             {/* Brand Mark (Glowing Electric Cyan) */}
             <div
@@ -70,24 +99,28 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* Exactly 4 Clean Navigation Tabs (Zero Scrollbar, no-scrollbar) */}
-            <nav className="flex items-center p-1 rounded-full bg-sky-100/70 border border-sky-200/80 space-x-1 no-scrollbar overflow-hidden shrink-0">
+            {/* Exactly 4 Clean Navigation Tabs: Send (PC->Phone), Receive (Phone->PC), Radar, Rooms */}
+            <nav className="flex items-center p-1 rounded-full bg-slate-100/90 border border-slate-200/90 space-x-1 shrink-0">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={'relative flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 ' + (
+                    className={'relative flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ' + (
                       isActive
-                        ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                        : 'text-slate-600 hover:text-sky-700 hover:bg-white/80'
+                        ? `${tab.activeStyle} scale-[1.02]`
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
                     )}
+                    title={`${tab.label} (${tab.subLabel})`}
                   >
                     {tab.icon}
-                    <span className="hidden xs:inline whitespace-nowrap">{tab.label}</span>
+                    <span className="inline whitespace-nowrap">{tab.label}</span>
+                    <span className="hidden md:inline text-[9.5px] opacity-80 font-normal whitespace-nowrap">
+                      {tab.subLabel}
+                    </span>
                     {tab.id === 'radar' && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse hidden sm:inline-block" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
                     )}
                   </button>
                 );

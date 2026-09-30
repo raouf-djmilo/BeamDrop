@@ -74,9 +74,9 @@ export const SenderView: React.FC<SenderViewProps> = ({
     ? `&name=${encodeURIComponent(firstFile.name)}&size=${firstFile.size}&mime=${encodeURIComponent(firstFile.type || '')}`
     : '';
 
-  const receiverUrl = activeTab === 'files' && firstFile
+  const receiverUrl = activeTab === 'files'
     ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}${fileParams}`
-    : `${targetBaseUrl}/?peer=${transferManager.myPeerId}&mode=receive`;
+    : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&type=text`;
 
   const qrValue = directQrMode && textPayload.trim() && textPayload.length < 500
     ? textPayload.trim()

@@ -9,7 +9,6 @@ import { Header, MainTab } from './components/Header';
 import { SenderView } from './components/SenderView';
 import { SpiderRadarView } from './components/SpiderRadarView';
 import { WorkspacesView } from './components/WorkspacesView';
-import { ReceiverView } from './components/ReceiverView';
 import { ReceiveVaultView } from './components/ReceiveVaultView';
 import { MobileScannerPortal } from './components/MobileScannerPortal';
 import { ExtensionModal } from './components/ExtensionModal';
@@ -35,9 +34,41 @@ function MainApp() {
 
   const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full' && initialMode !== 'scan' && initialMode !== 'scanner');
 
-  // Streamlined Navigation: Direct Beam, Receive (QR), Mesh Radar, Workspaces, Receiver
-  const [activeTab, setActiveTab] = useState<MainTab>('sender');
+  // URL Routing Sync & Distinct Path Navigation
+  const getInitialTabFromUrl = (): MainTab => {
+    if (typeof window === 'undefined') return 'sender';
+    const path = window.location.pathname.toLowerCase();
+    if (path.startsWith('/receive') || path.startsWith('/vault')) return 'receive';
+    if (path.startsWith('/radar') || path.startsWith('/nearby')) return 'radar';
+    if (path.startsWith('/workspaces') || path.startsWith('/rooms')) return 'workspaces';
+    if (path.startsWith('/send')) return 'sender';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'receive' || params.get('mode') === 'vault') return 'receive';
+    if (params.get('mode') === 'radar') return 'radar';
+    return 'sender';
+  };
+
+  // Streamlined 4-Mode Navigation: Send (/send), Receive (/receive), Radar (/radar), Workspaces (/workspaces)
+  const [activeTab, setActiveTab] = useState<MainTab>(getInitialTabFromUrl);
   const [targetedPeer, setTargetedPeer] = useState<any>(null);
+
+  const handleTabChange = (newTab: MainTab) => {
+    setActiveTab(newTab);
+    if (typeof window !== 'undefined') {
+      const targetPath = newTab === 'sender' ? '/send' : `/${newTab}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ tab: newTab }, '', targetPath);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTab(getInitialTabFromUrl());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Modals & Mobile Scanner state
   const [showMobileScanner, setShowMobileScanner] = useState<boolean>(initialMode === 'scan' || initialMode === 'scanner');
@@ -133,14 +164,14 @@ function MainApp() {
       {/* Streamlined Floating Glass Capsule Header */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         onOpenExtensionModal={() => setShowExtensionModal(true)}
         onOpenMobileScanner={() => setShowMobileScanner(true)}
         showArchitectureModal={showArchitectureModal}
         setShowArchitectureModal={setShowArchitectureModal}
       />
 
-      {/* Main Dual-Pane / View Container */}
+      {/* Main Container: Pure Separation of Send (/send) vs Receive (/receive) vs Radar (/radar) vs Rooms (/workspaces) */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-4">
         {activeTab === 'sender' && (
           <SenderView
@@ -161,20 +192,13 @@ function MainApp() {
           <SpiderRadarView
             onDirectBeamTarget={(peer) => {
               setTargetedPeer(peer);
-              setActiveTab('sender');
+              handleTabChange('sender');
             }}
           />
         )}
 
         {activeTab === 'workspaces' && (
           <WorkspacesView />
-        )}
-
-        {activeTab === 'receiver' && (
-          <ReceiverView
-            transferManager={transferManager}
-            initialTargetPeerId={initialPeer}
-          />
         )}
       </main>
 
