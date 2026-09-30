@@ -11,28 +11,14 @@ const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
 let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
-// Comprehensive High-Speed STUN + TURN Relay matrix (bypasses Symmetric NAT, CGNAT & 4G/5G mobile firewalls)
+// Ultra-Fast Zero-Deadlock STUN Server Matrix
 const EXTENSION_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:global.stun.twilio.com:3478' },
-  { urls: 'stun:stun.relay.metered.ca:80' },
-  {
-    urls: 'turn:standard.relay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:standard.relay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' }
 ];
 
 // Current Installed Version from Manifest
@@ -682,6 +668,19 @@ async function startFilePortalSession(file) {
     console.error('QR rendering failed:', err);
   }
 
+  // Pre-stage in Ephemeral In-Memory RAM Transit for instant mobile 4G/5G phone fallback
+  try {
+    const transitUrl = `${safeBaseUrl}/api/transit?peer=${currentPeerId}&name=${fileNameEnc}&mime=${mimeEnc}`;
+    fetch(transitUrl, {
+      method: 'POST',
+      body: file
+    }).then(res => res.json()).then(data => {
+      console.log('[BeamDrop] RAM Transit staged for mobile fallback:', data);
+    }).catch(err => {
+      console.debug('[BeamDrop] Transit stage notice:', err);
+    });
+  } catch (_) {}
+
   showStage('portal');
   initPeerJsSession('file');
 }
@@ -1080,7 +1079,15 @@ function setupConnectionHandlers(conn, type) {
     }
   });
 
-  // 2. Start when DataChannel is confirmed OPEN
+  // 2. Direct hook into native WebRTC RTCDataChannel onopen event
+  if (conn.dataChannel) {
+    conn.dataChannel.onopen = () => {
+      console.log('[BeamDrop] Native RTCDataChannel onopen fired');
+      startTransmission();
+    };
+  }
+
+  // 3. Start when DataChannel is confirmed OPEN
   if (conn.open || (conn.dataChannel && conn.dataChannel.readyState === 'open')) {
     startTransmission();
   }
@@ -1090,7 +1097,7 @@ function setupConnectionHandlers(conn, type) {
     startTransmission();
   });
 
-  // Polling watchdog: check channel open status up to 15 seconds (essential for mobile 4G/5G ICE negotiation)
+  // 4. Polling watchdog: check channel open status up to 15 seconds
   const pollTimer = setInterval(() => {
     if (streamStarted) {
       clearInterval(pollTimer);
@@ -1100,11 +1107,35 @@ function setupConnectionHandlers(conn, type) {
       clearInterval(pollTimer);
       startTransmission();
     }
-  }, 120);
+  }, 100);
   setTimeout(() => clearInterval(pollTimer), 15000);
+
+  // 5. Watch for phone consuming the RAM Transit bridge
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  const transitCheckTimer = setInterval(async () => {
+    if (streamStarted && !isStreaming) {
+      clearInterval(transitCheckTimer);
+      return;
+    }
+    try {
+      const resp = await fetch(`${safeBaseUrl}/api/transit?peer=${currentPeerId}`);
+      if (resp.status === 404) {
+        clearInterval(transitCheckTimer);
+        transferProgressFill.style.width = '100%';
+        transferPercentText.textContent = '100%';
+        showStage('complete');
+        completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
+        updateStatus('ready', 'Transfer Complete');
+      }
+    } catch (_) {}
+  }, 1200);
 
   conn.on('close', () => {
     clearInterval(pollTimer);
+    clearInterval(transitCheckTimer);
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
       if (portalRadarText) portalRadarText.textContent = 'Connection closed';

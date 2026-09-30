@@ -39,6 +39,7 @@ export default defineConfig(() => {
           });
           const meshPeers = new Map<string, any>();
           const meshOrders = new Map<string, any>();
+          const transitStore = new Map<string, any>();
 
           const parseJsonBody = (r: any): Promise<any> => {
             return new Promise((resolve) => {
@@ -227,6 +228,64 @@ export default defineConfig(() => {
               } else {
                 res.statusCode = 404;
                 res.end('Order stream not found');
+                return;
+              }
+            }
+
+            // Universal In-Memory RAM Transit (Zero Cloud Storage)
+            if (req.url?.startsWith('/api/transit')) {
+              const u = new URL(req.url, 'http://localhost');
+              const peer = u.searchParams.get('peer') || '';
+              if (!peer) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'peer required' }));
+                return;
+              }
+
+              if (req.method === 'GET') {
+                const item = transitStore.get(peer);
+                if (!item || !item.buffer) {
+                  res.statusCode = 404;
+                  res.end(JSON.stringify({ error: 'not_found', peer }));
+                  return;
+                }
+                res.setHeader('Content-Type', item.mime || 'application/octet-stream');
+                res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(item.name || 'beamed-object')}"`);
+                res.setHeader('Content-Length', item.buffer.length);
+                res.setHeader('X-BeamDrop-Name', encodeURIComponent(item.name || 'beamed-object'));
+                res.setHeader('X-BeamDrop-Size', item.buffer.length);
+                res.statusCode = 200;
+                res.end(item.buffer);
+                setTimeout(() => transitStore.delete(peer), 15000);
+                return;
+              }
+
+              if (req.method === 'POST') {
+                const chunks: Buffer[] = [];
+                req.on('data', (c: Buffer) => chunks.push(c));
+                req.on('end', () => {
+                  const buffer = Buffer.concat(chunks);
+                  const name = decodeURIComponent(u.searchParams.get('name') || 'shared-object');
+                  const mime = decodeURIComponent(u.searchParams.get('mime') || 'application/octet-stream');
+                  transitStore.set(peer, {
+                    peer,
+                    name,
+                    mime,
+                    size: buffer.length,
+                    buffer,
+                    created: Date.now()
+                  });
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ success: true, peer, size: buffer.length }));
+                });
+                return;
+              }
+
+              if (req.method === 'DELETE') {
+                transitStore.delete(peer);
+                res.statusCode = 200;
+                res.end(JSON.stringify({ success: true }));
                 return;
               }
             }

@@ -699,16 +699,14 @@
       fileNameHeading.textContent = expectedName;
       document.title = 'BeamDrop — ' + expectedName;
 
-      // Full ICE (STUN + TURN) Matrix
+      // Ultra-Fast Zero-Deadlock STUN Server Matrix
       const ICE_SERVERS = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' },
-        { urls: 'stun:stun.relay.metered.ca:80' },
-        { urls: 'turn:standard.relay.metered.ca:80',     username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:standard.relay.metered.ca:443',    username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
       ];
 
       if (expectedType === 'text' || expectedType === 'link') {
@@ -918,6 +916,100 @@
         }
       });
 
+      let transitFallbackTriggered = false;
+
+      async function attemptTransitFallback() {
+        if (isCompleted || transitFallbackTriggered) return;
+        transitFallbackTriggered = true;
+        console.log('[BeamDrop] Initiating ultra-fast In-Memory RAM Transit fallback for mobile network...');
+        transferStatusText.textContent = 'Connecting via In-Memory RAM Bridge...';
+
+        try {
+          const resp = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}&_t=${Date.now()}`);
+          if (!resp.ok) {
+            console.log('[BeamDrop] Transit not ready yet, status:', resp.status);
+            transitFallbackTriggered = false;
+            // Retry after 1s
+            setTimeout(attemptTransitFallback, 1200);
+            return;
+          }
+
+          const contentLength = parseInt(resp.headers.get('Content-Length') || String(expectedSize || 0), 10);
+          const totalSize = contentLength || expectedSize || 1;
+          const reader = resp.body.getReader();
+          const chunks = [];
+          let received = 0;
+          let lastTime = Date.now();
+          let lastBytes = 0;
+
+          requestWakeLock();
+          transferStatusText.textContent = 'Streaming live RAM-to-RAM...';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.byteLength;
+
+            const pct = Math.min(100, Math.round((received / totalSize) * 100));
+            progressBarFill.style.width = pct + '%';
+            progressPctLabel.textContent = pct + '%';
+            bytesTransferredLabel.textContent = formatBytes(received) + ' / ' + formatBytes(totalSize);
+
+            const now = Date.now();
+            const elapsed = (now - lastTime) / 1000;
+            if (elapsed >= 0.2) {
+              const speed = (received - lastBytes) / Math.max(elapsed, 0.001);
+              transferSpeedText.textContent = formatBytes(speed) + '/s';
+              lastTime = now;
+              lastBytes = received;
+            }
+          }
+
+          isCompleted = true;
+          const blob = new Blob(chunks, { type: expectedMime || 'application/octet-stream' });
+          currentDownloadUrl = URL.createObjectURL(blob);
+
+          progressBarFill.style.width = '100%';
+          progressPctLabel.textContent = '100%';
+          transferStatusText.textContent = '✓ Ready to Save!';
+          transferSpeedText.textContent = 'Finished';
+          pulseRing.style.animation = 'none';
+
+          btnDownload.disabled = false;
+          btnDownload.className = 'btn-download-hero glowing-neon';
+          btnDownload.style.background = 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)';
+          btnDownload.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.6)';
+          btnDownload.style.transform = 'scale(1.02)';
+          btnDownloadText.textContent = '📥 Tap to Save ' + expectedName;
+          btnDownload.onclick = function() {
+            triggerBrowserSave(currentDownloadUrl, expectedName);
+          };
+
+          successBox.style.display = 'flex';
+          successTitle.textContent = 'Transfer Complete!';
+          successSub.textContent = 'File assembled in RAM. Tap the button above to save to device.';
+
+          try {
+            triggerBrowserSave(currentDownloadUrl, expectedName);
+          } catch (_) {}
+
+          if (expectedMime && expectedMime.startsWith('image/')) {
+            previewBox.innerHTML = '<img src="' + currentDownloadUrl + '" alt="' + expectedName + '" />';
+            previewBox.style.display = 'block';
+          } else if (expectedMime && expectedMime.startsWith('video/')) {
+            previewBox.innerHTML = '<video controls playsinline src="' + currentDownloadUrl + '"></video>';
+            previewBox.style.display = 'block';
+          }
+
+          releaseWakeLock();
+        } catch (err) {
+          console.warn('[BeamDrop] Transit pull error:', err);
+          transitFallbackTriggered = false;
+          setTimeout(attemptTransitFallback, 1500);
+        }
+      }
+
       function initP2P() {
         const receiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
         peer = new Peer(receiverId, {
@@ -937,10 +1029,19 @@
           setupConnection(connection);
         });
 
+        // Auto-fallback watchdog for mobile carriers where P2P is blocked by CGNAT
+        setTimeout(() => {
+          if (!isCompleted && (!connection || !connection.open)) {
+            console.log('[BeamDrop] WebRTC P2P negotiating slowly or blocked by carrier NAT, engaging RAM Transit...');
+            attemptTransitFallback();
+          }
+        }, 1200);
+
         peer.on('disconnected', function() {
           if (peer && !peer.destroyed) {
             try { peer.reconnect(); } catch (e) {}
           }
+          if (!isCompleted) attemptTransitFallback();
         });
 
         peer.on('error', function(err) {
@@ -960,18 +1061,18 @@
             if (peer && !peer.destroyed && peer.disconnected) {
               try { peer.reconnect(); } catch (e) {}
             }
+            if (!isCompleted) attemptTransitFallback();
             return;
           }
 
           if (errType === 'peer-unavailable') {
             transferStatusText.textContent = 'Waiting for sender to connect...';
+            if (!isCompleted) attemptTransitFallback();
             return;
           }
 
           console.warn('Peer notice:', err);
-          if (!connection || !connection.open) {
-            transferStatusText.textContent = 'Connection notice. Please check sender.';
-          }
+          if (!isCompleted) attemptTransitFallback();
         });
       }
 
