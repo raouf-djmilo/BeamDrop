@@ -6,6 +6,10 @@ import styleCssRaw from '../../extension/style.css?raw';
 import backgroundJsRaw from '../../extension/background.js?raw';
 import updateBatRaw from '../../extension/update.bat?raw';
 import updateShRaw from '../../extension/update.sh?raw';
+import folderStoreJsRaw from '../../extension/folderStore.js?raw';
+import updaterHtmlRaw from '../../extension/updater.html?raw';
+import updaterJsRaw from '../../extension/updater.js?raw';
+import buildInfoJsRaw from '../../extension/buildInfo.js?raw';
 
 export interface ExtensionFile {
   name: string;
@@ -81,6 +85,34 @@ export const getExtensionFiles = (receiverBaseUrl: string = 'https://beam-drop-m
       language: 'bash',
       description: 'Mac/Linux Fast Auto-Updater Script',
       content: updateShRaw
+    },
+    {
+      name: 'folderStore.js',
+      path: 'folderStore.js',
+      language: 'javascript',
+      description: 'Persistent Folder Handle Store (IndexedDB) with permission management',
+      content: folderStoreJsRaw
+    },
+    {
+      name: 'updater.html',
+      path: 'updater.html',
+      language: 'html',
+      description: 'Zero-ZIP In-Place Folder Updater GUI',
+      content: updaterHtmlRaw
+    },
+    {
+      name: 'updater.js',
+      path: 'updater.js',
+      language: 'javascript',
+      description: 'File System Access API In-Place Disk Synchronizer',
+      content: updaterJsRaw
+    },
+    {
+      name: 'buildInfo.js',
+      path: 'buildInfo.js',
+      language: 'javascript',
+      description: 'Build Fingerprint and local version info',
+      content: buildInfoJsRaw
     }
   ];
 };

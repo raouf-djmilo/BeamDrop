@@ -7,6 +7,7 @@ let VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 if (!VERCEL_RECEIVER_URL || VERCEL_RECEIVER_URL.includes('.run.app') || VERCEL_RECEIVER_URL.includes('localhost') || VERCEL_RECEIVER_URL.includes('127.0.0.1')) {
   VERCEL_RECEIVER_URL = "https://beam-drop-mu.vercel.app";
 }
+const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
 let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
@@ -1383,9 +1384,8 @@ async function fetchLatestCloudVersion() {
   }
 
   const endpoints = [
-    `${VERCEL_RECEIVER_URL}/version.json?_t=${Date.now()}`,
-    `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`,
-    'https://beam-drop-mu.vercel.app/version.json'
+    `${VERCEL_HOST}/version.json?_t=${Date.now()}`,
+    `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`
   ];
 
   for (const ep of endpoints) {
@@ -1393,7 +1393,7 @@ async function fetchLatestCloudVersion() {
       const resp = await fetch(ep, { method: 'GET', mode: 'cors', cache: 'no-store' });
       if (resp.ok) {
         const json = await resp.json();
-        if (json && json.version) return json;
+        if (json && (json.version || json.latestVersion)) return json;
       }
     } catch (e) {
       console.debug('Failed to fetch from endpoint:', ep, e);
@@ -1425,18 +1425,16 @@ async function checkForUpdates(manual = false) {
 
   try {
     const urls = [
-      (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
-        ? VERCEL_RECEIVER_URL.replace(/\/$/, '') + '/version.json'
-        : 'https://beam-drop-mu.vercel.app/version.json',
-      '/version.json'
+      `${VERCEL_HOST}/version.json?_t=${Date.now()}`,
+      `${GITHUB_RAW_FALLBACK}?_t=${Date.now()}`
     ];
 
     for (const url of urls) {
       try {
-        const resp = await fetch(url + '?_t=' + Date.now(), { cache: 'no-store' });
+        const resp = await fetch(url, { cache: 'no-store' });
         if (resp.ok) {
           remoteVersionInfo = await resp.json();
-          if (remoteVersionInfo && remoteVersionInfo.version) break;
+          if (remoteVersionInfo && (remoteVersionInfo.version || remoteVersionInfo.latestVersion)) break;
         }
       } catch (_) {}
     }
@@ -1500,35 +1498,68 @@ async function checkForUpdates(manual = false) {
       // Zero-ZIP In-Place Folder Sync Mode (via updater.html)
       if (unpackedGuide) unpackedGuide.style.display = 'block';
       
-      // Check if user already linked an extension directory in IndexedDB
+      // Check whether a folder handle exists in IndexedDB
       let hasLinkedFolder = false;
+      let linkedFolderName = '';
       try {
         if (window.BeamDropFolderStore) {
-          const h = await window.BeamDropFolderStore.getFolderHandle();
-          if (h) hasLinkedFolder = true;
+          const folderData = await window.BeamDropFolderStore.getFolderData();
+          if (folderData && folderData.handle) {
+            hasLinkedFolder = true;
+            linkedFolderName = folderData.folderName || folderData.handle.name || 'Extension Folder';
+          }
         }
       } catch (_) {}
 
-      if (btnTriggerUpdateText) {
-        btnTriggerUpdateText.textContent = hasLinkedFolder
-          ? ('⚡ Sync & Overwrite to ' + (isNewGitPatch ? ('Patch ' + remoteHash.slice(0, 8)) : ('v' + latestVer)))
-          : '📁 Link Folder for Auto-Updates';
-      }
-      if (updateModeNotice) {
-        updateModeNotice.textContent = '⚡ Zero-ZIP In-Place Sync: directly updates files on disk';
-      }
+      if (hasLinkedFolder) {
+        // Folder IS linked: allow direct sync flow via updater tab
+        const patchOrVerLabel = isNewGitPatch ? ('Patch ' + remoteHash.slice(0, 8)) : ('v' + latestVer);
+        if (btnTriggerUpdateText) {
+          btnTriggerUpdateText.textContent = `⚡ Sync & Overwrite to ${patchOrVerLabel}`;
+        }
+        if (updateModeNotice) {
+          updateModeNotice.textContent = `📁 Linked: ${linkedFolderName} • 1-Click Direct In-Place Sync`;
+        }
 
-      if (btnTriggerUpdate) {
-        btnTriggerUpdate.style.display = 'flex';
-        btnTriggerUpdate.disabled = false;
-        btnTriggerUpdate.onclick = () => {
-          // Open dedicated full-tab updater page to prevent popup auto-close
-          if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-            chrome.tabs.create({ url: chrome.runtime.getURL('updater.html') });
-          } else {
-            window.open('updater.html', '_blank');
-          }
-        };
+        if (btnTriggerUpdate) {
+          btnTriggerUpdate.style.display = 'flex';
+          btnTriggerUpdate.disabled = false;
+          btnTriggerUpdate.onclick = () => {
+            const updaterUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+              ? chrome.runtime.getURL('updater.html?action=sync')
+              : 'updater.html?action=sync';
+
+            if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+              chrome.tabs.create({ url: updaterUrl });
+            } else {
+              window.open(updaterUrl, '_blank');
+            }
+          };
+        }
+      } else {
+        // NO folder is linked yet: prompt to link folder first
+        if (btnTriggerUpdateText) {
+          btnTriggerUpdateText.textContent = '📁 Link Folder to Enable 1-Click Updates';
+        }
+        if (updateModeNotice) {
+          updateModeNotice.textContent = '⚡ Link your local folder once to enable 1-click in-place disk updates';
+        }
+
+        if (btnTriggerUpdate) {
+          btnTriggerUpdate.style.display = 'flex';
+          btnTriggerUpdate.disabled = false;
+          btnTriggerUpdate.onclick = () => {
+            const updaterUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+              ? chrome.runtime.getURL('updater.html')
+              : 'updater.html';
+
+            if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+              chrome.tabs.create({ url: updaterUrl });
+            } else {
+              window.open(updaterUrl, '_blank');
+            }
+          };
+        }
       }
 
       if (btnReloadExtension) {
