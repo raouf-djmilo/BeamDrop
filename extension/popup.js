@@ -1300,54 +1300,128 @@ async function fetchLatestCloudVersion() {
 }
 
 async function checkForUpdates(manual = false) {
-  if (manual) {
-    if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Checking cloud...';
-    if (refreshSpinIcon) refreshSpinIcon.classList.add('spinning');
+  if (manual && refreshSpinIcon) {
+    refreshSpinIcon.classList.add('spinning');
+    if (btnCheckUpdatesText) btnCheckUpdatesText.textContent = 'Checking...';
   }
 
-  const currentVer = REAL_MANIFEST_VERSION;
-  if (footerVersionText) footerVersionText.textContent = 'v' + currentVer;
+  // Smart Environment Detection: Check if extension is Unpacked or Web Store
+  const manifest = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+    ? chrome.runtime.getManifest()
+    : { version: REAL_MANIFEST_VERSION };
+  const isUnpacked = !('update_url' in manifest);
 
-  remoteVersionInfo = await fetchLatestCloudVersion();
-  const latestVer = remoteVersionInfo.version || '1.5.2';
-  const isNewer = compareSemver(latestVer, currentVer) > 0;
+  let currentVer = manifest.version || REAL_MANIFEST_VERSION;
+  let remoteVersionInfo = null;
 
-  if (isNewer) {
-    // STATE B: NEW UPDATE AVAILABLE
+  try {
+    const urls = [
+      (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+        ? VERCEL_RECEIVER_URL.replace(/\/$/, '') + '/version.json'
+        : 'https://beam-drop-mu.vercel.app/version.json',
+      '/version.json'
+    ];
+
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url + '?_t=' + Date.now(), { cache: 'no-store' });
+        if (resp.ok) {
+          remoteVersionInfo = await resp.json();
+          if (remoteVersionInfo && remoteVersionInfo.version) break;
+        }
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.debug('Cloud version check notice:', err);
+  }
+
+  const latestVer = remoteVersionInfo ? (remoteVersionInfo.version || remoteVersionInfo.latestVersion) : currentVer;
+  const isOutdated = compareVersions(currentVer, latestVer) < 0;
+
+  if (isOutdated && latestVer) {
+    // STATE B: UPDATE AVAILABLE
     if (stateUpToDate) stateUpToDate.style.display = 'none';
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'block';
 
-    if (currentVerPill) currentVerPill.textContent = `v${currentVer} ➔`;
+    if (currentVerPill) currentVerPill.textContent = 'v' + currentVer + ' ➔';
     if (availableVerPill) availableVerPill.textContent = 'v' + latestVer;
-    if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = `⚡ Mettre à jour v${latestVer}`;
-    if (updatePostDownloadBox) updatePostDownloadBox.style.display = 'none';
-    if (updateProgressContainer) updateProgressContainer.style.display = 'none';
-    if (btnTriggerUpdate) btnTriggerUpdate.style.display = 'flex';
+
+    const guideTargetVer = document.getElementById('guideTargetVer');
+    if (guideTargetVer) guideTargetVer.textContent = latestVer;
+    const reloadTargetVer = document.getElementById('reloadTargetVer');
+    if (reloadTargetVer) reloadTargetVer.textContent = latestVer;
+
+    const unpackedGuide = document.getElementById('unpackedUpgradeGuide');
+    const updateModeNotice = document.getElementById('updateModeNotice');
+    const btnReloadExtension = document.getElementById('btnReloadExtension');
+
+    if (isUnpacked) {
+      // Unpacked / Developer Mode: Chrome cannot overwrite local folder files
+      if (unpackedGuide) unpackedGuide.style.display = 'block';
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '📥 Download v' + latestVer + ' Update Archive';
+      if (updateModeNotice) updateModeNotice.textContent = '⚡ Load Unpacked mode: download package and reload';
+
+      if (btnTriggerUpdate) {
+        btnTriggerUpdate.style.display = 'flex';
+        btnTriggerUpdate.disabled = false;
+        btnTriggerUpdate.onclick = () => {
+          downloadUpdatePackage(latestVer);
+          if (btnReloadExtension) btnReloadExtension.style.display = 'block';
+        };
+      }
+
+      if (btnReloadExtension) {
+        btnReloadExtension.onclick = () => {
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+            chrome.runtime.reload();
+          } else {
+            window.location.reload();
+          }
+        };
+      }
+    } else {
+      // Web Store Production Mode
+      if (unpackedGuide) unpackedGuide.style.display = 'none';
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '⚡ 1-Click Update to v' + latestVer;
+      if (updateModeNotice) updateModeNotice.textContent = '⚡ Managed by Chrome Web Store';
+
+      if (btnTriggerUpdate) {
+        btnTriggerUpdate.style.display = 'flex';
+        btnTriggerUpdate.disabled = false;
+        btnTriggerUpdate.onclick = () => {
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.requestUpdateCheck) {
+            chrome.runtime.requestUpdateCheck((status) => {
+              if (status === 'update_available') {
+                chrome.runtime.reload();
+              } else {
+                chrome.runtime.reload();
+              }
+            });
+          } else {
+            chrome.runtime.reload();
+          }
+        };
+      }
+    }
 
     const notes = remoteVersionInfo.highlights || [
-      '📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
-      '📓 Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
-      '⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction',
-      '🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click'
+      '🛡️ Clean Clipboard & Bluetooth DOMException fixes',
+      '⚡ High-resolution crisp icon assets for Chrome bar',
+      '🎨 iOS Liquid Glass Visual Overhaul with Specular Refraction',
+      '📁 Native File System 1-Click Folder Unpacker (Zero-ZIP)'
     ];
 
     if (availableChangelogList) {
       availableChangelogList.innerHTML = notes
-        .map(item => `<li>${escapeHtml(item)}</li>`)
+        .map(item => '<li>' + escapeHtml(item) + '</li>')
         .join('');
-    }
-
-    if (btnTriggerUpdate) {
-      btnTriggerUpdate.disabled = false;
-      btnTriggerUpdate.onclick = () => startOneClickUpdate(latestVer);
     }
   } else {
     // STATE A: UP TO DATE
     if (stateUpdateAvailable) stateUpdateAvailable.style.display = 'none';
     if (stateUpToDate) stateUpToDate.style.display = 'block';
     if (navUpdateDot) navUpdateDot.style.display = 'none';
-
     if (uptodateVersionBadge) uptodateVersionBadge.textContent = 'v' + currentVer;
   }
 
@@ -1363,103 +1437,46 @@ async function checkForUpdates(manual = false) {
   }
 }
 
-// 1-Click Zero-ZIP In-Place Upgrade Action
-async function startOneClickUpdate(ver) {
-  if (updateProgressContainer) updateProgressContainer.style.display = 'block';
-  if (btnTriggerUpdate) btnTriggerUpdate.disabled = true;
+// Download Update Package via Chrome Downloads API or direct link
+function downloadUpdatePackage(ver) {
+  const downloadUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '') + '/extension.zip'
+    : 'https://beam-drop-mu.vercel.app/extension.zip';
 
-  setUpdateProgress(20, `⚡ Contacting Upgrade Engine...`);
-
-  try {
-    let localSuccess = false;
-    const candidatePorts = [3001, 3000];
-    for (const p of candidatePorts) {
-      try {
-        const resp = await fetch(`http://localhost:${p}/api/upgrade-extension`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store'
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.success) {
-            localSuccess = true;
-            break;
-          }
-        }
-      } catch (e) {
-        // try next
+  if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+    chrome.downloads.download({
+      url: downloadUrl,
+      filename: 'beamdrop-v' + ver + '.zip',
+      saveAs: true
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        window.open(downloadUrl, '_blank');
       }
-    }
+    });
+  } else {
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = 'beamdrop-v' + ver + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
-    if (localSuccess) {
-      setUpdateProgress(60, `✓ In-place upgrade applied & extension built!`);
-      setTimeout(() => {
-        setUpdateProgress(90, `🔄 Reloading BeamDrop to v${ver}...`);
-        setTimeout(() => {
-          setUpdateProgress(100, `✓ Ready!`);
-          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-            chrome.runtime.reload();
-          } else {
-            window.location.reload();
-          }
-        }, 400);
-      }, 500);
-      return;
-    }
-
-    // Fallback if dev server is not active: reload disk files directly
-    setUpdateProgress(70, `⚡ Reloading local extension from disk...`);
-    setTimeout(() => {
-      setUpdateProgress(100, `✓ Reloading...`);
-      setTimeout(() => {
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-          chrome.runtime.reload();
-        } else {
-          window.location.reload();
-        }
-      }, 400);
-    }, 500);
-  } catch (err) {
-    console.error('Update error:', err);
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-      chrome.runtime.reload();
-    }
+  if (btnTriggerUpdateText) {
+    btnTriggerUpdateText.textContent = '✓ Downloaded beamdrop-v' + ver + '.zip!';
   }
 }
 
-// Handlers for Reload Buttons
-if (btnReloadExtension) {
-  btnReloadExtension.addEventListener('click', () => {
-    if (btnReloadExtension) btnReloadExtension.textContent = '🔄 Reloading...';
-    setTimeout(() => {
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-        chrome.runtime.reload();
-      } else {
-        window.location.reload();
-      }
-    }, 300);
-  });
-}
-
-if (btnForceReloadExt) {
-  btnForceReloadExt.addEventListener('click', () => {
-    if (btnForceReloadExtText) btnForceReloadExtText.textContent = '🔄 Reloading files from disk...';
-    btnForceReloadExt.disabled = true;
-    setTimeout(() => {
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-        chrome.runtime.reload();
-      } else {
-        window.location.reload();
-      }
-    }, 300);
-  });
-}
-
-function setUpdateProgress(percent, label) {
-  if (updateProgressFill) updateProgressFill.style.width = percent + '%';
-  if (updateProgressPercent) updateProgressPercent.textContent = percent + '%';
-  if (updateProgressLabel) updateProgressLabel.textContent = label;
+function compareVersions(v1, v2) {
+  const p1 = (v1 || '').split('.').map(Number);
+  const p2 = (v2 || '').split('.').map(Number);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const n1 = p1[i] || 0;
+    const n2 = p2[i] || 0;
+    if (n1 < n2) return -1;
+    if (n1 > n2) return 1;
+  }
+  return 0;
 }
 
 if (btnCheckUpdates) {

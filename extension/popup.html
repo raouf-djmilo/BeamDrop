@@ -345,42 +345,38 @@
         </ul>
       </div>
 
-      <!-- Live Update Progress Animation -->
-      <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
-        <div class="update-progress-header">
-          <span id="updateProgressLabel">⚡ Upgrading BeamDrop engine...</span>
-          <span id="updateProgressPercent" class="font-mono">0%</span>
+      <!-- 2-Step Developer Mode (Unpacked) Upgrade Assistant -->
+      <div id="unpackedUpgradeGuide" style="display: none; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; padding: 12px; margin: 10px 0;">
+        <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; color: #38bdf8; font-size: 12px;">
+          <span>📦 Developer Mode (Load Unpacked)</span>
         </div>
-        <div class="update-progress-bar">
-          <div id="updateProgressFill" class="update-progress-fill" style="width: 0%;"></div>
-        </div>
-      </div>
-
-      <!-- Upgrade Complete Assistant -->
-      <div id="updatePostDownloadBox" class="update-post-download-box" style="display: none;">
-        <div class="post-download-title">
-          <span class="text-emerald-400 font-bold">✓ BeamDrop Upgraded Successfully!</span>
-        </div>
-        <p class="post-download-desc">
-          All files have been updated and rebuilt. Click below to reload Chrome Extension now.
+        <p style="font-size: 11px; color: #cbd5e1; margin: 6px 0 8px 0; line-height: 1.4;">
+          Chrome requires local folder files to be replaced on disk:
         </p>
-        <div class="post-download-actions">
-          <button id="btnReloadExtension" type="button" class="btn-cta-generate" style="margin-top: 6px;">
-            <span>🔄 Reload &amp; Launch Now</span>
-          </button>
-        </div>
+        <ol style="font-size: 10.5px; color: #94a3b8; margin: 0 0 10px 16px; padding: 0; line-height: 1.6;">
+          <li>Download the clean v<span id="guideTargetVer">1.6.1</span> package</li>
+          <li>Extract or copy files into your extension folder on your PC</li>
+          <li>Click <strong>Reload Extension</strong> below</li>
+        </ol>
       </div>
 
-      <!-- Primary 1-Click Seamless In-Place Upgrade Button -->
+      <!-- Action Button (Context Aware) -->
       <button id="btnTriggerUpdate" class="btn-cta-update" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
-        <span id="btnTriggerUpdateText">⚡ Mettre à jour (1-Click Auto Upgrade)</span>
+        <span id="btnTriggerUpdateText">📥 Download Update Archive</span>
       </button>
 
-      <p class="update-sub-desc" style="font-size: 10px; color: #94a3b8; text-align: center; margin: 6px 0 0 0;">
-        ⚡ Direct in-place upgrade &amp; reload. Zero manual ZIP downloads or file extracting!
+      <!-- Reload button after extraction -->
+      <button id="btnReloadExtension" type="button" class="btn-cta-generate" style="display: none; margin-top: 8px; width: 100%;">
+        <span>🔄 Reload Extension (Apply v<span id="reloadTargetVer">1.6.1</span>)</span>
+      </button>
+
+      <p id="updateModeNotice" class="update-sub-desc" style="font-size: 10px; color: #94a3b8; text-align: center; margin: 6px 0 0 0;">
+        ⚡ Smart Environment Detection: Load Unpacked mode
       </p>
 
       <div class="available-footer-info flex items-center justify-between mt-2">
