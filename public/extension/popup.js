@@ -11,14 +11,30 @@ const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
 let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
-// Ultra-Fast Zero-Deadlock STUN Server Matrix
+// Ultra-Fast Zero-Deadlock STUN/TURN Server Matrix (Bypasses Symmetric NAT & 4G/5G mobile cellular firewalls)
 const EXTENSION_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
-  { urls: 'stun:global.stun.twilio.com:3478' }
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
 ];
 
 // Current Installed Version from Manifest

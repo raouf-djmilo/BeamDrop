@@ -530,10 +530,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
 
                 <button
                   onClick={() => downloadFile(file)}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white font-bold text-xs flex items-center space-x-1.5 cursor-pointer shadow-xs shrink-0"
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white font-bold text-xs flex items-center space-x-1.5 cursor-pointer shadow-md shrink-0 active:scale-95"
+                  title={`Download ${file.name}`}
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Save</span>
+                  <span className="inline font-medium">Download</span>
                 </button>
               </div>
             ))}

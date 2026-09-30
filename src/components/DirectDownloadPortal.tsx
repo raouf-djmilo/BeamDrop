@@ -38,6 +38,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const [downloadedFile, setDownloadedFile] = useState<TransferFile | null>(null);
   const [downloadTriggered, setDownloadTriggered] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [isTransitFetching, setIsTransitFetching] = useState<boolean>(false);
 
   const transferManager = useMemo(() => new P2PTransferManager(), []);
   const autoTriggeredRef = useRef(false);
@@ -47,6 +48,59 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const displayName = downloadedFile?.name || currentFile?.name || expectedFileName || 'Shared File';
   const displaySize = downloadedFile?.size || currentFile?.size || expectedFileSize || 0;
   const displayMime = downloadedFile?.type || currentFile?.type || expectedFileMime || 'application/octet-stream';
+
+  const triggerBrowserDownload = (url: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setDownloadTriggered(true);
+  };
+
+  // High-Speed Transit Engine Fallback (Guaranteed 4G/5G mobile cellular transfer)
+  const fetchViaTransitFallback = async () => {
+    if (downloadedFile || isTransitFetching) return;
+    setIsTransitFetching(true);
+    try {
+      const res = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}`);
+      if (res.status === 200) {
+        const blob = await res.blob();
+        const rawName = res.headers.get('X-BeamDrop-Name');
+        const finalName = rawName ? decodeURIComponent(rawName) : (expectedFileName || 'downloaded_file');
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const completedFile: TransferFile = {
+          id: 'transit-' + Date.now(),
+          name: finalName,
+          size: blob.size,
+          type: blob.type || expectedFileMime || 'application/octet-stream',
+          progress: 100,
+          speed: blob.size,
+          status: 'completed',
+          direction: 'receive',
+          blob: blob,
+          downloadUrl: downloadUrl,
+          previewUrl: (blob.type || '').startsWith('image/') ? downloadUrl : undefined
+        };
+
+        setDownloadedFile(completedFile);
+        setConnectionStatus('connected');
+        playChime('complete');
+
+        if (!autoTriggeredRef.current) {
+          autoTriggeredRef.current = true;
+          setDownloadTriggered(true);
+          triggerBrowserDownload(downloadUrl, finalName);
+        }
+      }
+    } catch (err) {
+      console.debug('Transit fallback notice:', err);
+    } finally {
+      setIsTransitFetching(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -75,6 +129,8 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       if (status.toLowerCase().includes('error') || status.toLowerCase().includes('failed')) {
         setConnectionStatus('error');
         setErrorMessage(status);
+        // On WebRTC error, immediately try Transit fallback
+        fetchViaTransitFallback();
       }
     };
 
@@ -105,8 +161,6 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       }
     };
 
-    
-
     transferManager.onTextReceive = (payload) => {
       if (!isMounted) return;
       if (payload && payload.text === 'SESSION_CANCELLED_BY_HOST') {
@@ -114,7 +168,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
         setErrorMessage('This QR session was cancelled or terminated by the sender.');
       }
     };
-    // Initialize WebRTC client
+
     // Load E2EE Key from camera hash fragment (#key=...)
     if (typeof window !== 'undefined' && window.location.hash.includes('key=')) {
       const match = window.location.hash.match(/key=([0-9a-fA-F]{64})/i);
@@ -122,52 +176,57 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
         transferManager.setE2EEKeyFromHex(match[1]);
       }
     }
-    if (isConnectingRef.current) return;
-    isConnectingRef.current = true;
 
-    const myReceiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
-    transferManager
-      .init(myReceiverId)
-      .then(() => {
-        if (!isMounted) return;
-        return transferManager.connect(peerId);
-      })
-      .then(() => {
-        if (!isMounted) return;
-        setConnectionStatus('connected');
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        console.error('Direct connection failed:', err);
-        setConnectionStatus('error');
-        setErrorMessage(err.message || 'Could not connect to PC session');
-      });
+    if (!isConnectingRef.current) {
+      isConnectingRef.current = true;
+
+      const myReceiverId = 'dl-' + Math.random().toString(36).substring(2, 9);
+      transferManager
+        .init(myReceiverId)
+        .then(() => {
+          if (!isMounted) return;
+          return transferManager.connect(peerId);
+        })
+        .then(() => {
+          if (!isMounted) return;
+          setConnectionStatus('connected');
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          console.warn('WebRTC P2P direct failed, falling back to High-Speed Transit Engine:', err);
+          fetchViaTransitFallback();
+        });
+    }
+
+    // High-Resilience Watchdog: If WebRTC hasn't delivered within 2.2 seconds (e.g. 4G/5G carrier NAT), fetch via Transit
+    const transitTimer = setTimeout(() => {
+      if (!downloadedFile && isMounted) {
+        fetchViaTransitFallback();
+      }
+    }, 2200);
 
     return () => {
       isMounted = false;
+      clearTimeout(transitTimer);
       transferManager.destroy();
     };
   }, [peerId, transferManager, displayName]);
 
-  const triggerBrowserDownload = (url: string, filename: string) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setDownloadTriggered(true);
-  };
-
   const handleManualDownloadClick = () => {
     if (downloadedFile && downloadedFile.downloadUrl) {
       triggerBrowserDownload(downloadedFile.downloadUrl, downloadedFile.name);
+    } else {
+      fetchViaTransitFallback();
     }
   };
 
   const getFileCategoryIcon = (mime: string, name: string) => {
     const cat = getFileCategory(mime, name);
     switch (cat) {
+      case 'apk':
+        return <FileArchive className="w-10 h-10 text-emerald-500" />;
+      case 'ipa':
+        return <FileArchive className="w-10 h-10 text-sky-500" />;
       case 'excel':
         return <FileSpreadsheet className="w-10 h-10 text-emerald-400" />;
       case 'powerpoint':
@@ -315,18 +374,20 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
             </div>
           )}
 
-          {/* Giant Primary Download Action Button */}
+          {/* Giant Primary Download Action Button (Always Active for immediate download) */}
           <button
             onClick={handleManualDownloadClick}
-            disabled={!downloadedFile}
-            className="w-full py-4 px-6 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-sky-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={isTransitFetching}
+            className="w-full py-4 px-6 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-sky-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
           >
             <Download className="w-5 h-5" />
             <span>
               {downloadedFile
                 ? `Save Again (${formatBytes(downloadedFile.size)})`
                 : currentFile
-                ? `Downloading (${formatBytes(displaySize)})...`
+                ? `Streaming (${currentFile.progress}%)...`
+                : isTransitFetching
+                ? 'Fetching file...'
                 : `Download File (${formatBytes(displaySize)})`}
             </span>
           </button>

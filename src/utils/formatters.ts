@@ -18,6 +18,8 @@ export type FileCategory =
   | 'word'
   | 'pdf'
   | 'archive'
+  | 'apk'
+  | 'ipa'
   | 'image'
   | 'video'
   | 'audio'
@@ -27,6 +29,16 @@ export type FileCategory =
 
 export function getFileCategory(mimeType: string, fileName: string): FileCategory {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
+
+  // Android Package (APK)
+  if (ext === 'apk' || mimeType.includes('vnd.android.package-archive')) {
+    return 'apk';
+  }
+
+  // iOS App Package (IPA)
+  if (ext === 'ipa') {
+    return 'ipa';
+  }
 
   // Excel spreadsheets
   if (
@@ -158,6 +170,26 @@ export function getFileTypeMeta(mimeType: string, fileName: string): FileTypeMet
         textColor: 'text-yellow-400',
         bgColor: 'bg-yellow-950/70',
         borderColor: 'border-yellow-500/40'
+      };
+    case 'apk':
+      return {
+        category,
+        extension: 'APK',
+        badgeLabel: 'ANDROID APK',
+        colorName: 'emerald',
+        textColor: 'text-emerald-400',
+        bgColor: 'bg-emerald-950/70',
+        borderColor: 'border-emerald-500/40'
+      };
+    case 'ipa':
+      return {
+        category,
+        extension: 'IPA',
+        badgeLabel: 'IOS IPA',
+        colorName: 'sky',
+        textColor: 'text-sky-400',
+        bgColor: 'bg-sky-950/70',
+        borderColor: 'border-sky-500/40'
       };
     case 'image':
       return {

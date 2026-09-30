@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud,
   FileArchive,
@@ -122,7 +122,29 @@ export const SenderView: React.FC<SenderViewProps> = ({
     setIsQrGenerated(true);
     setTransferCompleted(false);
     playChime('connect');
+
+    // Pre-stage in Ephemeral RAM Transit for instant 4G/5G mobile cellular phone fallback
+    if (stagedFiles.length > 0 && transferManager.myPeerId) {
+      const file = stagedFiles[0];
+      const fileNameEnc = encodeURIComponent(file.name);
+      const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
+      fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&name=${fileNameEnc}&mime=${mimeEnc}`, {
+        method: 'POST',
+        body: file
+      }).then(res => res.json()).then(data => {
+        console.log('[BeamDrop] Pre-staged file in RAM transit for mobile fallback:', data);
+      }).catch((e) => console.debug('Transit fallback stage notice:', e));
+    }
   };
+
+  // Automatic Hands-Free Stream Initiation when Phone Receiver Connects
+  useEffect(() => {
+    transferManager.onConnected = () => {
+      if (stagedFiles.length > 0 && isQrGenerated && !isSending) {
+        startSendFiles();
+      }
+    };
+  }, [transferManager, stagedFiles, isQrGenerated, isSending]);
 
   // Start sending files over WebRTC
   const startSendFiles = async () => {
