@@ -60,9 +60,9 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   const shortPeer = peerId.replace('beam-', '').toUpperCase();
   const cryptoAddress = `BD-${shortPeer.slice(0, 4)}-${shortPeer.slice(4, 8) || 'ADDR'}-${shortPeer.slice(8, 12) || 'VAULT'}`;
 
-  // Direct Mobile Scan Link
+  // Direct Mobile Scan & Transit Endpoint (Auto-detects Browser vs Shortcut)
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://beam-drop-mu.vercel.app';
-  const directMobileUrl = `${currentOrigin}/?mode=scan&peer=${peerId}`;
+  const directMobileUrl = `${currentOrigin}/api/transit?peer=${peerId}`;
 
   // Render high-res QR Code
   useEffect(() => {

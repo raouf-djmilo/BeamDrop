@@ -362,7 +362,10 @@ function initReceiveVault() {
   }
 
   // Render QR Code in receiveVaultQrBox using node-qrcode (QRCode.toCanvas)
-  const mobileLink = `${VERCEL_RECEIVER_URL}/?mode=scan&peer=${currentPeerId}`;
+  const safeBaseTransitUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+  const mobileLink = `${safeBaseTransitUrl}/api/transit?peer=${currentPeerId}`;
   const qrCanvas = document.getElementById('receiveVaultQrCanvas');
   if (qrCanvas && typeof QRCode !== 'undefined' && QRCode.toCanvas) {
     try {

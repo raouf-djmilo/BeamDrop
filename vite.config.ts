@@ -243,7 +243,15 @@ export default defineConfig(() => {
               }
 
               if (req.method === 'GET') {
+                const accept = (req.headers && req.headers['accept']) || '';
                 const item = transitStore.get(peer);
+
+                if (typeof accept === 'string' && accept.includes('text/html') && (!item || !item.buffer)) {
+                  res.writeHead(302, { Location: `/?mode=scan&peer=${encodeURIComponent(peer)}` });
+                  res.end();
+                  return;
+                }
+
                 if (!item || !item.buffer) {
                   res.statusCode = 404;
                   res.end(JSON.stringify({ error: 'not_found', peer }));
@@ -256,7 +264,7 @@ export default defineConfig(() => {
                 res.setHeader('X-BeamDrop-Size', item.buffer.length);
                 res.statusCode = 200;
                 res.end(item.buffer);
-                setTimeout(() => transitStore.delete(peer), 15000);
+                transitStore.delete(peer);
                 return;
               }
 
@@ -265,8 +273,25 @@ export default defineConfig(() => {
                 req.on('data', (c: Buffer) => chunks.push(c));
                 req.on('end', () => {
                   const buffer = Buffer.concat(chunks);
-                  const name = decodeURIComponent(u.searchParams.get('name') || 'shared-object');
-                  const mime = decodeURIComponent(u.searchParams.get('mime') || 'application/octet-stream');
+                  const contentType = (req.headers['content-type'] as string) || '';
+                  let name = decodeURIComponent(
+                    u.searchParams.get('name') ||
+                    (req.headers['x-file-name'] as string) ||
+                    (req.headers['x-filename'] as string) ||
+                    ''
+                  );
+                  const mime = decodeURIComponent(u.searchParams.get('mime') || contentType || 'application/octet-stream');
+                  if (!name || name === 'shared-object') {
+                    const timestamp = Date.now();
+                    if (mime.includes('video/quicktime') || mime.includes('mov')) name = `video_${timestamp}.mov`;
+                    else if (mime.includes('video/mp4')) name = `video_${timestamp}.mp4`;
+                    else if (mime.includes('image/jpeg') || mime.includes('jpg')) name = `photo_${timestamp}.jpg`;
+                    else if (mime.includes('image/png')) name = `photo_${timestamp}.png`;
+                    else if (mime.includes('image/heic')) name = `photo_${timestamp}.heic`;
+                    else if (mime.includes('application/pdf')) name = `document_${timestamp}.pdf`;
+                    else if (mime.includes('zip')) name = `archive_${timestamp}.zip`;
+                    else name = `beamed_file_${timestamp}.bin`;
+                  }
                   transitStore.set(peer, {
                     peer,
                     name,
@@ -277,7 +302,7 @@ export default defineConfig(() => {
                   });
                   res.setHeader('Content-Type', 'application/json');
                   res.statusCode = 200;
-                  res.end(JSON.stringify({ success: true, peer, size: buffer.length }));
+                  res.end(JSON.stringify({ success: true, peer, name, size: buffer.length }));
                 });
                 return;
               }
