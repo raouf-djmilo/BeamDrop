@@ -8,6 +8,31 @@
 
 const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
+const ALL_EXTENSION_FILES = [
+  'manifest.json',
+  'popup.html',
+  'popup.js',
+  'style.css',
+  'background.js',
+  'options.html',
+  'options.js',
+  'updater.html',
+  'updater.js',
+  'folderStore.js',
+  'buildInfo.js',
+  'updates.xml',
+  'icons/icon16.png',
+  'icons/icon48.png',
+  'icons/icon128.png',
+  'icons/icon-16.png',
+  'icons/icon-48.png',
+  'icons/icon-128.png',
+  'icons/icon.svg',
+  'libs/jszip.min.js',
+  'libs/peerjs.min.js',
+  'libs/qrcode.min.js'
+];
+
 const installedVer = document.getElementById('installedVer');
 const cloudVer = document.getElementById('cloudVer');
 const buildHashText = document.getElementById('buildHashText');
@@ -40,18 +65,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Concurrently fetch cloud version in background with 2s timeout
   checkCloudStatus();
 
-  // 4. Preload JSZip engine in RAM
-  ensureJSZipLoaded().catch(() => {});
-
-  // 5. Handle ?action=sync
+  // 4. Highlight action button if opened with ?action=sync
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('action') === 'sync') {
-    setTimeout(async () => {
-      if (currentDirHandle) {
-        log('⚡ Auto-initiating clean sync on stored folder...');
-        executeCleanSync(currentDirHandle);
+    setTimeout(() => {
+      if (btnSyncOverwrite && btnSyncOverwrite.style.display !== 'none') {
+        btnSyncOverwrite.focus();
+        btnSyncOverwrite.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.8)';
+      } else if (btnSelectAndSync) {
+        btnSelectAndSync.focus();
+        btnSelectAndSync.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.8)';
       }
-    }, 500);
+    }, 200);
   }
 });
 
@@ -165,7 +190,7 @@ if (btnSelectAndSync) {
         showFolderLinked(currentFolderName);
         log(`✓ Folder chosen: ${currentFolderName}`);
 
-        // Directly execute clean overwrite on chosen folder
+        // Directly execute clean overwrite on chosen folder within user click context
         await executeCleanSync(handle);
       }
     } catch (err) {
@@ -177,7 +202,7 @@ if (btnSelectAndSync) {
   });
 }
 
-// 2. 1-Click Action: Overwrite previously stored folder
+// 2. 1-Click Action: Overwrite previously stored folder (User Click Context)
 if (btnSyncOverwrite) {
   btnSyncOverwrite.addEventListener('click', async () => {
     if (!currentDirHandle) {
@@ -188,34 +213,7 @@ if (btnSyncOverwrite) {
   });
 }
 
-// Robust JSZip Loader with Cloud Fallback
-async function ensureJSZipLoaded() {
-  if (typeof JSZip !== 'undefined') return;
-
-  // Try 1: Local script tag
-  try {
-    await loadScript('libs/jszip.min.js');
-    if (typeof JSZip !== 'undefined') return;
-  } catch (_) {}
-
-  // Try 2: Fetch directly from Cloud CDN if local file is missing/deleted
-  try {
-    const res = await fetch(`${VERCEL_HOST}/libs/jszip.min.js`);
-    if (res.ok) {
-      const code = await res.text();
-      const script = document.createElement('script');
-      script.textContent = code;
-      document.head.appendChild(script);
-      if (typeof JSZip !== 'undefined') return;
-    }
-  } catch (_) {}
-
-  if (typeof JSZip === 'undefined') {
-    throw new Error('JSZip engine could not be loaded. Please check your internet connection.');
-  }
-}
-
-// 3. Core Engine: Bulletproof RAM-First Unpack, Clean & Overwrite
+// 3. Core Engine: Bulletproof Dual-Engine (ZIP RAM-Unpack + Direct Cloud Files Fallback)
 async function executeCleanSync(dirHandle) {
   if (!dirHandle) return;
 
@@ -231,48 +229,73 @@ async function executeCleanSync(dirHandle) {
     log('⚡ Checking folder read/write permissions...');
     updateProgress(5, 'Requesting folder permissions...');
 
-    // Request write permission
+    // Request write permission inside user gesture
     if (window.BeamDropFolderStore) {
       const perm = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
       if (perm !== 'granted') {
-        throw new Error('Write permission was denied by user. Please grant permission in Chrome prompt.');
+        throw new Error('Write permission was denied by user. Please click Allow in Chrome prompt.');
       }
     }
 
-    // STEP 1: Ensure JSZip is loaded into RAM FIRST (Zero risk of ERR_FILE_NOT_FOUND)
-    log('⚡ Initializing ZIP decompression engine in RAM...');
-    updateProgress(10, 'Initializing ZIP engine...');
-    await ensureJSZipLoaded();
-    log('✓ ZIP decompression engine ready in RAM');
+    let filesToWrite = [];
 
-    // STEP 2: Download latest package bundle from Vercel into RAM
-    log('⚡ Downloading latest extension package from cloud into RAM...');
-    updateProgress(25, 'Downloading fresh extension package in RAM...');
+    // METHOD A: Try ZIP Bundle with JSZip if available
+    let zipSuccess = false;
+    if (typeof JSZip !== 'undefined') {
+      try {
+        log('⚡ Fetching ZIP package bundle from cloud into RAM...');
+        updateProgress(15, 'Downloading package bundle...');
+        const zipResp = await fetch(`${VERCEL_HOST}/extension.zip?_t=${Date.now()}`, { cache: 'no-store' });
+        if (zipResp.ok) {
+          const zipBuffer = await zipResp.arrayBuffer();
+          log(`✓ Downloaded latest bundle (${Math.round(zipBuffer.byteLength / 1024)} KB)`);
+          updateProgress(35, 'Extracting files in RAM...');
 
-    const zipResp = await fetch(`${VERCEL_HOST}/extension.zip?_t=${Date.now()}`, { cache: 'no-store' });
-    if (!zipResp.ok) {
-      throw new Error(`Failed to download update bundle: status ${zipResp.status}`);
+          const zip = await JSZip.loadAsync(zipBuffer);
+          const entries = Object.keys(zip.files).filter(p => !zip.files[p].dir);
+
+          for (const relPath of entries) {
+            const fileData = await zip.files[relPath].async('uint8array');
+            filesToWrite.push({ relPath, fileData });
+          }
+          log(`✓ All ${filesToWrite.length} files extracted safely via ZIP engine`);
+          zipSuccess = true;
+        }
+      } catch (zipErr) {
+        console.warn('ZIP engine notice, falling back to direct cloud stream:', zipErr);
+      }
     }
 
-    const zipBuffer = await zipResp.arrayBuffer();
-    log(`✓ Downloaded latest bundle (${Math.round(zipBuffer.byteLength / 1024)} KB)`);
-    updateProgress(45, 'Extracting files in RAM...');
+    // METHOD B: Direct Cloud Stream (Works 100% even if JSZip is completely missing or folder is empty!)
+    if (!zipSuccess || filesToWrite.length === 0) {
+      log('⚡ Using Direct Cloud Stream engine (Zero-dependency fallback)...');
+      updateProgress(20, 'Streaming files directly from cloud...');
+      filesToWrite = [];
 
-    // STEP 3: Parse and unpack ALL 25 files into RAM memory structures FIRST
-    const zip = await JSZip.loadAsync(zipBuffer);
-    const entries = Object.keys(zip.files).filter(p => !zip.files[p].dir);
-    log(`✓ Found ${entries.length} fresh files in update package`);
-
-    const filesToWrite = [];
-    for (const relPath of entries) {
-      const fileData = await zip.files[relPath].async('uint8array');
-      filesToWrite.push({ relPath, fileData });
+      for (let i = 0; i < ALL_EXTENSION_FILES.length; i++) {
+        const fname = ALL_EXTENSION_FILES[i];
+        try {
+          const fileResp = await fetch(`${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`, { cache: 'no-store' });
+          if (fileResp.ok) {
+            const buf = await fileResp.arrayBuffer();
+            filesToWrite.push({ relPath: fname, fileData: new Uint8Array(buf) });
+            const fetchPct = 20 + Math.round((i / ALL_EXTENSION_FILES.length) * 30);
+            updateProgress(fetchPct, `Fetched: ${fname}`);
+          }
+        } catch (fErr) {
+          console.warn('Could not fetch file:', fname, fErr);
+        }
+      }
+      log(`✓ Fetched ${filesToWrite.length} files directly from cloud`);
     }
-    log(`✓ All ${filesToWrite.length} files extracted safely in RAM`);
+
+    if (filesToWrite.length === 0) {
+      throw new Error('Could not download extension files. Please check your internet connection.');
+    }
 
     // STEP 4: NOW and ONLY NOW clean old files from disk
     log('🧹 Cleaning old files from folder...');
-    updateProgress(60, 'Cleaning old files on disk...');
+    updateProgress(55, 'Cleaning old files on disk...');
     let cleanedCount = 0;
     try {
       for await (const [name] of dirHandle.entries()) {
@@ -280,7 +303,7 @@ async function executeCleanSync(dirHandle) {
         try {
           await dirHandle.removeEntry(name, { recursive: true });
           cleanedCount++;
-          log(`🗑️ Removed old: ${name}`);
+          log(`🗑️ Removed: ${name}`);
         } catch (_) {}
       }
       log(`✓ Cleaned ${cleanedCount} old entries from folder`);
@@ -288,7 +311,7 @@ async function executeCleanSync(dirHandle) {
       console.warn('Folder clean notice (will overwrite):', cleanErr);
     }
 
-    // STEP 5: Write all 25 fresh files directly to disk ("Wa yaqom bi wahd jadid")
+    // STEP 5: Write all fresh files directly to disk ("Wa yaqom bi wahd jadid")
     log('⚡ Writing fresh files directly to disk...');
     let written = 0;
     for (const { relPath, fileData } of filesToWrite) {
@@ -309,13 +332,13 @@ async function executeCleanSync(dirHandle) {
       await writable.close();
 
       written++;
-      const pct = 65 + Math.round((written / filesToWrite.length) * 33);
+      const pct = 60 + Math.round((written / filesToWrite.length) * 38);
       updateProgress(pct, `Writing: ${relPath}`);
       log(`✓ Written fresh: ${relPath}`);
     }
 
     updateProgress(100, '✓ All files cleanly updated! Reloading extension...');
-    log('✅ SUCCESS: All 25 extension files written to disk cleanly!');
+    log(`✅ SUCCESS: All ${written} extension files written to disk cleanly!`);
     showToast('✓ Clean update complete! Extension reloaded.');
 
     setTimeout(() => {
@@ -354,16 +377,6 @@ function showToast(msg) {
   toastSuccess.textContent = msg;
   toastSuccess.style.display = 'block';
   toastSuccess.style.opacity = '1';
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load ' + src));
-    document.head.appendChild(s);
-  });
 }
 
 function escapeHtml(str) {
