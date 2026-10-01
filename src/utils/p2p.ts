@@ -40,8 +40,21 @@ export interface TextPayload {
   type: 'link' | 'text' | 'code';
 }
 
+export type PhoneTransferStage = 'idle' | 'scanned' | 'downloading' | 'delivered' | 'failed';
+
+export interface PhoneStatusPayload {
+  stage: PhoneTransferStage;
+  device?: string;
+  progress?: number;
+  speed?: number;
+  fileName?: string;
+  fileSize?: number;
+  error?: string;
+  timestamp: number;
+}
+
 export interface PeerMessage {
-  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA';
+  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA' | 'PHONE_STATUS';
   fileId?: string;
   fileName?: string;
   fileSize?: number;
@@ -55,6 +68,10 @@ export interface PeerMessage {
   pingTime?: number;
   encrypted?: boolean;
   nextExpectedChunk?: number;
+  stage?: PhoneTransferStage;
+  progress?: number;
+  speed?: number;
+  error?: string;
 }
 
 export const P2P_ICE_SERVERS: RTCIceServer[] = [
@@ -120,6 +137,7 @@ export class P2PTransferManager {
   public onFileProgress?: (fileId: string, progress: number, speed: number) => void;
   public onFileReceiveComplete?: (file: TransferFile) => void;
   public onTextReceive?: (textPayload: TextPayload) => void;
+  public onPhoneStatus?: (status: PhoneStatusPayload) => void;
   public onError?: (error: string) => void;
 
   // Receiving state
@@ -540,6 +558,22 @@ export class P2PTransferManager {
             type: isUrl ? 'link' : isCode ? 'code' : 'text'
           };
           this.onTextReceive?.(payload);
+        }
+        break;
+
+      case 'PHONE_STATUS':
+        if (msg.stage) {
+          const statusPayload: PhoneStatusPayload = {
+            stage: msg.stage,
+            device: msg.device,
+            progress: msg.progress,
+            speed: msg.speed,
+            fileName: msg.fileName,
+            fileSize: msg.fileSize,
+            error: msg.error,
+            timestamp: Date.now()
+          };
+          this.onPhoneStatus?.(statusPayload);
         }
         break;
 

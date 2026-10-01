@@ -152,6 +152,14 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       setCurrentFile((prev) =>
         prev && prev.id === fileId ? { ...prev, progress, speed } : prev
       );
+      if (progress % 10 === 0 || progress > 90) {
+        transferManager.sendMessage({
+          type: 'PHONE_STATUS',
+          stage: 'downloading',
+          progress,
+          speed
+        });
+      }
     };
 
     transferManager.onFileReceiveComplete = (completedFile) => {
@@ -159,6 +167,15 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       setCurrentFile(null);
       setDownloadedFile(completedFile);
       playChime('complete');
+
+      // Emit remote device delivery ACK to Desktop sender
+      transferManager.sendMessage({
+        type: 'PHONE_STATUS',
+        stage: 'delivered',
+        fileName: completedFile.name,
+        fileSize: completedFile.size
+      });
+
       notifySuccess(
         'File Downloaded!',
         `${completedFile.name} received cleanly.`,
@@ -202,6 +219,14 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
         .then(() => {
           if (!isMounted) return;
           setConnectionStatus('connected');
+          const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          const deviceLabel = isIos ? 'iPhone' : isAndroid ? 'Android Phone' : 'Mobile Device';
+          transferManager.sendMessage({
+            type: 'PHONE_STATUS',
+            stage: 'scanned',
+            device: deviceLabel
+          });
         })
         .catch((err) => {
           if (!isMounted) return;

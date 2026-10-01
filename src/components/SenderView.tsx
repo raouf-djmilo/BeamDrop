@@ -24,7 +24,7 @@ import {
   Layers,
   RefreshCw
 } from 'lucide-react';
-import { P2PTransferManager } from '../utils/p2p';
+import { P2PTransferManager, PhoneStatusPayload } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
 import { ephemeralPortalEngine, EphemeralPortalSession } from '../utils/engine/portal';
 import { Clock, Globe, Shield } from 'lucide-react';
@@ -64,6 +64,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [transferCompleted, setTransferCompleted] = useState<boolean>(false);
   const [sentHistory, setSentHistory] = useState<{ name: string; size: number; time: string; type: string }[]>([]);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [remotePhoneStatus, setRemotePhoneStatus] = useState<PhoneStatusPayload | null>(null);
   const [active10MinPortal, setActive10MinPortal] = useState<EphemeralPortalSession | null>(null);
   const [copiedPortalLink, setCopiedPortalLink] = useState(false);
 
@@ -205,7 +206,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }
   };
 
-  // Automatic Hands-Free Stream Initiation when Phone Receiver Connects
+  // Automatic Hands-Free Stream Initiation when Phone Receiver Connects & Two-Way Verification
   useEffect(() => {
     transferManager.onConnected = () => {
       if (
@@ -218,10 +219,39 @@ export const SenderView: React.FC<SenderViewProps> = ({
       }
     };
 
+    transferManager.onPhoneStatus = (status) => {
+      setRemotePhoneStatus(status);
+      if (status.stage === 'scanned') {
+        notifySuccess(
+          'Phone Scanned & Paired!',
+          `${status.device || 'Remote device'} verified via camera scan.`
+        );
+      } else if (status.stage === 'delivered') {
+        notifySuccess(
+          'Remote Storage Confirmed!',
+          `${status.fileName || 'Data'} verified received & saved on phone.`
+        );
+      } else if (status.stage === 'failed') {
+        notifyError(
+          'Remote Storage Failed',
+          status.error || 'Phone could not write file to device storage.'
+        );
+      }
+    };
+
+    transferManager.onDisconnected = () => {
+      setRemotePhoneStatus((prev) =>
+        prev && prev.stage !== 'delivered'
+          ? { stage: 'failed', error: 'Remote phone closed connection', timestamp: Date.now() }
+          : prev
+      );
+    };
+
     return () => {
       transferManager.onConnected = undefined;
+      transferManager.onPhoneStatus = undefined;
     };
-  }, [transferManager, stagedFiles, isQrGenerated]);
+  }, [transferManager, stagedFiles, isQrGenerated, notifySuccess, notifyError]);
 
   // Start sending files over WebRTC
   const startSendFiles = async () => {
@@ -800,6 +830,56 @@ export const SenderView: React.FC<SenderViewProps> = ({
               #{qrSessionNonce.slice(0, 6)}
             </span>
           </div>
+
+          {/* Real-Time Remote Phone Detection & Verification Status */}
+          {remotePhoneStatus ? (
+            <div
+              className={`w-full px-3 py-2 rounded-2xl border text-xs font-medium flex items-center justify-between transition-all ${
+                remotePhoneStatus.stage === 'scanned'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-xs'
+                  : remotePhoneStatus.stage === 'downloading'
+                  ? 'bg-sky-50 border-sky-300 text-sky-900 shadow-xs'
+                  : remotePhoneStatus.stage === 'delivered'
+                  ? 'bg-emerald-100/90 border-emerald-400 text-emerald-950 shadow-sm'
+                  : 'bg-rose-50 border-rose-300 text-rose-900'
+              }`}
+            >
+              <div className="flex items-center space-x-2 truncate">
+                <span className="shrink-0 text-base">
+                  {remotePhoneStatus.stage === 'delivered'
+                    ? '✓'
+                    : remotePhoneStatus.stage === 'failed'
+                    ? '⚠️'
+                    : '📱'}
+                </span>
+                <div className="text-left truncate">
+                  <p className="font-bold text-[11px] truncate">
+                    {remotePhoneStatus.stage === 'scanned' && `Phone Scanned: ${remotePhoneStatus.device || 'Mobile'}`}
+                    {remotePhoneStatus.stage === 'downloading' && `Phone Downloading (${remotePhoneStatus.progress || 0}%)`}
+                    {remotePhoneStatus.stage === 'delivered' && 'Verified: Delivered to Phone Storage!'}
+                    {remotePhoneStatus.stage === 'failed' && 'Phone Storage Delivery Failed'}
+                  </p>
+                  <p className="text-[10px] opacity-80 truncate">
+                    {remotePhoneStatus.stage === 'scanned' && 'Camera scan detected • P2P socket open'}
+                    {remotePhoneStatus.stage === 'downloading' && `${remotePhoneStatus.speed ? formatSpeed(remotePhoneStatus.speed) : 'Streaming'} • Writing chunks`}
+                    {remotePhoneStatus.stage === 'delivered' && `${remotePhoneStatus.fileName || 'Files'} confirmed saved`}
+                    {remotePhoneStatus.stage === 'failed' && (remotePhoneStatus.error || 'Connection closed by phone')}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/80 border border-current">
+                {remotePhoneStatus.stage}
+              </span>
+            </div>
+          ) : (
+            <div className="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+              <span className="flex items-center space-x-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+                <span>Waiting for phone camera scan...</span>
+              </span>
+              <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse" />
+            </div>
+          )}
 
           {/* Rebuilt Notice feedback */}
           {rebuiltNotice && (

@@ -846,6 +846,88 @@ checkPendingShareFromBackground();
 // ==========================================
 // STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
 // ==========================================
+let extensionQrNonce = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+
+function generateExtensionNonce() {
+  extensionQrNonce = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+  const badge = document.getElementById('portalNonceBadge');
+  if (badge) badge.textContent = '#' + extensionQrNonce.slice(0, 6);
+  return extensionQrNonce;
+}
+
+function resetRemotePhoneStatusUI() {
+  const card = document.getElementById('portalPhoneStatusCard');
+  const title = document.getElementById('phoneStatusTitle');
+  const sub = document.getElementById('phoneStatusSub');
+  const badge = document.getElementById('phoneStatusBadge');
+  const icon = document.getElementById('phoneStatusIcon');
+  if (card) {
+    card.style.background = 'rgba(255,255,255,0.05)';
+    card.style.borderColor = 'rgba(255,255,255,0.1)';
+  }
+  if (title) title.textContent = 'Waiting for phone scan...';
+  if (sub) sub.textContent = 'Aim camera to pair directly';
+  if (badge) {
+    badge.textContent = 'READY';
+    badge.style.color = '#94a3b8';
+    badge.style.background = 'rgba(255,255,255,0.1)';
+  }
+  if (icon) icon.textContent = '📱';
+}
+
+function updateRemotePhoneStatus(msg) {
+  const card = document.getElementById('portalPhoneStatusCard');
+  const title = document.getElementById('phoneStatusTitle');
+  const sub = document.getElementById('phoneStatusSub');
+  const badge = document.getElementById('phoneStatusBadge');
+  const icon = document.getElementById('phoneStatusIcon');
+  if (!card) return;
+
+  if (msg.stage === 'scanned') {
+    card.style.background = 'rgba(16,185,129,0.15)';
+    card.style.borderColor = 'rgba(16,185,129,0.45)';
+    if (title) title.textContent = 'Phone Paired: ' + (msg.device || 'Mobile Device');
+    if (sub) sub.textContent = 'Camera scan detected • P2P socket open';
+    if (badge) {
+      badge.textContent = 'PAIRED';
+      badge.style.color = '#34d399';
+      badge.style.background = 'rgba(16,185,129,0.2)';
+    }
+    if (icon) icon.textContent = '📱';
+  } else if (msg.stage === 'downloading') {
+    card.style.background = 'rgba(56,189,248,0.15)';
+    card.style.borderColor = 'rgba(56,189,248,0.45)';
+    if (title) title.textContent = 'Phone Downloading: ' + (msg.progress || 0) + '%';
+    if (sub) sub.textContent = 'Receiving stream & assembling in memory';
+    if (badge) {
+      badge.textContent = 'STREAMING';
+      badge.style.color = '#38bdf8';
+      badge.style.background = 'rgba(56,189,248,0.2)';
+    }
+  } else if (msg.stage === 'delivered') {
+    card.style.background = 'rgba(16,185,129,0.22)';
+    card.style.borderColor = 'rgba(16,185,129,0.6)';
+    if (title) title.textContent = 'Verified: Saved to Phone Storage!';
+    if (sub) sub.textContent = (msg.fileName || 'Object') + ' confirmed saved on remote device';
+    if (badge) {
+      badge.textContent = 'SAVED';
+      badge.style.color = '#10b981';
+      badge.style.background = 'rgba(16,185,129,0.25)';
+    }
+    if (icon) icon.textContent = '✓';
+  } else if (msg.stage === 'failed') {
+    card.style.background = 'rgba(239,68,68,0.18)';
+    card.style.borderColor = 'rgba(239,68,68,0.5)';
+    if (title) title.textContent = 'Phone Storage Delivery Failed';
+    if (sub) sub.textContent = msg.error || 'Connection closed by phone';
+    if (badge) {
+      badge.textContent = 'FAILED';
+      badge.style.color = '#f87171';
+      badge.style.background = 'rgba(239,68,68,0.2)';
+    }
+    if (icon) icon.textContent = '⚠️';
+  }
+}
 async function startFilePortalSession(file) {
   isStreaming = false;
   if (!activePreparedFile && file) {
@@ -869,7 +951,10 @@ async function startFilePortalSession(file) {
     ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
     : "https://beam-drop-mu.vercel.app";
 
-  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
+  const nonce = generateExtensionNonce();
+  resetRemotePhoneStatusUI();
+
+  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&token=${nonce}&nonce=${nonce}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
 
   // Update badge on top of QR code in popup
   const fileInfo = getExtensionFileTypeInfo(file.name, file.type);

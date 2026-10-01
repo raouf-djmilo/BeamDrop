@@ -154,6 +154,14 @@
 
     connection.on('open', () => {
       updateStatus('connected', 'Connected to BeamDrop Desktop');
+      const isIos = /iPhone|iPad/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const deviceLabel = isIos ? 'iPhone' : isAndroid ? 'Android Phone' : 'Mobile Device';
+      connection.send({
+        type: 'PHONE_STATUS',
+        stage: 'scanned',
+        device: deviceLabel
+      });
       connection.send({
         type: 'DEVICE_INFO',
         device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver'
@@ -232,6 +240,15 @@
 
       // Trigger instant automatic download to phone storage
       triggerAutoDownload(downloadUrl, entry.name);
+
+      if (connection && connection.open) {
+        connection.send({
+          type: 'PHONE_STATUS',
+          stage: 'delivered',
+          fileName: entry.name,
+          fileSize: entry.size
+        });
+      }
 
       if (downloadSuccessCard) downloadSuccessCard.style.display = 'flex';
       if (btnManualDownload) {

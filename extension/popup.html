@@ -186,6 +186,18 @@
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
+      <!-- Top Action: Rebuild QR Button & Rolling Nonce Badge -->
+      <div class="portal-top-bar" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">⚡ Rolling One-Time QR</span>
+          <span id="portalNonceBadge" style="font-size: 10px; font-family: ui-monospace, monospace; padding: 2px 6px; border-radius: 6px; background: rgba(56,189,248,0.15); color: #38bdf8; font-weight: bold; border: 1px solid rgba(56,189,248,0.3);">#live</span>
+        </div>
+        <button id="btnRebuildQr" class="btn-rebuild-qr" type="button" title="Regenerate fresh random QR session" style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; font-size: 11px; font-weight: 600; cursor: pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+          <span id="btnRebuildQrText">Rebuild QR</span>
+        </button>
+      </div>
+
       <!-- Staged Object Info Badge on top of QR -->
       <div id="portalFileBadge" class="portal-file-badge">
         <span id="portalBadgeIcon" class="portal-badge-icon">📦</span>
@@ -196,22 +208,24 @@
       <div class="qr-box-200">
         <canvas id="qrcodeCanvas"></canvas>
       </div>
-      <p id="qrScanInstruction" class="qr-scan-instruction">Scan with phone camera to transfer directly</p>
-      <div id="portalRadarPill" class="portal-pill">
-        <span id="portalRadarDot" class="radar-dot"></span>
-        <span id="portalRadarText">Awaiting phone connection...</span>
-      </div>
-      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
 
-      <!-- Primary Action: Save Watermarked QR Code Image -->
-      <button id="btnSaveQrWatermark" class="btn-save-watermark-qr" type="button" title="Save QR card with BeamDrop watermark">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        <span id="btnSaveQrWatermarkText">Save QR Card (BeamDrop Watermark)</span>
-      </button>
+      <!-- Real-Time Remote Phone Detection & Verification Status Card -->
+      <div id="portalPhoneStatusCard" class="portal-phone-status-card" style="width: 100%; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); margin: 6px 0; text-align: left; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+          <span id="phoneStatusIcon" style="font-size: 15px;">📱</span>
+          <div style="overflow: hidden;">
+            <p id="phoneStatusTitle" style="font-size: 11px; font-weight: 700; color: #f8fafc; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">Waiting for phone scan...</p>
+            <p id="phoneStatusSub" style="font-size: 10px; color: #94a3b8; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">Aim camera to pair directly</p>
+          </div>
+        </div>
+        <span id="phoneStatusBadge" style="font-size: 9px; font-family: ui-monospace, monospace; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,0.1); color: #94a3b8;">READY</span>
+      </div>
+
+      <div id="portalRadarPill" class="portal-pill" style="display: none;">
+        <span id="portalRadarDot" class="radar-dot"></span>
+        <span id="portalRadarText">Awaiting connection...</span>
+      </div>
+      <p id="portalUrlText" class="portal-url-text" style="display: none;">https://beam-drop-mu.vercel.app/download?peer=...</p>
 
       <!-- Sub-row: Copy QR Code & Copy Link -->
       <div class="portal-sub-actions">
@@ -233,26 +247,10 @@
           <span id="copyLinkText">Copy Link</span>
         </button>
       </div>
-
-      <!-- Watermark Guarantee Notice -->
-      <div class="portal-watermark-notice">
-        <span class="watermark-dot"></span>
-        <span>BeamDrop Bridge Engine • Zero Cloud Storage</span>
-      </div>
     </div>
 
-    <div class="action-row">
+    <div class="action-row" style="margin-top: 8px;">
       <button id="btnCancelPortal" class="btn-action-danger">Cancel Session</button>
-    </div>
-
-    <!-- Background Persistence Tip -->
-    <div class="persistence-tip">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="16" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-      </svg>
-      <span>Tip: Click 🗗 in header to detach into floating window or Side Panel so the connection stays open.</span>
     </div>
   </main>
 
