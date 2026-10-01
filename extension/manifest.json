@@ -49,6 +49,13 @@
       "description": "Open BeamDrop Device Bridge"
     }
   },
+  "externally_connectable": {
+    "matches": [
+      "https://beam-drop-mu.vercel.app/*",
+      "http://localhost:3000/*",
+      "http://localhost:5173/*"
+    ]
+  },
   "web_accessible_resources": [
     {
       "resources": [

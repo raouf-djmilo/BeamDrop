@@ -332,3 +332,32 @@ async function checkCloudForUpdates() {
     return { hasUpdate: false };
   }
 }
+
+// External message listener for Web-to-Extension Auth & Quota Bridge
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'BEAMDROP_AUTH_SYNC') {
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({
+        beamdrop_user: message.user || null,
+        beamdrop_daily_usage: message.dailyUsage || null,
+        beamdrop_last_sync: Date.now()
+      }, () => {
+        sendResponse({ success: true, received: true });
+      });
+      return true;
+    }
+  }
+
+  if (message?.type === 'BEAMDROP_GET_STATUS') {
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['beamdrop_user', 'beamdrop_daily_usage'], (res) => {
+        sendResponse({
+          success: true,
+          user: res.beamdrop_user || null,
+          dailyUsage: res.beamdrop_daily_usage || null
+        });
+      });
+      return true;
+    }
+  }
+});

@@ -20,6 +20,8 @@ import { DirectDownloadPortal } from './components/DirectDownloadPortal';
 import { PortalView } from './components/PortalView';
 import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
+import { UpgradeModal } from './components/UpgradeModal';
+import { PricingModal } from './components/PricingModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { X } from 'lucide-react';
 
@@ -135,9 +137,35 @@ function MainApp() {
   const [showArchitectureModal, setShowArchitectureModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [upgradeReason, setUpgradeReason] = useState<string>('');
+  const [showPricingModal, setShowPricingModal] = useState<boolean>(false);
+  const [pricingReason, setPricingReason] = useState<string>('');
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
+
+  // Auto-listen for quota exceeded events across the app (Guest -> AuthModal, Free -> PricingModal)
+  useEffect(() => {
+    const handleQuotaExceeded = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      const trigger = detail?.trigger || (detail?.tier === 'guest' ? 'auth_modal' : 'pricing_modal');
+      const reason =
+        detail?.quota?.reason ||
+        detail?.reason ||
+        'Daily transfer limit reached.';
+
+      if (trigger === 'auth_modal') {
+        setAuthModalTab('signup');
+        setShowAuthModal(true);
+      } else {
+        setPricingReason(reason);
+        setShowPricingModal(true);
+      }
+    };
+    window.addEventListener('beamdrop:quota_exceeded', handleQuotaExceeded);
+    return () => window.removeEventListener('beamdrop:quota_exceeded', handleQuotaExceeded);
+  }, []);
 
   /**
    * Refactored handleTabChange:
@@ -255,6 +283,15 @@ function MainApp() {
         onOpenMobileScanner={() => setShowMobileScanner(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebarCollapsed}
+        onOpenAuthModal={() => {
+          setAuthModalTab('signup');
+          setShowAuthModal(true);
+        }}
+        onOpenPricingModal={() => {
+          setPricingReason('Unlock unlimited P2P transfers & priority high-speed bandwidth.');
+          setShowPricingModal(true);
+        }}
+        onOpenProfileModal={() => setShowProfileModal(true)}
       />
 
       {/* Main Content Area */}
@@ -302,6 +339,10 @@ function MainApp() {
             setShowAuthModal(true);
           }}
           onOpenProfileModal={() => setShowProfileModal(true)}
+          onOpenPricingModal={() => {
+            setPricingReason('Unlock unlimited P2P transfers & priority high-speed bandwidth.');
+            setShowPricingModal(true);
+          }}
           showArchitectureModal={showArchitectureModal}
           setShowArchitectureModal={setShowArchitectureModal}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -402,6 +443,18 @@ function MainApp() {
       <ProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+      />
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerReason={upgradeReason}
+      />
+
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        triggerReason={pricingReason}
       />
     </div>
   );

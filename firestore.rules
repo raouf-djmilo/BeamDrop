@@ -49,14 +49,13 @@ service cloud.firestore {
         && incoming().username.size() <= 30
         && incoming().email is string
         && incoming().email.size() <= 100
-        && incoming().createdAt is string;
+        && (incoming().createdAt is string || incoming().createdAt is number);
 
       allow update: if isOwner(userId)
         && isValidId(userId)
         && incoming().uid == existing().uid
         && incoming().email == existing().email
-        && incoming().username == existing().username
-        && incoming().createdAt == existing().createdAt;
+        && incoming().username == existing().username;
 
       allow delete: if false;
 
@@ -71,6 +70,17 @@ service cloud.firestore {
           && incoming().fileSize is number;
         allow update, delete: if false;
       }
+
+      // User Daily Usage Quota Subcollection
+      match /daily_usage/{dayId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Subscriptions Collection
+    match /subscriptions/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
     }
 
     // Username Index for lookup and uniqueness check
@@ -86,7 +96,7 @@ service cloud.firestore {
         && incoming().uid == request.auth.uid
         && incoming().username == username
         && incoming().email is string
-        && incoming().createdAt is string;
+        && (incoming().createdAt is string || incoming().createdAt is number);
 
       allow update, delete: if false;
     }

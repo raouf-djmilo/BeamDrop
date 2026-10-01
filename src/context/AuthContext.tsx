@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useTransition } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -19,13 +19,27 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import {
+  DailyUsageMetrics,
+  OperationTypeQuota,
+  UserPlan,
+  UserTier,
+  PLAN_LIMITS,
+  resolveTier,
+  getTodayDateString,
+  getLocalDailyUsage,
+  setLocalDailyUsage,
+  trackOperation,
+  QuotaCheckResult
+} from '../utils/quotaEngine';
 
 export interface UserProfile {
   uid: string;
   fullName: string;
   username: string;
   email: string;
-  createdAt: string;
+  plan: UserPlan;
+  createdAt: string | number;
   photoURL?: string;
   transfersCount?: number;
   bytesTransferred?: number;
@@ -46,11 +60,18 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   isLoading: boolean;
   transfersHistory: TransferRecord[];
+  dailyUsage: DailyUsageMetrics;
+  plan: UserPlan;
+  userTier: UserTier;
+  remainingQuota: { sends: number; receives: number; scans: number };
   signUpWithEmail: (fullName: string, username: string, email: string, pass: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   recordTransfer: (fileName: string, fileSize: number, fileType: string, direction: 'sent' | 'received') => Promise<void>;
+  trackOp: (type: OperationTypeQuota, bytes?: number) => Promise<QuotaCheckResult>;
+  activateProSubscription: () => Promise<void>;
+  syncWithExtension: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,30 +81,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [transfersHistory, setTransfersHistory] = useState<TransferRecord[]>([]);
+  const [dailyUsage, setDailyUsage] = useState<DailyUsageMetrics>(() => getLocalDailyUsage());
+
+  const plan: UserPlan = userProfile?.plan || 'free';
+  const userTier: UserTier = resolveTier(currentUser?.uid, plan);
+  const limits = PLAN_LIMITS[userTier];
+
+  const remainingQuota = {
+    sends: userTier === 'pro' ? Infinity : Math.max(0, limits.maxSends - (dailyUsage.sendOperations || 0)),
+    receives: userTier === 'pro' ? Infinity : Math.max(0, limits.maxReceives - (dailyUsage.receiveOperations || 0)),
+    scans: userTier === 'pro' ? Infinity : Math.max(0, limits.maxScans - (dailyUsage.qrScansCount || 0))
+  };
+
+  // Broadcast authentication & quota sync to Web and Chrome Extension Bridge
+  const syncWithExtension = () => {
+    try {
+      const payload = {
+        type: 'BEAMDROP_AUTH_SYNC',
+        user: userProfile
+          ? {
+              uid: userProfile.uid,
+              fullName: userProfile.fullName,
+              username: userProfile.username,
+              email: userProfile.email,
+              plan: userProfile.plan
+            }
+          : null,
+        dailyUsage
+      };
+
+      if (typeof window !== 'undefined') {
+        window.postMessage(payload, '*');
+        if (userProfile) {
+          localStorage.setItem('beamdrop_auth_user', JSON.stringify(userProfile));
+        } else {
+          localStorage.removeItem('beamdrop_auth_user');
+        }
+      }
+
+      // If Chrome Extension API is present (e.g. injected or externally connectable)
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        chrome.storage.local.set({
+          beamdrop_user: payload.user,
+          beamdrop_daily_usage: dailyUsage
+        });
+      }
+    } catch (_) {}
+  };
+
+  // Listen for extension handshake requests
+  useEffect(() => {
+    const handleWindowMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'BEAMDROP_AUTH_REQUEST') {
+        syncWithExtension();
+      }
+    };
+    window.addEventListener('message', handleWindowMessage);
+    return () => window.removeEventListener('message', handleWindowMessage);
+  }, [userProfile, dailyUsage]);
+
+  // Sync whenever profile or dailyUsage changes
+  useEffect(() => {
+    syncWithExtension();
+  }, [userProfile, dailyUsage]);
 
   // Listen to Auth state changes
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        // Fetch or subscribe to user profile
         const userDocRef = doc(db, 'users', user.uid);
         try {
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
-            setUserProfile(docSnap.data() as UserProfile);
+            const data = docSnap.data();
+            const profile: UserProfile = {
+              uid: user.uid,
+              fullName: data.fullName || user.displayName || 'BeamDrop User',
+              username: data.username || (user.email ? user.email.split('@')[0] : 'user'),
+              email: data.email || user.email || '',
+              plan: data.plan === 'pro' ? 'pro' : 'free',
+              createdAt: data.createdAt || Date.now(),
+              photoURL: user.photoURL || data.photoURL,
+              transfersCount: data.transfersCount || 0,
+              bytesTransferred: data.bytesTransferred || 0
+            };
+            setUserProfile(profile);
           } else {
             // First time Google sign-in fallback profile creation
-            const fallbackUsername = (user.email ? user.email.split('@')[0] : 'user')
+            const baseUsername = (user.email ? user.email.split('@')[0] : 'user')
               .replace(/[^a-zA-Z0-9_]/g, '')
-              .toLowerCase() + '_' + user.uid.slice(0, 4);
+              .toLowerCase();
+            const fallbackUsername = (baseUsername.length >= 3 ? baseUsername : `user_${baseUsername}`) +
+              '_' + Math.floor(1000 + Math.random() * 9000);
 
             const newProfile: UserProfile = {
               uid: user.uid,
               fullName: user.displayName || 'BeamDrop User',
               username: fallbackUsername,
               email: user.email || '',
-              createdAt: new Date().toISOString(),
+              plan: 'free',
+              createdAt: Date.now(),
               photoURL: user.photoURL || undefined,
               transfersCount: 0,
               bytesTransferred: 0
@@ -94,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               username: fallbackUsername.toLowerCase(),
               uid: user.uid,
               email: user.email || '',
-              createdAt: new Date().toISOString()
+              createdAt: Date.now()
             });
 
             setUserProfile(newProfile);
@@ -127,7 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         snapshot.forEach((d) => {
           records.push({ id: d.id, ...d.data() } as TransferRecord);
         });
-        // Sort newest first
         records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setTransfersHistory(records);
       },
@@ -139,6 +236,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubTransfers();
   }, [currentUser]);
 
+  // Listen to Firestore Daily Usage in real-time when authenticated
+  useEffect(() => {
+    const today = getTodayDateString();
+
+    if (!currentUser) {
+      setDailyUsage(getLocalDailyUsage(today));
+      return;
+    }
+
+    const usageDocRef = doc(db, 'users', currentUser.uid, 'daily_usage', today);
+    const unsubUsage = onSnapshot(
+      usageDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          const updated: DailyUsageMetrics = {
+            date: today,
+            sendOperations: Number(d.sendOperations || 0),
+            receiveOperations: Number(d.receiveOperations || 0),
+            qrScansCount: Number(d.qrScansCount || 0),
+            bytesTransferred: Number(d.bytesTransferred || 0),
+            lastActivity: Number(d.lastActivity || Date.now())
+          };
+          setDailyUsage(updated);
+          setLocalDailyUsage(updated);
+        } else {
+          setDailyUsage(getLocalDailyUsage(today));
+        }
+      },
+      (err) => {
+        console.warn('Daily usage snapshot warning:', err);
+      }
+    );
+
+    return () => unsubUsage();
+  }, [currentUser]);
+
+  // Listen to local storage quota updates from other components
+  useEffect(() => {
+    const handleQuotaEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<DailyUsageMetrics>;
+      if (customEvent.detail) {
+        setDailyUsage(customEvent.detail);
+      }
+    };
+    window.addEventListener('beamdrop:quota_update', handleQuotaEvent);
+    return () => window.removeEventListener('beamdrop:quota_update', handleQuotaEvent);
+  }, []);
+
+  // Track operation via Quota Engine
+  const trackOp = async (type: OperationTypeQuota, bytes = 0): Promise<QuotaCheckResult> => {
+    const res = await trackOperation({
+      type,
+      bytes,
+      uid: currentUser?.uid || null,
+      plan: userProfile?.plan || 'free'
+    });
+    setDailyUsage(getLocalDailyUsage());
+    return res;
+  };
+
   // Sign Up with Full Name, unique Username, Email & Password
   const signUpWithEmail = async (fullName: string, username: string, email: string, pass: string) => {
     const cleanUsername = username.trim().toLowerCase();
@@ -149,7 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Username must be 3-30 characters with letters, numbers, or underscores.');
     }
 
-    // 2. Check if username is already taken
+    // 2. Check if username is already taken in Firestore
     const usernameDocRef = doc(db, 'usernames', cleanUsername);
     try {
       const usernameSnap = await getDoc(usernameDocRef);
@@ -167,13 +325,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await updateProfile(user, { displayName: fullName.trim() });
 
-    // 4. Create user profile in Firestore
+    // 4. Concurrently create records in Firestore
     const newProfile: UserProfile = {
       uid: user.uid,
       fullName: fullName.trim(),
       username: cleanUsername,
       email: cleanEmail,
-      createdAt: new Date().toISOString(),
+      plan: 'free',
+      createdAt: Date.now(),
       transfersCount: 0,
       bytesTransferred: 0
     };
@@ -184,7 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         username: cleanUsername,
         uid: user.uid,
         email: cleanEmail,
-        createdAt: new Date().toISOString()
+        createdAt: Date.now()
       });
       setUserProfile(newProfile);
     } catch (err) {
@@ -198,7 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let targetEmail = input;
 
     if (!input.includes('@')) {
-      // Input is a username! Look up email from usernames collection
+      // Input is a username: look up email from usernames collection
       const cleanUsername = input.toLowerCase();
       try {
         const usernameSnap = await getDoc(doc(db, 'usernames', cleanUsername));
@@ -233,7 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTransfersHistory([]);
   };
 
-  // Record a completed transfer
+  // Record a completed transfer and increment aggregate user stats
   const recordTransfer = async (
     fileName: string,
     fileSize: number,
@@ -277,6 +436,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Instant Pro subscription activation (for PayPal / Card subscription or simulation)
+  const activateProSubscription = async () => {
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { plan: 'pro' });
+      setUserProfile((prev) => (prev ? { ...prev, plan: 'pro' } : null));
+      syncWithExtension();
+    } catch (err) {
+      console.warn('Could not update plan to pro:', err);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -284,11 +456,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile,
         isLoading,
         transfersHistory,
+        dailyUsage,
+        plan,
+        userTier,
+        remainingQuota,
         signUpWithEmail,
         signInWithEmailOrUsername,
         signInWithGoogle,
         signOutUser,
-        recordTransfer
+        recordTransfer,
+        trackOp,
+        activateProSubscription,
+        syncWithExtension
       }}
     >
       {children}

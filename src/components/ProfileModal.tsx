@@ -10,7 +10,10 @@ import {
   ArrowDownLeft,
   FileText,
   ShieldCheck,
-  HardDrive
+  HardDrive,
+  Crown,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatBytes } from '../utils/formatters';
@@ -21,7 +24,7 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { userProfile, currentUser, signOutUser, transfersHistory } = useAuth();
+  const { userProfile, currentUser, signOutUser, transfersHistory, dailyUsage, plan } = useAuth();
 
   if (!isOpen || !currentUser) return null;
 
@@ -91,9 +94,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               <h3 className="text-lg font-black text-slate-900 truncate">
                 {userProfile?.fullName || currentUser.displayName || 'BeamDrop User'}
               </h3>
-              <span className="shrink-0 p-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Verified Account">
-                <ShieldCheck className="w-4 h-4" />
-              </span>
+              {plan === 'pro' ? (
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+                  <Crown className="w-3 h-3 fill-white" />
+                  <span>PRO</span>
+                </span>
+              ) : (
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold uppercase tracking-wider">
+                  FREE
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-sky-700 font-mono font-medium truncate">
@@ -114,31 +124,77 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 gap-3 py-4">
-          <div className="p-3.5 rounded-2xl bg-sky-50/80 border border-sky-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Files Transferred
+        {/* Daily Quota / Usage Breakdown */}
+        <div className="p-3.5 my-3 rounded-2xl bg-sky-50/70 border border-sky-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+              <Zap className="w-3.5 h-3.5 text-sky-600" />
+              <span>Today's Activity & Limits</span>
             </span>
-            <div className="flex items-center space-x-2 mt-1">
-              <span className="text-xl font-black text-slate-900">
+            {plan === 'pro' ? (
+              <span className="text-[10px] font-bold text-amber-700">Unlimited Access</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('beamdrop:quota_exceeded', {
+                    detail: { quota: { reason: 'Upgrade to PRO ($5/month) for unlimited beams and instant priority!' } }
+                  }));
+                }}
+                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
+              >
+                Upgrade to PRO
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">Sends</span>
+              <span className="text-xs font-black text-slate-800">
+                {dailyUsage.sendOperations} {plan === 'pro' ? '⚡' : '/ 5'}
+              </span>
+            </div>
+            <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">Receives</span>
+              <span className="text-xs font-black text-slate-800">
+                {dailyUsage.receiveOperations} {plan === 'pro' ? '⚡' : '/ 5'}
+              </span>
+            </div>
+            <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">QR Scans</span>
+              <span className="text-xs font-black text-slate-800">
+                {dailyUsage.qrScansCount} {plan === 'pro' ? '⚡' : '/ 10'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Aggregate Stats Row */}
+        <div className="grid grid-cols-2 gap-3 pb-3">
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Total Transfers
+            </span>
+            <div className="flex items-center space-x-2 mt-0.5">
+              <span className="text-lg font-black text-slate-900">
                 {userProfile?.transfersCount || transfersHistory.length || 0}
               </span>
-              <span className="text-[10px] text-sky-700 font-semibold bg-white px-2 py-0.5 rounded-full border border-sky-200">
+              <span className="text-[9px] text-sky-700 font-semibold bg-sky-50 px-1.5 py-0.5 rounded-full border border-sky-200">
                 Beamed
               </span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/80">
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Total Data Volume
             </span>
-            <div className="flex items-center space-x-2 mt-1">
-              <span className="text-xl font-black text-slate-900">
+            <div className="flex items-center space-x-2 mt-0.5">
+              <span className="text-lg font-black text-slate-900">
                 {formatBytes(userProfile?.bytesTransferred || 0)}
               </span>
-              <HardDrive className="w-4 h-4 text-blue-600" />
+              <HardDrive className="w-3.5 h-3.5 text-blue-600" />
             </div>
           </div>
         </div>

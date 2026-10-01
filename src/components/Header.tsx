@@ -16,12 +16,13 @@ import {
   ChevronRight,
   ExternalLink,
   User as UserIcon,
-  LogIn
+  LogIn,
+  Crown
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
 import { useAuth } from '../context/AuthContext';
-import { APP_VERSION } from '../config/version';
 import { MainTab, TABS_CONFIG } from './Sidebar';
+import { ProfileDropdown } from './ProfileDropdown';
 
 export { type MainTab };
 
@@ -32,6 +33,7 @@ interface HeaderProps {
   onOpenMobileScanner?: () => void;
   onOpenAuthModal?: () => void;
   onOpenProfileModal?: () => void;
+  onOpenPricingModal?: () => void;
   showArchitectureModal: boolean;
   setShowArchitectureModal: (show: boolean) => void;
   onToggleMobileMenu?: () => void;
@@ -45,13 +47,15 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMobileScanner,
   onOpenAuthModal,
   onOpenProfileModal,
+  onOpenPricingModal,
   showArchitectureModal,
   setShowArchitectureModal,
   onToggleMobileMenu,
   isMobileMenuOpen = false
 }) => {
   const { isConnected, connectedPeers, isQueueSending, currentTransfer } = useTransfer();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, userTier, dailyUsage } = useAuth();
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
   const peerCount = connectedPeers.length;
 
   const currentTab = TABS_CONFIG.find((t) => t.id === activeTab) || TABS_CONFIG[0];
@@ -152,27 +156,67 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* User Account / Profile Entry Point (Optional for Users) */}
+            {/* User Account / Profile Entry Point */}
             {currentUser ? (
-              <button
-                type="button"
-                onClick={onOpenProfileModal}
-                className="flex items-center space-x-2 pl-1.5 pr-2.5 sm:pr-3 py-1 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 text-slate-800 transition-all cursor-pointer shadow-2xs hover:border-sky-300 min-h-[36px]"
-                title="View Account Profile & History"
-              >
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-xs">
-                  {userProfile?.fullName
-                    ? userProfile.fullName[0].toUpperCase()
-                    : currentUser.displayName
-                    ? currentUser.displayName[0].toUpperCase()
-                    : 'U'}
-                </div>
-                <div className="text-left hidden sm:block max-w-[95px] truncate leading-tight">
-                  <span className="text-[11px] font-bold text-slate-800 truncate block">
-                    {userProfile?.username ? `@${userProfile.username}` : userProfile?.fullName || 'Account'}
-                  </span>
-                </div>
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileDropdownOpen((prev) => !prev)}
+                  className="flex items-center space-x-2 pl-1 pr-2.5 sm:pr-3 py-1 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 text-slate-800 transition-all cursor-pointer shadow-2xs hover:border-sky-300 min-h-[36px]"
+                  title="View Account Profile & Subscription"
+                >
+                  <div className="w-6 h-6 rounded-full p-[1.5px] bg-gradient-to-tr from-pink-500 via-amber-400 to-sky-400 shrink-0">
+                    <div className="w-full h-full rounded-full bg-sky-500 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
+                      {userProfile?.photoURL ? (
+                        <img
+                          src={userProfile.photoURL}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : userProfile?.fullName ? (
+                        userProfile.fullName[0].toUpperCase()
+                      ) : currentUser.displayName ? (
+                        currentUser.displayName[0].toUpperCase()
+                      ) : (
+                        'U'
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-left hidden sm:flex items-center space-x-1.5 truncate leading-tight">
+                    <span className="text-[11px] font-bold text-slate-800 truncate block max-w-[85px]">
+                      {userProfile?.username ? `@${userProfile.username}` : userProfile?.fullName || 'Account'}
+                    </span>
+                    {userTier === 'pro' ? (
+                      <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider flex items-center space-x-0.5 shadow-2xs">
+                        <Zap className="w-2.5 h-2.5 fill-white" />
+                        <span>PRO</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-[9px] font-bold">
+                        {dailyUsage?.sendOperations || 0}/15
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                <ProfileDropdown
+                  isOpen={isProfileDropdownOpen}
+                  onClose={() => setIsProfileDropdownOpen(false)}
+                  onOpenProfile={() => {
+                    setIsProfileDropdownOpen(false);
+                    if (onOpenProfileModal) onOpenProfileModal();
+                  }}
+                  onOpenPricing={() => {
+                    setIsProfileDropdownOpen(false);
+                    if (onOpenPricingModal) onOpenPricingModal();
+                  }}
+                  onOpenSettings={() => {
+                    setIsProfileDropdownOpen(false);
+                    onOpenExtensionModal();
+                  }}
+                  anchorClassName="top-full right-0 mt-2"
+                />
+              </div>
             ) : (
               <button
                 type="button"

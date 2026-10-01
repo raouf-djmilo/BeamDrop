@@ -1063,13 +1063,12 @@
             console.log('[BeamDrop] WebRTC P2P negotiating slowly or blocked by carrier NAT, engaging RAM Transit...');
             attemptTransitFallback();
           }
-        }, 1200);
+        }, 5000);
 
         peer.on('disconnected', function() {
           if (peer && !peer.destroyed) {
             try { peer.reconnect(); } catch (e) {}
           }
-          if (!isCompleted) attemptTransitFallback();
         });
 
         peer.on('error', function(err) {
@@ -1148,7 +1147,8 @@
         conn.on('close', function() {
           releaseWakeLock();
           if (!isCompleted) {
-            transferStatusText.textContent = 'Sender disconnected';
+            transferStatusText.textContent = 'Connection interrupted. Reconnecting...';
+            setTimeout(attemptTransitFallback, 500);
           }
         });
       }
@@ -1187,7 +1187,11 @@
 
         // 1. BINARY CHUNK (ArrayBuffer or Uint8Array)
         if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-          const rawBuffer = data instanceof ArrayBuffer ? data : data.buffer;
+          const rawBuffer = data instanceof ArrayBuffer
+            ? data
+            : (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+              ? data.buffer
+              : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
           if (!currentFileEntry) return;
 
           const unpacked = unpackChunkFrame(rawBuffer, currentFileEntry.rawCounter);

@@ -46,7 +46,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
   targetedPeer,
   initialTextPayload
 }) => {
-  const { recordTransfer } = useAuth();
+  const { recordTransfer, trackOp } = useAuth();
   const { notifyPending, notifySuccess, notifyError, notifyInfo, updateNotification } = useNotification();
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [isQrGenerated, setIsQrGenerated] = useState<boolean>(false);
@@ -167,6 +167,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
 
   const addFiles = (newFiles: File[]) => {
     setStagedFiles((prev) => [...prev, ...newFiles]);
+    setIsQrGenerated(true);
     setTransferCompleted(false);
     hasSentCurrentBatchRef.current = false;
     notifyInfo('Files Staged', `${newFiles.length} item${newFiles.length > 1 ? 's' : ''} ready to beam`);
@@ -218,12 +219,15 @@ export const SenderView: React.FC<SenderViewProps> = ({
   // Automatic Hands-Free Stream Initiation when Phone Receiver Connects & Two-Way Verification
   useEffect(() => {
     transferManager.onConnected = () => {
-      if (
-        stagedFiles.length > 0 &&
-        isQrGenerated &&
-        !isSendingRef.current &&
-        !hasSentCurrentBatchRef.current
-      ) {
+      if (stagedFiles.length > 0 && !isSendingRef.current) {
+        hasSentCurrentBatchRef.current = false;
+        startSendFiles();
+      }
+    };
+
+    transferManager.onReceiverReady = () => {
+      if (stagedFiles.length > 0 && !isSendingRef.current) {
+        hasSentCurrentBatchRef.current = false;
         startSendFiles();
       }
     };
@@ -235,6 +239,10 @@ export const SenderView: React.FC<SenderViewProps> = ({
           'Phone Scanned & Paired!',
           `${status.device || 'Remote device'} verified via camera scan.`
         );
+        if (stagedFiles.length > 0 && !isSendingRef.current) {
+          hasSentCurrentBatchRef.current = false;
+          startSendFiles();
+        }
       } else if (status.stage === 'delivered') {
         notifySuccess(
           'Remote Storage Confirmed!',
@@ -258,13 +266,14 @@ export const SenderView: React.FC<SenderViewProps> = ({
 
     return () => {
       transferManager.onConnected = undefined;
+      transferManager.onReceiverReady = undefined;
       transferManager.onPhoneStatus = undefined;
     };
-  }, [transferManager, stagedFiles, isQrGenerated, notifySuccess, notifyError]);
+  }, [transferManager, stagedFiles, notifySuccess, notifyError]);
 
   // Start sending files over WebRTC
   const startSendFiles = async () => {
-    if (!transferManager.isConnected) {
+    if (!transferManager.isConnected && transferManager.getConnectedDevicesCount() === 0) {
       notifyError(
         'Remote Device Not Connected',
         'Please scan the QR code with your phone or remote browser to pair first.'
@@ -284,6 +293,9 @@ export const SenderView: React.FC<SenderViewProps> = ({
     for (const file of stagedFiles) {
       let notifId = '';
       try {
+        // Enforce daily send quota limit
+        await trackOp('send', file.size);
+
         setCurrentTransfer({
           fileName: file.name,
           progress: 0,
@@ -362,7 +374,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }
   };
 
-  const sendTextPayload = () => {
+  const sendTextPayload = async () => {
     if (!textPayload.trim()) {
       notifyError('Empty Text Beam', 'Please type or paste some text before beaming.');
       return;
@@ -370,6 +382,13 @@ export const SenderView: React.FC<SenderViewProps> = ({
 
     if (!transferManager.isConnected) {
       notifyError('Device Not Connected', 'Please scan the QR code with your phone first!');
+      return;
+    }
+
+    try {
+      await trackOp('send', new Blob([textPayload]).size);
+    } catch (limitErr: any) {
+      notifyError('Daily Quota Limit Reached', limitErr?.message || 'Daily limit reached. Upgrade to Pro!');
       return;
     }
 

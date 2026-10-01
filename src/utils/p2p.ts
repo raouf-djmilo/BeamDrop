@@ -105,8 +105,6 @@ export class P2PTransferManager {
   private connection: DataConnection | null = null;
   // Multi-receiver active connections for QR multi-device beam sessions
   private activeConnections: Map<string, DataConnection> = new Map();
-  // Multiplexed parallel channels per peer for unordered Head-of-line blocking elimination
-  private subChannels: Map<string, RTCDataChannel[]> = new Map();
 
   public connectedPeersList: string[] = [];
   public onPeersChange?: (peers: string[]) => void;
@@ -132,6 +130,7 @@ export class P2PTransferManager {
   // Callbacks
   public onConnected?: (peerId: string) => void;
   public onDisconnected?: () => void;
+  public onReceiverReady?: () => void;
   public onStatusChange?: (status: string) => void;
   public onFileReceiveStart?: (file: TransferFile) => void;
   public onFileProgress?: (fileId: string, progress: number, speed: number) => void;
@@ -349,9 +348,6 @@ export class P2PTransferManager {
     this.onConnected?.(conn.peer);
     this.onPeersChange?.(this.connectedPeersList);
 
-    // Setup multiplexed secondary channel if supported
-    this.setupMultiplexedChannels(conn);
-
     // Send device info
     this.sendMessage({
       type: 'DEVICE_INFO',
@@ -369,7 +365,6 @@ export class P2PTransferManager {
 
     conn.on('close', () => {
       this.activeConnections.delete(conn.peer);
-      this.subChannels.delete(conn.peer);
       this.connectedPeersList = Array.from(this.activeConnections.keys());
 
       if (this.activeConnections.size > 0) {
@@ -392,25 +387,6 @@ export class P2PTransferManager {
       console.error('Data connection error:', err);
       this.onError?.('Data connection error: ' + err.message);
     });
-  }
-
-  private setupMultiplexedChannels(conn: DataConnection) {
-    try {
-      const pc = (conn as any).peerConnection as RTCPeerConnection | undefined;
-      if (pc && typeof pc.createDataChannel === 'function') {
-        const ch1 = pc.createDataChannel(`beam_strip_1`, { ordered: false, maxRetransmits: 30 });
-        ch1.binaryType = 'arraybuffer';
-        ch1.onmessage = (evt) => this.handleIncomingData(evt.data);
-
-        const ch2 = pc.createDataChannel(`beam_strip_2`, { ordered: false, maxRetransmits: 30 });
-        ch2.binaryType = 'arraybuffer';
-        ch2.onmessage = (evt) => this.handleIncomingData(evt.data);
-
-        this.subChannels.set(conn.peer, [ch1, ch2]);
-      }
-    } catch (e) {
-      // Fallback to standard PeerJS data channel
-    }
   }
 
   private async handleIncomingData(rawMsg: any) {
@@ -514,15 +490,22 @@ export class P2PTransferManager {
           const slice = entry.file.slice(start, end);
           slice.arrayBuffer().then((buf: ArrayBuffer) => {
             const frame = encodeBinaryFrame(entry.fileId, idx, entry.totalChunks, buf, entry.isEncrypted ? 1 : 0);
-            this.sendMessage({
-              type: 'FILE_CHUNK',
-              fileId: entry.fileId,
-              chunkIndex: idx,
-              data: frame
+            this.activeConnections.forEach((conn) => {
+              if (conn.open) {
+                try { conn.send(frame); } catch (_) {}
+              }
             });
+            if (this.connection && this.connection.open) {
+              try { this.connection.send(frame); } catch (_) {}
+            }
           });
         }
       }
+      return;
+    }
+
+    if (msg.type === 'RECEIVER_READY' || msg.type === 'START_STREAM') {
+      this.onReceiverReady?.();
       return;
     }
 
@@ -712,6 +695,12 @@ export class P2PTransferManager {
    * Uses Dynamic Adaptive Chunks (up to 512KB on LAN) + 32-Byte Binary Framing
    * + AES-GCM-256 Authentication + Backpressure Control + Round-robin channel striping.
    */
+  /**
+   * High-Throughput Adaptive File Streaming:
+   * Optimized 64KB - 128KB chunk sizing for 100% compatibility across
+   * all mobile browsers (iOS Safari, Android Chrome) and PC browsers.
+   * Uses 32-Byte Binary Framing + PeerJS reliable transmission + backpressure flow control.
+   */
   public async sendFile(
     file: File,
     onProgress?: (progress: number, speed: number) => void
@@ -720,10 +709,17 @@ export class P2PTransferManager {
       throw new Error('No peer connected');
     }
 
-    const fileId = 'file-' + Math.random().toString(36).substring(2, 9);
-    // Optimized 64KB - 256KB chunk sizing for mobile WebKit & modern Wi-Fi
-    const chunkSize = Math.min(Math.max(this.adaptiveChunker.currentChunkSize, 64 * 1024), 256 * 1024);
+    const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID().slice(0, 16)
+      : ('f-' + Date.now()).padEnd(16, ' ').slice(0, 16);
+
+    // Optimized chunk sizing:
+    // 64KB for small/medium files (< 10MB)
+    // 128KB for larger files (>= 10MB)
+    // Never exceeds 128KB-256KB to prevent WebRTC SCTP buffer drops on mobile WebKit/Blink
+    const chunkSize = file.size >= 10 * 1024 * 1024 ? 128 * 1024 : 64 * 1024;
     const totalChunks = Math.ceil(file.size / chunkSize);
+
     (this as any).lastSentFileEntry = {
       file,
       fileId,
@@ -733,9 +729,10 @@ export class P2PTransferManager {
     };
 
     this.isSending = true;
+
     try {
-      // 1. Notify Start
-      this.sendMessage({
+      // 1. Notify Start with full metadata
+      const startMsg: PeerMessage = {
         type: 'FILE_START',
         fileId,
         fileName: file.name,
@@ -744,26 +741,33 @@ export class P2PTransferManager {
         chunkSize,
         totalChunks,
         encrypted: Boolean(this.sessionCryptoKey)
-      });
+      };
+      // Include payload object for download.html / receiver compatibility
+      (startMsg as any).payload = {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        chunkSize,
+        totalChunks
+      };
+
+      this.sendMessage(startMsg);
+
+      // Brief handshake yield (50ms) to allow receiver to allocate memory structures
+      await new Promise((r) => setTimeout(r, 50));
 
       let sentBytes = 0;
       let lastTime = Date.now();
       let lastSent = 0;
 
-      // Get active data channels for striping
+      // Primary connection data channel for backpressure monitoring
       const primaryConn = this.connection || this.activeConnections.values().next().value;
       const dc = (primaryConn as any)?.dataChannel as RTCDataChannel | undefined;
-      if (dc) {
-        try {
-          dc.bufferedAmountLowThreshold = Math.max(chunkSize * 2, 64 * 1024);
-        } catch (_) {}
-      }
-      const peerId = primaryConn ? primaryConn.peer : '';
-      const extraChannels = (peerId && this.subChannels.get(peerId)) || [];
-      const allChannels = [dc, ...extraChannels].filter(Boolean) as RTCDataChannel[];
 
       // Pre-read initial chunk for pipelined double-buffering
-      let currentSlicePromise = file.slice(0, Math.min(chunkSize, file.size)).arrayBuffer();
+      let currentSliceSize = Math.min(chunkSize, file.size);
+      let currentSlicePromise = file.slice(0, currentSliceSize).arrayBuffer();
 
       // 2. Stream Binary Framed Chunks with Pipelined Read-Ahead
       for (let i = 0; i < totalChunks; i++) {
@@ -790,38 +794,69 @@ export class P2PTransferManager {
           flags = 1;
         }
 
-        // Encode 32-byte binary frame
+        // Encode standard 32-byte binary frame
         const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
 
-        // Select channel using round-robin striping
-        const targetChannel = allChannels[i % allChannels.length] || dc;
-
-        if (targetChannel && targetChannel.readyState === 'open') {
-          // Backpressure check
-          await this.adaptiveChunker.handleBackpressure(targetChannel);
-          targetChannel.send(frameBuffer);
-        } else {
-          // Fallback to PeerJS connection
-          this.activeConnections.forEach((c) => {
-            if (c.open) (c as any).send(frameBuffer);
+        // Robust Backpressure check: wait if SCTP buffer is saturated (> 512KB)
+        if (dc && dc.bufferedAmount > 512 * 1024) {
+          await new Promise<void>((resolve) => {
+            let isDone = false;
+            const finish = () => {
+              if (!isDone) {
+                isDone = true;
+                clearTimeout(watchdog);
+                clearInterval(checkInterval);
+                if (dc) dc.onbufferedamountlow = null;
+                resolve();
+              }
+            };
+            const watchdog = setTimeout(finish, 100);
+            try {
+              dc.bufferedAmountLowThreshold = 128 * 1024;
+              dc.onbufferedamountlow = finish;
+            } catch (_) {}
+            const checkInterval = setInterval(() => {
+              if (!dc || dc.bufferedAmount <= 128 * 1024) {
+                finish();
+              }
+            }, 6);
           });
+        }
+
+        // Send via PeerJS DataConnection (Ensures 100% clean serialization and delivery)
+        let anySent = false;
+        this.activeConnections.forEach((conn) => {
+          if (conn.open) {
+            try {
+              conn.send(frameBuffer);
+              anySent = true;
+            } catch (err) {
+              console.warn('Failed to send chunk to peer ' + conn.peer, err);
+            }
+          }
+        });
+
+        if (!anySent && this.connection && this.connection.open) {
+          try {
+            this.connection.send(frameBuffer);
+            anySent = true;
+          } catch (_) {}
         }
 
         sentBytes += (end - start);
         const progress = Math.min(100, Math.round((sentBytes / file.size) * 100));
         const now = Date.now();
         const elapsed = (now - lastTime) / 1000;
-        let speed = 0;
 
         if (elapsed >= 0.2 || i === totalChunks - 1) {
-          speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
+          const speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
           lastTime = now;
           lastSent = sentBytes;
           onProgress?.(progress, speed);
         }
 
-        // Yield event loop every 8 chunks
-        if (i % 8 === 0) {
+        // Yield event loop every 6 chunks to prevent UI blocking
+        if (i % 6 === 0) {
           await new Promise((r) => setTimeout(r, 0));
         }
       }
@@ -833,6 +868,11 @@ export class P2PTransferManager {
         totalChunks,
         fileName: file.name,
         fileSize: file.size
+      });
+      // Also send complete signal for backwards compatibility
+      this.sendMessage({
+        type: 'complete' as any,
+        fileId
       });
 
       onProgress?.(100, 0);
@@ -848,7 +888,6 @@ export class P2PTransferManager {
       try { c.close(); } catch (_) {}
     });
     this.activeConnections.clear();
-    this.subChannels.clear();
     this.connection = null;
     this.isConnected = false;
   }

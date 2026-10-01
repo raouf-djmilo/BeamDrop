@@ -23,6 +23,7 @@ import { P2PTransferManager } from '../utils/p2p';
 import { formatBytes, formatSpeed } from '../utils/formatters';
 import { playChime } from '../utils/audio';
 import { consumeSharedPayload } from '../utils/sharedVault';
+import { useAuth } from '../context/AuthContext';
 
 interface MobileScannerPortalProps {
   transferManager: P2PTransferManager;
@@ -35,6 +36,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   initialTargetPeer,
   onClose
 }) => {
+  const { trackOp } = useAuth();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [targetPeerId, setTargetPeerId] = useState<string>(initialTargetPeer || '');
   const [sharedFromAndroid, setSharedFromAndroid] = useState<boolean>(false);
@@ -191,6 +193,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
       stopCamera();
       setTargetPeerId(peer);
       playChime('connect');
+      trackOp('qr_scan').catch((err) => console.warn('QR scan quota:', err));
 
       // Vibrate if mobile device
       if (typeof navigator !== 'undefined' && navigator.vibrate) {

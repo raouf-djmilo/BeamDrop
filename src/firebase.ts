@@ -71,3 +71,99 @@ export async function testFirestoreConnection(): Promise<boolean> {
 
 // Initial silent ping
 testFirestoreConnection().catch(() => {});
+
+export interface AuthErrorDiagnosis {
+  title: string;
+  message: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  isApiDisabled?: boolean;
+}
+
+/**
+ * Diagnoses Firebase Auth errors and provides immediate actionable links
+ * (e.g. Identity Toolkit API enablement in Google Cloud or provider enabling in Firebase Console).
+ */
+export function diagnoseFirebaseAuthError(error: any): AuthErrorDiagnosis {
+  const code = error?.code || '';
+  const message = error?.message || String(error);
+
+  // 1. Google Cloud Identity Toolkit API not enabled (project 1081762917738)
+  if (
+    code === 'auth/identity-toolkit-api-has-not-been-used' ||
+    message.includes('identitytoolkit.googleapis.com') ||
+    message.includes('Identity Toolkit API') ||
+    message.includes('1081762917738') ||
+    (code === 'auth/operation-not-allowed' && message.includes('disabled'))
+  ) {
+    return {
+      title: 'Identity Toolkit API Needs Activation',
+      message:
+        'Firebase Authentication is not yet activated on Google Cloud for project 1081762917738. Click below to enable Identity Toolkit API, then retry.',
+      actionUrl:
+        'https://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=1081762917738',
+      actionLabel: 'Enable Identity Toolkit API in Google Cloud',
+      isApiDisabled: true
+    };
+  }
+
+  // 2. Email/Password or Google provider disabled in Firebase Console
+  if (code === 'auth/operation-not-allowed') {
+    return {
+      title: 'Sign-In Provider Disabled',
+      message:
+        'Email/Password or Google sign-in is not enabled in Firebase Console. Please enable them in Authentication > Sign-in method.',
+      actionUrl: 'https://console.firebase.google.com/?authuser=1',
+      actionLabel: 'Open Firebase Console Auth Settings',
+      isApiDisabled: true
+    };
+  }
+
+  // 3. Domain not authorized in Firebase OAuth
+  if (code === 'auth/unauthorized-domain') {
+    return {
+      title: 'Unauthorized Domain',
+      message:
+        'This domain is not authorized for OAuth. Add it under Firebase Console > Authentication > Settings > Authorized domains.',
+      actionUrl: 'https://console.firebase.google.com/?authuser=1',
+      actionLabel: 'Open Authorized Domains in Firebase'
+    };
+  }
+
+  // 4. Invalid credentials / wrong password
+  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+    return {
+      title: 'Incorrect Credentials',
+      message: 'The password or account credentials you entered are incorrect. Please verify and try again.'
+    };
+  }
+
+  // 5. Account not found
+  if (code === 'auth/user-not-found') {
+    return {
+      title: 'Account Not Found',
+      message: 'No registered account found with this email or username. Please check your spelling or sign up.'
+    };
+  }
+
+  // 6. Email already in use
+  if (code === 'auth/email-already-in-use') {
+    return {
+      title: 'Email Already In Use',
+      message: 'An account with this email address already exists. Please sign in instead.'
+    };
+  }
+
+  // 7. Network error
+  if (code === 'auth/network-request-failed') {
+    return {
+      title: 'Network Connection Issue',
+      message: 'Could not connect to Firebase Auth servers. Please check your internet connection and try again.'
+    };
+  }
+
+  return {
+    title: 'Authentication Error',
+    message: message || 'An unexpected error occurred during authentication.'
+  };
+}

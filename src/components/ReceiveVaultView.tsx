@@ -32,6 +32,7 @@ import { useNotification } from '../context/NotificationContext';
 import { playChime } from '../utils/audio';
 import { downloadIosShortcut, OFFICIAL_IOS_SHORTCUT_ICLOUD_URL } from '../utils/shortcutGenerator';
 import { MobileScannerPortal } from './MobileScannerPortal';
+import { useAuth } from '../context/AuthContext';
 
 interface ReceiveVaultViewProps {
   transferManager: P2PTransferManager;
@@ -42,6 +43,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   transferManager,
   onOpenMobileScanner
 }) => {
+  const { recordTransfer, trackOp } = useAuth();
   const { notifyPending, notifySuccess, updateNotification } = useNotification();
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [shortcutQrDataUrl, setShortcutQrDataUrl] = useState<string>('');
@@ -117,6 +119,8 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
       setCurrentIncomingFile(null);
       setVaultFiles((prev) => [file, ...prev]);
       playChime('complete');
+      recordTransfer(file.name, file.size, file.type, 'received');
+      trackOp('receive', file.size).catch((err) => console.warn('Receive quota:', err));
       notifySuccess(
         'File Received!',
         `${file.name} saved to local Vault.`,
@@ -175,6 +179,8 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
 
           setVaultFiles((prev) => [newFile, ...prev]);
           playChime('complete');
+          recordTransfer(fileName, blob.size, blob.type || 'application/octet-stream', 'received');
+          trackOp('receive', blob.size).catch((err) => console.warn('Transit receive quota:', err));
 
           if (autoDownload) {
             const url = URL.createObjectURL(blob);

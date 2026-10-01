@@ -3011,4 +3011,93 @@ function renderNearbyDevices() {
 
 // Bluetooth completely purged - 100% Local Wi-Fi Mesh
 
+// ==========================================
+// Web-to-Extension User Profile & Quota Bridge
+// ==========================================
+const userProfileBadge = document.getElementById('userProfileBadge');
+const userAvatarText = document.getElementById('userAvatarText');
+const userUsernameText = document.getElementById('userUsernameText');
+const userPlanPill = document.getElementById('userPlanPill');
+const btnConnectWebAccount = document.getElementById('btnConnectWebAccount');
+const btnConnectAccountText = document.getElementById('btnConnectAccountText');
+
+function renderUserAccountBadge(user, dailyUsage) {
+  if (!userProfileBadge) return;
+
+  const sends = dailyUsage?.sendOperations || 0;
+
+  if (user && user.uid) {
+    userProfileBadge.classList.remove('hidden');
+    if (btnConnectWebAccount) btnConnectWebAccount.classList.add('hidden');
+
+    if (userAvatarText) {
+      const name = user.fullName || user.username || 'User';
+      userAvatarText.textContent = name[0].toUpperCase();
+    }
+
+    if (userUsernameText) {
+      userUsernameText.textContent = `@${user.username || 'user'}`;
+    }
+
+    if (userPlanPill) {
+      if (user.plan === 'pro') {
+        userPlanPill.className = 'plan-pill-pro';
+        userPlanPill.textContent = '⚡ PRO';
+      } else {
+        const left = Math.max(0, 15 - sends);
+        userPlanPill.className = 'plan-pill-free';
+        userPlanPill.textContent = `Free (${left}/15 left)`;
+      }
+    }
+  } else {
+    // Guest mode (unauthenticated)
+    userProfileBadge.classList.remove('hidden');
+    if (btnConnectWebAccount) {
+      btnConnectWebAccount.classList.remove('hidden');
+      if (btnConnectAccountText) btnConnectAccountText.textContent = 'Sign In (15 Beams)';
+    }
+
+    if (userAvatarText) {
+      userAvatarText.textContent = 'G';
+    }
+
+    if (userUsernameText) {
+      userUsernameText.textContent = 'Guest';
+    }
+
+    if (userPlanPill) {
+      const left = Math.max(0, 5 - sends);
+      userPlanPill.className = 'plan-pill-guest';
+      userPlanPill.textContent = `Guest (${left}/5 left)`;
+    }
+  }
+}
+
+// Initial load from local chrome storage
+if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+  chrome.storage.local.get(['beamdrop_user', 'beamdrop_daily_usage'], (res) => {
+    renderUserAccountBadge(res.beamdrop_user, res.beamdrop_daily_usage);
+  });
+
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.beamdrop_user || changes.beamdrop_daily_usage) {
+      chrome.storage.local.get(['beamdrop_user', 'beamdrop_daily_usage'], (res) => {
+        renderUserAccountBadge(res.beamdrop_user, res.beamdrop_daily_usage);
+      });
+    }
+  });
+}
+
+// Connect Account Button Action
+if (btnConnectWebAccount) {
+  btnConnectWebAccount.addEventListener('click', () => {
+    const targetUrl = `${VERCEL_RECEIVER_URL}/?action=connect_extension`;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: targetUrl });
+    } else {
+      window.open(targetUrl, '_blank');
+    }
+  });
+}
+
 

@@ -6,7 +6,6 @@ import {
   Building2,
   BookOpen,
   Chrome,
-  Camera,
   X,
   ChevronLeft,
   ChevronRight,
@@ -22,6 +21,8 @@ export interface TabConfig {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }
+
+import { SidebarQuotaCard } from './SidebarQuotaCard';
 
 export const TABS_CONFIG: TabConfig[] = [
   { id: 'sender', label: 'Send', icon: Zap },
@@ -40,6 +41,9 @@ interface SidebarProps {
   onOpenMobileScanner: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onOpenAuthModal?: () => void;
+  onOpenPricingModal?: () => void;
+  onOpenProfileModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,7 +53,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenMobileScanner,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onOpenAuthModal,
+  onOpenPricingModal,
+  onOpenProfileModal
 }) => {
   const { isConnected, connectedPeers } = useTransfer();
   const peerCount = connectedPeers ? connectedPeers.length : 0;
@@ -103,10 +110,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* DESKTOP SIDEBAR: Slim (w-56) when expanded, Ultra-compact (w-16) when collapsed */}
+      {/* DESKTOP SIDEBAR: Slim (w-64) when expanded, Ultra-compact (w-16) when collapsed */}
       <aside
         className={`hidden lg:flex shrink-0 flex-col min-h-screen bg-white/90 backdrop-blur-xl border-r border-sky-200/80 sticky top-0 h-screen z-30 transition-all duration-200 ${
-          isCollapsed ? 'w-16 p-2' : 'w-56 p-3'
+          isCollapsed ? 'w-16 p-2' : 'w-64 p-3.5'
         }`}
       >
         <div className="flex flex-col h-full justify-between">
@@ -167,39 +174,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {renderNavItems(false)}
           </div>
 
-          {/* Bottom Controls: Clean Status Dot & Quick Scan Button */}
-          <div className="space-y-2 pt-3 border-t border-sky-100/80">
-            {/* Quick QR Scanner */}
-            <button
-              type="button"
-              onClick={onOpenMobileScanner}
-              title={isCollapsed ? 'Scan QR' : undefined}
-              className={`w-full flex items-center rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200/80 text-xs font-semibold transition-all cursor-pointer min-h-[38px] ${
-                isCollapsed ? 'justify-center p-2' : 'px-3 py-2 space-x-2'
-              }`}
-            >
-              <Camera className="w-4 h-4 text-sky-600 shrink-0" />
-              {!isCollapsed && <span className="truncate">Scan QR</span>}
-            </button>
-
-            {/* Minimal Status Dot */}
-            <div
-              className={`flex items-center text-[11px] text-slate-500 font-medium ${
-                isCollapsed ? 'justify-center' : 'px-2 space-x-2'
-              }`}
-              title={isConnected || peerCount > 0 ? `${peerCount} Connected` : 'P2P Ready'}
-            >
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isConnected || peerCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
-                }`}
-              />
-              {!isCollapsed && (
-                <span className="truncate">
-                  {isConnected || peerCount > 0 ? `${peerCount} Connected` : 'P2P Ready'}
-                </span>
-              )}
-            </div>
+          {/* Dynamic 3-Tier Quota & Upgrade Funnel Card (Dedicated breathing room in Sidebar) */}
+          <div className="pt-2 pb-1 mt-auto">
+            <SidebarQuotaCard
+              isCollapsed={isCollapsed}
+              onOpenAuthModal={onOpenAuthModal}
+              onOpenPricingModal={onOpenPricingModal}
+              onOpenProfileDropdown={onOpenProfileModal}
+            />
           </div>
         </div>
       </aside>
@@ -235,22 +217,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 py-4 overflow-y-auto">
+            <div className="flex-1 py-4 overflow-y-auto space-y-4">
               {renderNavItems(true)}
-            </div>
 
-            <div className="pt-3 border-t border-sky-100">
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenMobileScanner();
-                  onCloseMobile();
-                }}
-                className="w-full flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl bg-sky-600 text-white text-xs font-semibold shadow-xs"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Scan QR Code</span>
-              </button>
+              <div className="pt-2">
+                <SidebarQuotaCard
+                  isCollapsed={false}
+                  onOpenAuthModal={() => {
+                    onCloseMobile();
+                    if (onOpenAuthModal) onOpenAuthModal();
+                  }}
+                  onOpenPricingModal={() => {
+                    onCloseMobile();
+                    if (onOpenPricingModal) onOpenPricingModal();
+                  }}
+                  onOpenProfileDropdown={() => {
+                    onCloseMobile();
+                    if (onOpenProfileModal) onOpenProfileModal();
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

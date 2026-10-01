@@ -10,9 +10,11 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  Zap
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { diagnoseFirebaseAuthError, AuthErrorDiagnosis } from '../firebase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,12 +44,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Status & Error
   const [error, setError] = useState<string | null>(null);
+  const [diagnosis, setDiagnosis] = useState<AuthErrorDiagnosis | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
   const resetForm = () => {
     setError(null);
+    setDiagnosis(null);
     setLoading(false);
     setLoginIdentifier('');
     setLoginPassword('');
@@ -67,6 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDiagnosis(null);
 
     if (!loginIdentifier.trim()) {
       setError('Please enter your email or username.');
@@ -82,16 +87,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signInWithEmailOrUsername(loginIdentifier, loginPassword);
       handleClose();
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Incorrect password or credentials. Please try again.');
-      } else if (err.code === 'auth/user-not-found') {
-        setError('No account found with this email or username.');
-      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('identitytoolkit') || err.message?.includes('disabled')) {
-        setError('Email/Password provider is disabled in this Firebase project. Please click "Google Account" below for instant sign-in!');
-      } else {
-        setError(err.message || 'Failed to sign in. Please try again.');
-      }
+      console.error('Sign-in error:', err);
+      const diag = diagnoseFirebaseAuthError(err);
+      setDiagnosis(diag);
+      setError(diag.message);
     } finally {
       setLoading(false);
     }
@@ -101,6 +100,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDiagnosis(null);
 
     if (!fullName.trim()) {
       setError('Please enter your full name.');
@@ -132,14 +132,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signUpWithEmail(fullName, username, email, signupPassword);
       handleClose();
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('An account with this email already exists.');
-      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('identitytoolkit') || err.message?.includes('disabled')) {
-        setError('Email/Password sign-up is disabled in this Firebase project. Please click "Google Account" below for instant sign-in!');
-      } else {
-        setError(err.message || 'Failed to create account. Please try again.');
-      }
+      console.error('Sign-up error:', err);
+      const diag = diagnoseFirebaseAuthError(err);
+      setDiagnosis(diag);
+      setError(diag.message);
     } finally {
       setLoading(false);
     }
@@ -148,14 +144,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Google OAuth
   const handleGoogleAuth = async () => {
     setError(null);
+    setDiagnosis(null);
     try {
       setLoading(true);
       await signInWithGoogle();
       handleClose();
     } catch (err: any) {
-      console.error(err);
+      console.error('Google auth error:', err);
       if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        setError(err.message || 'Google sign-in failed. Please try again.');
+        const diag = diagnoseFirebaseAuthError(err);
+        setDiagnosis(diag);
+        setError(diag.message);
       }
     } finally {
       setLoading(false);
@@ -235,11 +234,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error & Diagnostic Alert */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-2 text-rose-700 text-xs">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span className="leading-tight">{error}</span>
+          <div className="mb-4 p-3.5 rounded-2xl bg-rose-50/90 border border-rose-200/90 text-rose-800 text-xs space-y-2 animate-fade-in shadow-2xs">
+            <div className="flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                {diagnosis?.title && (
+                  <p className="font-bold text-rose-900 leading-tight mb-0.5">
+                    {diagnosis.title}
+                  </p>
+                )}
+                <p className="leading-relaxed text-slate-700 font-medium">
+                  {error}
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Action Link if Identity Toolkit or Providers need activation */}
+            {diagnosis?.actionUrl && (
+              <div className="pt-1.5 flex flex-wrap gap-2 items-center">
+                <a
+                  href={diagnosis.actionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] transition-colors shadow-2xs"
+                >
+                  <span>{diagnosis.actionLabel || 'Fix in Console'}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+
+                {diagnosis.isApiDisabled && (
+                  <a
+                    href="https://console.firebase.google.com/?authuser=1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-rose-100 text-rose-800 border border-rose-200 font-medium text-[11px] transition-colors"
+                  >
+                    <span>Firebase Console</span>
+                    <ExternalLink className="w-3 h-3 text-rose-500" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
 
