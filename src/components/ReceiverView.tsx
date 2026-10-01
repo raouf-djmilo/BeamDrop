@@ -19,7 +19,8 @@ import {
   Eye,
   Check,
   FileSpreadsheet,
-  Presentation
+  Presentation,
+  X
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
@@ -100,7 +101,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
           id: myReceiverMeshId,
           name: myReceiverName,
           deviceType: isMobileDevice ? 'phone' : 'laptop',
-          icon: isMobileDevice ? '📱' : '💻',
+          icon: isMobileDevice ? 'phone' : 'laptop',
           protocol: 'wifi'
         })
       }).catch(() => {});
@@ -641,7 +642,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                 onClick={() => setPreviewModalFile(null)}
                 className="w-7 h-7 rounded-full bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-slate-500 hover:text-slate-900 text-xs border border-sky-200/60"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="rounded-2xl overflow-hidden bg-sky-50/50 border border-sky-200/80 max-h-[70vh] flex items-center justify-center p-2">
@@ -669,11 +670,11 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-900/35 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white/95 backdrop-blur-2xl border border-white/95 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-[0_25px_60px_rgba(2,132,199,0.2)]">
             <div className="w-16 h-16 rounded-2xl bg-sky-100 border border-sky-200 flex items-center justify-center mx-auto text-3xl shadow-sm">
-              <span>{incomingOrderModal.senderType === 'laptop' ? '💻' : '📱'}</span>
+              {incomingOrderModal.senderType === 'laptop' ? <Laptop className="w-6 h-6 text-sky-600" /> : <Smartphone className="w-6 h-6 text-sky-600" />}
             </div>
             
             <span className="text-[10px] font-mono font-bold text-sky-800 bg-sky-100 px-3 py-1 rounded-full border border-sky-300">
-              📶 Wi-Fi 5GHz Mesh Bridge
+              Wi-Fi 5GHz Mesh Bridge
             </span>
 
             <h3 className="text-base font-extrabold text-slate-900">
@@ -684,7 +685,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
             </p>
 
             <div className="p-3 bg-sky-50/80 border border-sky-200 rounded-2xl flex items-center gap-3 text-left shadow-xs">
-              <span className="text-2xl">📄</span>
+              <FileText className="w-8 h-8 text-sky-600" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-slate-900 truncate">{incomingOrderModal.payload?.name || 'Shared Object'}</p>
                 <p className="text-[11px] font-mono text-sky-700 font-semibold">
@@ -705,7 +706,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs transition-colors cursor-pointer shadow-xs"
               >
-                ✕ Decline (رفض)
+                Decline (رفض)
               </button>
 
               <button
@@ -736,7 +737,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                 }}
                 className="flex-[1.4] py-2.5 rounded-xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 text-white font-extrabold text-xs shadow-lg shadow-sky-500/25 transition-all cursor-pointer"
               >
-                ✓ Accept Order (قبول)
+                Accept Order (قبول)
               </button>
             </div>
           </div>

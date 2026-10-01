@@ -174,7 +174,7 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({
             >
               <FolderOpen className="w-5 h-5" />
               <span>
-                {isUnpacking ? 'Writing Unpacked Files...' : '📁 1-Click Unpack into Folder (Zero-ZIP)'}
+                {isUnpacking ? 'Writing Unpacked Files...' : '1-Click Unpack into Folder (Zero-ZIP)'}
               </span>
             </button>
 

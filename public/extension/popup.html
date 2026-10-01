@@ -38,22 +38,32 @@
     </div>
   </header>
 
-  <!-- User Account & Plan Bridge Bar -->
+  <!-- User Account & Plan Bridge Bar (Liquid Glass Capsule) -->
   <div id="authBridgeBar" class="auth-bridge-bar">
-    <div id="userProfileBadge" class="user-profile-badge hidden">
-      <div class="user-avatar-sm" id="userAvatarText">U</div>
+    <div id="userProfileBadge" class="user-profile-badge">
+      <div class="user-avatar-sm" id="userAvatarText">G</div>
       <div class="user-details-sm">
-        <span id="userUsernameText" class="user-username">@user</span>
-        <span id="userPlanPill" class="plan-pill-free">Free (3/5)</span>
+        <span id="userUsernameText" class="user-username">Guest</span>
+        <span id="userPlanPill" class="plan-pill-guest">Guest (5 left)</span>
       </div>
     </div>
-    <button id="btnConnectWebAccount" class="btn-connect-account" title="Sync with BeamDrop Web Account">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-      </svg>
-      <span id="btnConnectAccountText">Connect Web Account</span>
-    </button>
+    <div class="auth-actions-sm">
+      <button id="btnConnectWebAccount" class="btn-signin-chip" title="Sign in or register directly to unlock 15 Beams Free">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          <polyline points="10 17 15 12 10 7"></polyline>
+          <line x1="15" y1="12" x2="3" y2="12"></line>
+        </svg>
+        <span id="btnConnectAccountText">Sign In (15 Beams)</span>
+      </button>
+      <button id="btnSignOutExt" class="btn-signout-icon hidden" title="Sign Out of BeamDrop" type="button">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- Primary Navigation Bar: Beam vs Receive vs Radar vs Updates -->
@@ -62,7 +72,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
       </svg>
-      <span>⚡ Beam</span>
+      <span>Beam</span>
     </button>
     <button id="navTabReceive" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,7 +81,7 @@
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
-      <span>📥 Receive (QR)</span>
+      <span>Receive</span>
     </button>
     <button id="navTabNearby" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -80,14 +90,14 @@
         <circle cx="12" cy="12" r="1.5"></circle>
         <path d="m4.93 4.93 4.24 4.24"></path>
       </svg>
-      <span>📡 Radar</span>
+      <span>Radar</span>
       <span id="navNearbyCountBadge" class="nav-nearby-pill" style="display: none;">0</span>
     </button>
     <button id="navTabUpdates" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
       </svg>
-      <span>🔄 Updates</span>
+      <span>Updates</span>
       <span id="navUpdateDot" class="nav-update-dot" style="display: none;"></span>
     </button>
   </nav>
@@ -97,13 +107,24 @@
     <!-- Object Mode Switcher: Files vs Text vs Clipboard -->
     <div class="bridge-mode-pills">
       <button id="modeBtnFiles" class="bridge-mode-btn active" type="button">
-        <span>📁 Files & Media</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Files &amp; Media</span>
       </button>
       <button id="modeBtnText" class="bridge-mode-btn" type="button">
-        <span>📝 Text & Link</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+        <span>Text &amp; Link</span>
       </button>
       <button id="modeBtnClipboard" class="bridge-mode-btn" type="button" title="Quick beam current system clipboard">
-        <span>📋 Clipboard</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+        </svg>
+        <span>Clipboard</span>
       </button>
     </div>
 
@@ -127,7 +148,12 @@
       <div id="stagedCard" class="staged-card" style="display: none;">
         <div class="staged-preview">
           <img id="thumbImg" class="thumb-img" alt="Preview" style="display: none;">
-          <span id="thumbIcon" class="thumb-icon">📄</span>
+          <span id="thumbIcon" class="thumb-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </span>
         </div>
         <div class="staged-info">
           <div class="staged-name-row">
@@ -136,7 +162,8 @@
           </div>
           <p id="stagedFileSize" class="staged-size">0 KB</p>
           <div id="multiFileSummary" class="multi-file-summary" style="display: none;">
-            <span>📦 Bundling into single ZIP archive in RAM</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+            <span>Bundling into single ZIP archive in RAM</span>
           </div>
         </div>
         <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
@@ -149,7 +176,8 @@
 
       <!-- Primary CTA Button -->
       <button id="btnGenerateQr" class="btn-cta-generate" disabled>
-        <span>⚡ Generate Direct Download QR</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>Generate Direct Download QR</span>
       </button>
     </div>
 
@@ -157,17 +185,30 @@
     <div id="viewTextMode" style="display: none; flex-direction: column; gap: 10px;">
       <!-- Content Type Selector Pills -->
       <div class="text-format-pills">
-        <button id="textTypeAuto" class="t-pill active" type="button">⚡ Auto</button>
-        <button id="textTypeNote" class="t-pill" type="button">📓 Note</button>
-        <button id="textTypeCode" class="t-pill" type="button">💻 Code</button>
-        <button id="textTypeUrl" class="t-pill" type="button">🔗 Link</button>
+        <button id="textTypeAuto" class="t-pill active" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Auto</span>
+        </button>
+        <button id="textTypeNote" class="t-pill" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>Note</span>
+        </button>
+        <button id="textTypeCode" class="t-pill" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          <span>Code</span>
+        </button>
+        <button id="textTypeUrl" class="t-pill" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          <span>Link</span>
+        </button>
       </div>
 
       <div class="text-composer-card">
         <textarea id="textPayloadInput" class="text-composer-area" placeholder="Type or paste any text, notes, code snippet, or website URL link to beam to your phone..."></textarea>
         <div class="text-composer-toolbar">
           <button id="btnQuickPaste" class="btn-clipboard-paste" type="button">
-            <span>📋 Paste from Clipboard</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            <span>Paste from Clipboard</span>
           </button>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span id="textCharCount" style="color: #64748b; font-family: ui-monospace, monospace; font-size: 10px;">0 chars</span>
@@ -187,7 +228,8 @@
 
       <!-- Primary CTA for Text -->
       <button id="btnGenerateTextQr" class="btn-cta-generate" disabled>
-        <span>⚡ Beam to Smart Notebook (Instant QR)</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>Beam to Smart Notebook (Instant QR)</span>
       </button>
     </div>
   </main>
@@ -198,7 +240,8 @@
       <!-- Top Action: Rebuild QR Button & Rolling Nonce Badge -->
       <div class="portal-top-bar">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="font-size: 11px; font-weight: 700; color: #0284c7;">⚡ One-Time QR</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span style="font-size: 11px; font-weight: 700; color: #0284c7;">One-Time QR</span>
           <span id="portalNonceBadge" class="portal-nonce-pill">#live</span>
         </div>
         <button id="btnRebuildQr" class="btn-rebuild-qr" type="button" title="Regenerate fresh random QR session">
@@ -209,7 +252,9 @@
 
       <!-- Staged Object Info Badge on top of QR -->
       <div id="portalFileBadge" class="portal-file-badge">
-        <span id="portalBadgeIcon" class="portal-badge-icon">📦</span>
+        <span id="portalBadgeIcon" class="portal-badge-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+        </span>
         <span id="portalFileNameBadge" class="portal-filename">file.ext</span>
         <span id="portalFileSizeBadge" class="portal-filesize">(0 KB)</span>
       </div>
@@ -221,7 +266,9 @@
       <!-- Real-Time Remote Phone Detection & Verification Status Card -->
       <div id="portalPhoneStatusCard" class="portal-phone-status-card">
         <div class="phone-status-left">
-          <span id="phoneStatusIcon" class="phone-status-icon">📱</span>
+          <span id="phoneStatusIcon" class="phone-status-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </span>
           <div class="phone-status-text">
             <p id="phoneStatusTitle" class="phone-status-title">Waiting for phone scan...</p>
             <p id="phoneStatusSub" class="phone-status-sub">Aim camera to pair directly</p>
@@ -258,7 +305,8 @@
       <!-- Real-Time Connected Device & Operation Status -->
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(2,132,199,0.06); border: 1px solid rgba(186,230,253,0.8); border-radius: 10px; margin: 4px 0 12px; font-size: 11px;">
         <span id="transferDeviceName" style="font-weight: 700; color: #0284c7; display: flex; align-items: center; gap: 5px;">
-          <span>📱</span><span>Phone Connected</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <span>Phone Connected</span>
         </span>
         <span id="transferPhoneStatusSub" style="font-size: 10px; color: #64748b; font-family: ui-monospace, monospace; font-weight: 600;">Writing to RAM</span>
       </div>
@@ -278,8 +326,12 @@
   <!-- STAGE 4: Transfer Complete -->
   <main id="stageComplete" class="stage-container" style="display: none;">
     <div class="complete-card">
-      <div class="complete-icon">✓</div>
-      <h3 class="complete-title">Transfer Complete!</h3>
+      <div class="complete-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <h3 class="complete-title">Transfer Complete</h3>
       <p id="completeSubText" class="complete-sub">Direct transmission finished with zero cloud storage.</p>
       <button id="btnSendAnother" class="btn-cta-generate">
         <span>Beam Another Object</span>
@@ -318,7 +370,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
           </svg>
-          <span id="btnForceReloadExtText">🔄 Force Reload Extension (Apply Disk Changes)</span>
+          <span id="btnForceReloadExtText">Force Reload Extension (Apply Disk Changes)</span>
         </button>
         <p style="font-size: 10px; color: #94a3b8; text-align: center; margin: 0;">
           Instantly reloads updated files from disk into Chrome without developer mode hassle.
@@ -330,9 +382,12 @@
     <!-- STATE B: NEW UPDATE AVAILABLE (currentVersion < latestVersion) -->
     <div id="stateUpdateAvailable" class="update-clean-card available-theme" style="display: none;">
       <div class="available-top-row">
-        <span class="available-pulse-tag">⚡ New Version Available</span>
+        <span class="available-pulse-tag">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          New Version Available
+        </span>
         <div class="flex items-center gap-1">
-          <span id="currentVerPill" class="text-[10px] text-slate-400 font-mono">v1.5.0 ➔</span>
+          <span id="currentVerPill" class="text-[10px] text-slate-400 font-mono">v1.5.0 &rarr;</span>
           <span id="availableVerPill" class="available-ver-badge">v1.5.2</span>
         </div>
       </div>
@@ -347,10 +402,11 @@
       <!-- 2-Step Developer Mode (Unpacked) Upgrade Assistant -->
       <div id="unpackedUpgradeGuide" style="display: none; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; padding: 12px; margin: 10px 0;">
         <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; color: #38bdf8; font-size: 12px;">
-          <span>📦 Developer Mode (Load Unpacked)</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+          <span>Developer Mode (Load Unpacked)</span>
         </div>
         <p style="font-size: 11px; color: #cbd5e1; margin: 6px 0 8px 0; line-height: 1.4;">
-          ⚡ <strong>Zero-ZIP In-Place Updater:</strong> Directly overwrites code files in your extension folder on disk.
+          <strong>Zero-ZIP In-Place Updater:</strong> Directly overwrites code files in your extension folder on disk.
         </p>
         <ol style="font-size: 10.5px; color: #94a3b8; margin: 0 0 10px 16px; padding: 0; line-height: 1.6;">
           <li>Link your extension folder on your PC once</li>
@@ -366,16 +422,16 @@
           <polyline points="7 10 12 15 17 10"></polyline>
           <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
-        <span id="btnTriggerUpdateText">📥 Download Update Archive</span>
+        <span id="btnTriggerUpdateText">Download Update Archive</span>
       </button>
 
       <!-- Reload button after extraction -->
       <button id="btnReloadExtension" type="button" class="btn-cta-generate" style="display: none; margin-top: 8px; width: 100%;">
-        <span>🔄 Reload Extension (Apply v<span id="reloadTargetVer">1.6.1</span>)</span>
+        <span>Reload Extension (Apply v<span id="reloadTargetVer">1.6.1</span>)</span>
       </button>
 
       <p id="updateModeNotice" class="update-sub-desc" style="font-size: 10px; color: #94a3b8; text-align: center; margin: 6px 0 0 0;">
-        ⚡ Smart Environment Detection: Load Unpacked mode
+        Smart Environment Detection: Load Unpacked mode
       </p>
 
       <div class="available-footer-info flex items-center justify-between mt-2">
@@ -391,9 +447,14 @@
     <!-- Live Network Telemetry HUD Bar -->
     <div class="network-telemetry-hud">
       <div class="telemetry-wifi-badge">
-        <span class="wifi-wave-icon">📶</span>
+        <span class="wifi-wave-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+        </span>
         <div class="telemetry-info">
-          <span id="telemetrySsid" class="telemetry-ssid">🟢 Connected to Mesh</span>
+          <span id="telemetrySsid" class="telemetry-ssid">
+            <span class="status-dot-green"></span>
+            <span id="telemetrySsidText">Connected to Mesh</span>
+          </span>
           <span id="telemetryBandSpeed" class="telemetry-sub">Direct P2P WebRTC</span>
         </div>
       </div>
@@ -401,7 +462,7 @@
         <span id="telemetryModeTag" class="telemetry-pill">MESH ROOM</span>
         <span id="telemetrySubnetTag" class="telemetry-sub-pill">Room: Auto</span>
         <div class="telemetry-pin-wrap" title="Private Room PIN: Set 4-digit PIN to isolate on public Wi-Fi (Cafes/Offices)">
-          <span style="font-size: 10px;">🔒</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <input type="text" id="radarRoomPinInput" class="telemetry-pin-input" placeholder="PIN" maxlength="4" spellcheck="false">
         </div>
       </div>
@@ -410,7 +471,9 @@
     <!-- Top Identity & Discovery Controls -->
     <div class="nearby-top-card">
       <div class="device-self-identity">
-        <div class="device-self-avatar" id="deviceSelfAvatar">💻</div>
+        <div class="device-self-avatar" id="deviceSelfAvatar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        </div>
         <div class="device-self-meta">
           <div class="device-self-label">My Device Name:</div>
           <div class="device-name-input-row">
@@ -424,7 +487,8 @@
       <div class="discovery-channels-bar">
         <div class="channel-chip active" id="chipWifiStatus" title="Local Wi-Fi Subnet &amp; Hotspot Mesh Active">
           <span class="chip-dot"></span>
-          <span id="chipWifiText">📶 Wi-Fi Hotspot Mesh</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+          <span id="chipWifiText">Wi-Fi Hotspot Mesh</span>
         </div>
         <button class="channel-chip btn-scan-bt" id="btnScanBluetooth" style="display:none;" type="button" title="Scan for nearby Bluetooth LE devices">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -438,9 +502,9 @@
     <!-- Interactive Radar Visualizer Screen (Spider Net HUD) -->
     <div class="radar-visualizer-card">
       <div class="radar-screen">
-        <div class="radar-grid-ring r1" title="Direct / Hotspot (< 10ms)"></div>
+        <div class="radar-grid-ring r1" title="Direct / Hotspot (&lt; 10ms)"></div>
         <div class="radar-grid-ring r2" title="Wi-Fi Mobile Phones (10-30ms)"></div>
-        <div class="radar-grid-ring r3" title="PCs &amp; Network Infra (> 30ms)"></div>
+        <div class="radar-grid-ring r3" title="PCs &amp; Network Infra (&gt; 30ms)"></div>
         <div class="radar-spoke sp-h"></div>
         <div class="radar-spoke sp-v"></div>
         <div class="radar-spoke sp-d1"></div>
@@ -477,15 +541,26 @@
       <!-- Device Filter Pills -->
       <div class="radar-filter-tabs">
         <button id="filterBtnAll" class="radar-filter-btn active" type="button">All (<span id="filterCountAll">0</span>)</button>
-        <button id="filterBtnPhones" class="radar-filter-btn" type="button">📱 Phones (<span id="filterCountPhones">0</span>)</button>
-        <button id="filterBtnPcs" class="radar-filter-btn" type="button">💻 PCs (<span id="filterCountPcs">0</span>)</button>
-        <button id="filterBtnNetwork" class="radar-filter-btn" type="button">🌐 Gateway (<span id="filterCountNetwork">0</span>)</button>
+        <button id="filterBtnPhones" class="radar-filter-btn" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          Phones (<span id="filterCountPhones">0</span>)
+        </button>
+        <button id="filterBtnPcs" class="radar-filter-btn" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          PCs (<span id="filterCountPcs">0</span>)
+        </button>
+        <button id="filterBtnNetwork" class="radar-filter-btn" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          Gateway (<span id="filterCountNetwork">0</span>)
+        </button>
       </div>
 
       <!-- Devices List Container -->
       <div id="nearbyDevicesList" class="nearby-devices-list">
         <div class="nearby-empty-state" id="nearbyEmptyState">
-          <div class="nearby-empty-icon">📡</div>
+          <div class="nearby-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5"></circle><path d="m4.93 4.93 4.24 4.24"></path></svg>
+          </div>
           <p class="nearby-empty-title">Active Wi-Fi Mesh Discovery</p>
           <p class="nearby-empty-sub">
             Open <strong>https://beam-drop-mu.vercel.app</strong> on your iPhone or Android (same Wi-Fi) to appear here instantly!
@@ -501,7 +576,10 @@
     <div class="qr-card-container" style="padding: 14px;">
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
         <span style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">PC Receive Vault</span>
-        <span style="font-size: 10px; font-weight: 700; background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 999px; border: 1px solid #a7f3d0;">🟢 Ready to Receive</span>
+        <span style="font-size: 10px; font-weight: 700; background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 999px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
+          <span class="status-dot-green"></span>
+          Ready to Receive
+        </span>
       </div>
 
       <div style="background: #ffffff; padding: 10px; border-radius: 16px; border: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2,132,199,0.1); margin-bottom: 8px;">
@@ -521,11 +599,13 @@
 
       <!-- Actions -->
       <div style="display: flex; gap: 6px; width: 100%;">
-        <button id="btnGetIosShortcut" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: #0f172a; color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Get Apple iOS Shortcut (iCloud)">
-          <span>🍏 iOS Shortcut</span>
+        <button id="btnGetIosShortcut" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: #0f172a; color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;" title="Get Apple iOS Shortcut (iCloud)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.4c.58-.72.98-1.72.87-2.73-.85.04-1.92.59-2.53 1.3-.54.62-.99 1.62-.87 2.6.96.07 1.96-.46 2.53-1.17z"></path></svg>
+          <span>iOS Shortcut</span>
         </button>
-        <button id="btnOpenMobileScannerLink" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: linear-gradient(135deg, #059669, #0284c7); color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Open Android Share Sheet & Mobile Scanner">
-          <span>🤖 Android / Web</span>
+        <button id="btnOpenMobileScannerLink" type="button" style="flex: 1; padding: 7px 8px; border-radius: 10px; background: linear-gradient(135deg, #059669, #0284c7); color: #ffffff; border: none; font-size: 10.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;" title="Open Android Share Sheet & Mobile Scanner">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <span>Android / Web</span>
         </button>
       </div>
     </div>
@@ -556,15 +636,22 @@
   <div id="incomingTransferModal" class="incoming-modal-backdrop" style="display: none;">
     <div class="incoming-modal-card">
       <div class="incoming-pulse-glow">
-        <div class="incoming-avatar" id="incomingSenderAvatar">📱</div>
+        <div class="incoming-avatar" id="incomingSenderAvatar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+        </div>
       </div>
       
-      <span class="incoming-badge-pill" id="incomingTransportBadge">📶 Wi-Fi Hotspot Bridge</span>
+      <span class="incoming-badge-pill" id="incomingTransportBadge">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+        Wi-Fi Hotspot Bridge
+      </span>
       <h3 class="incoming-title" id="incomingSenderName">Sender Device</h3>
       <p class="incoming-desc">wants to beam an object directly to you:</p>
 
       <div class="incoming-object-card">
-        <div class="incoming-obj-icon" id="incomingObjIcon">📄</div>
+        <div class="incoming-obj-icon" id="incomingObjIcon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        </div>
         <div class="incoming-obj-info">
           <div class="incoming-obj-name" id="incomingObjName">Filename.ext</div>
           <div class="incoming-obj-size" id="incomingObjSize">0 KB</div>
@@ -574,12 +661,117 @@
       <!-- Accept / Decline Action Buttons -->
       <div class="incoming-modal-actions">
         <button id="btnDeclineTransfer" class="btn-modal-decline" type="button">
-          <span>✕ Decline</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Decline</span>
         </button>
         <button id="btnAcceptTransfer" class="btn-modal-accept" type="button">
-          <span>✓ Accept &amp; Receive</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Accept &amp; Receive</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- IN-EXTENSION APPLE LIQUID GLASS AUTH SHEET (DIRECT MODAL) -->
+  <div id="authSheetModal" class="auth-sheet-backdrop" style="display: none;">
+    <div class="auth-sheet-card">
+      <div class="auth-sheet-handle"></div>
+      
+      <div class="auth-sheet-header">
+        <div class="auth-brand-row">
+          <div class="auth-brand-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          </div>
+          <div>
+            <h3 class="auth-sheet-title" id="authSheetTitle">BeamDrop Account</h3>
+            <p class="auth-sheet-subtitle" id="authSheetSub">Sign in to unlock 15 daily beams &amp; cross-device sync</p>
+          </div>
+        </div>
+        <button id="btnCloseAuthSheet" class="btn-auth-close" type="button" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- Auth Mode Tabs: Sign In vs Sign Up -->
+      <div class="auth-tabs-bar">
+        <button id="tabAuthSignIn" class="auth-tab active" type="button">Sign In</button>
+        <button id="tabAuthSignUp" class="auth-tab" type="button">Create Account</button>
+      </div>
+
+      <!-- Error / Success Alert Box -->
+      <div id="authAlertBox" class="auth-alert-box" style="display: none;"></div>
+
+      <!-- SIGN IN FORM -->
+      <form id="formExtSignIn" class="auth-form-body">
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtLoginId">Username or Email</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <input type="text" id="inputExtLoginId" class="auth-input" placeholder="you@domain.com or @username" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtLoginPass">Password</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <input type="password" id="inputExtLoginPass" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+        </div>
+
+        <button type="submit" id="btnExtSubmitSignIn" class="btn-auth-submit">
+          <span id="btnExtSubmitSignInText">Sign In to BeamDrop</span>
+        </button>
+
+        <div class="auth-switch-note">
+          <span>New to BeamDrop? </span>
+          <button type="button" id="btnSwitchToSignUp" class="auth-link-btn">Create free account</button>
+        </div>
+      </form>
+
+      <!-- SIGN UP FORM -->
+      <form id="formExtSignUp" class="auth-form-body" style="display: none;">
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtRegFullName">Full Name</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <input type="text" id="inputExtRegFullName" class="auth-input" placeholder="Alex Morgan" required autocomplete="name">
+          </div>
+        </div>
+
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtRegUsername">Username</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path></svg>
+            <input type="text" id="inputExtRegUsername" class="auth-input" placeholder="alex24" pattern="^[a-zA-Z0-9_]{3,20}$" title="3-20 letters, numbers, or underscores" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtRegEmail">Email Address</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <input type="email" id="inputExtRegEmail" class="auth-input" placeholder="alex@domain.com" required autocomplete="email">
+          </div>
+        </div>
+
+        <div class="auth-input-group">
+          <label class="auth-label" for="inputExtRegPass">Password</label>
+          <div class="auth-input-wrap">
+            <svg class="auth-field-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <input type="password" id="inputExtRegPass" class="auth-input" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password">
+          </div>
+        </div>
+
+        <button type="submit" id="btnExtSubmitSignUp" class="btn-auth-submit">
+          <span id="btnExtSubmitSignUpText">Create Account &amp; Unlock 15 Beams</span>
+        </button>
+
+        <div class="auth-switch-note">
+          <span>Already have an account? </span>
+          <button type="button" id="btnSwitchToSignIn" class="auth-link-btn">Sign in</button>
+        </div>
+      </form>
     </div>
   </div>
 

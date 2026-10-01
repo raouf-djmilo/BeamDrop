@@ -629,30 +629,49 @@ btnRemoveFile.addEventListener('click', (e) => {
   updateStatus('idle', 'Ready');
 });
 
+const EXT_SVG_ICONS = {
+  excel: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>',
+  ppt: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+  pdf: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+  doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+  zip: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>',
+  image: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+  video: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
+  file: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+  phone: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>',
+  laptop: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+  alert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+  download: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
+  code: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+  note: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+  link: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>'
+};
+
 function getExtensionFileTypeInfo(name, mime = '') {
   const ext = (name || '').split('.').pop().toLowerCase();
   if (['xls', 'xlsx', 'csv', 'ods', 'tsv'].includes(ext) || mime.includes('spreadsheet') || mime.includes('excel')) {
-    return { tag: ext.toUpperCase(), icon: '📊', class: 'tag-excel' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.excel, class: 'tag-excel' };
   }
   if (['ppt', 'pptx', 'pps', 'ppsx', 'odp'].includes(ext) || mime.includes('presentation')) {
-    return { tag: ext.toUpperCase(), icon: '📽️', class: 'tag-ppt' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.ppt, class: 'tag-ppt' };
   }
   if (ext === 'pdf' || mime === 'application/pdf') {
-    return { tag: 'PDF', icon: '📑', class: 'tag-pdf' };
+    return { tag: 'PDF', svgHtml: EXT_SVG_ICONS.pdf, class: 'tag-pdf' };
   }
   if (['doc', 'docx', 'rtf', 'odt'].includes(ext) || mime.includes('word')) {
-    return { tag: ext.toUpperCase(), icon: '📄', class: 'tag-doc' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.doc, class: 'tag-doc' };
   }
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) {
-    return { tag: ext.toUpperCase(), icon: '📦', class: 'tag-zip' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.zip, class: 'tag-zip' };
   }
   if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-    return { tag: ext.toUpperCase(), icon: '🖼️', class: 'tag-image' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.image, class: 'tag-image' };
   }
   if (mime.startsWith('video/') || ['mp4', 'mkv', 'mov', 'webm'].includes(ext)) {
-    return { tag: ext.toUpperCase(), icon: '🎬', class: 'tag-video' };
+    return { tag: ext.toUpperCase(), svgHtml: EXT_SVG_ICONS.video, class: 'tag-video' };
   }
-  return { tag: ext.toUpperCase() || 'FILE', icon: '📄', class: '' };
+  return { tag: ext.toUpperCase() || 'FILE', svgHtml: EXT_SVG_ICONS.file, class: '' };
 }
 
 function stageSelectedFiles(files) {
@@ -672,7 +691,7 @@ function stageSelectedFiles(files) {
       stagedTypeTag.className = 'staged-type-tag tag-zip';
     }
     thumbImg.style.display = 'none';
-    thumbIcon.textContent = '📦';
+    thumbIcon.innerHTML = EXT_SVG_ICONS.zip;
     thumbIcon.style.display = 'block';
   } else {
     currentObjectType = 'file';
@@ -689,7 +708,7 @@ function stageSelectedFiles(files) {
       thumbIcon.style.display = 'none';
     } else {
       thumbImg.style.display = 'none';
-      thumbIcon.textContent = fileInfo.icon;
+      thumbIcon.innerHTML = fileInfo.svgHtml || EXT_SVG_ICONS.file;
       thumbIcon.style.display = 'block';
     }
   }
@@ -702,7 +721,7 @@ function stageSelectedFiles(files) {
 btnGenerateQr.addEventListener('click', async () => {
   if (stagedFiles.length === 0) return;
   btnGenerateQr.disabled = true;
-  btnGenerateQr.innerHTML = '<span>⚡ Preparing Transmission...</span>';
+  btnGenerateQr.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Preparing Transmission...</span>';
 
   try {
     if (stagedFiles.length > 1 && typeof JSZip !== 'undefined') {
@@ -726,7 +745,7 @@ btnGenerateQr.addEventListener('click', async () => {
     startFilePortalSession(activePreparedFile);
   } finally {
     btnGenerateQr.disabled = false;
-    btnGenerateQr.innerHTML = '<span>⚡ Generate Direct Download QR</span>';
+    btnGenerateQr.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Generate Direct Download QR</span>';
   }
 });
 
@@ -817,9 +836,9 @@ async function readClipboardAndFill() {
         textPayloadInput.value = clipText;
         textPayloadInput.dispatchEvent(new Event('input'));
         if (btnQuickPaste) {
-          btnQuickPaste.innerHTML = '<span>✓ Pasted!</span>';
+          btnQuickPaste.innerHTML = '<span>Pasted</span>';
           setTimeout(() => {
-            btnQuickPaste.innerHTML = '<span>📋 Paste from Clipboard</span>';
+            btnQuickPaste.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg><span>Paste from Clipboard</span>';
           }, 1500);
         }
       }
@@ -892,7 +911,7 @@ function resetRemotePhoneStatusUI() {
     badge.style.background = '#f1f5f9';
     badge.style.borderColor = '#cbd5e1';
   }
-  if (icon) icon.textContent = '📱';
+  if (icon) icon.innerHTML = EXT_SVG_ICONS.phone;
 }
 
 function updateRemotePhoneStatus(msg) {
@@ -921,7 +940,7 @@ function updateRemotePhoneStatus(msg) {
       badge.style.background = '#d1fae5';
       badge.style.borderColor = '#a7f3d0';
     }
-    if (icon) icon.textContent = '📱';
+    if (icon) icon.innerHTML = EXT_SVG_ICONS.phone;
   } else if (msg.stage === 'downloading') {
     card.style.background = '#f0f9ff';
     card.style.borderColor = '#7dd3fc';
@@ -942,7 +961,7 @@ function updateRemotePhoneStatus(msg) {
       badge.style.background = '#e0f2fe';
       badge.style.borderColor = '#bae6fd';
     }
-    if (icon) icon.textContent = '📥';
+    if (icon) icon.innerHTML = EXT_SVG_ICONS.download;
   } else if (msg.stage === 'delivered') {
     card.style.background = '#ecfdf5';
     card.style.borderColor = '#10b981';
@@ -961,7 +980,7 @@ function updateRemotePhoneStatus(msg) {
       badge.style.background = '#a7f3d0';
       badge.style.borderColor = '#6ee7b7';
     }
-    if (icon) icon.textContent = '✓';
+    if (icon) icon.innerHTML = EXT_SVG_ICONS.check;
   } else if (msg.stage === 'failed') {
     card.style.background = '#fff1f2';
     card.style.borderColor = '#fca5a5';
@@ -980,7 +999,7 @@ function updateRemotePhoneStatus(msg) {
       badge.style.background = '#ffe4e6';
       badge.style.borderColor = '#fecdd3';
     }
-    if (icon) icon.textContent = '⚠️';
+    if (icon) icon.innerHTML = EXT_SVG_ICONS.alert;
   }
 }
 
@@ -1073,7 +1092,7 @@ async function rebuildExtensionQrSession() {
   }
 
   updateStatus('ready', 'QR Rebuilt');
-  if (btnRebuildQrText) btnRebuildQrText.textContent = '✓ Rebuilt!';
+  if (btnRebuildQrText) btnRebuildQrText.textContent = 'Rebuilt';
   setTimeout(() => {
     if (btnRebuildQrText) btnRebuildQrText.textContent = 'Rebuild QR';
     if (btnRebuildQrIcon) {
@@ -1176,7 +1195,7 @@ async function startTextPortalSession(text) {
     const b64Data = btoa(unescape(encodeURIComponent(text)));
     targetUrl = `${safeBaseUrl}/notebook.html#data=${b64Data}&type=${chosenType}`;
 
-    if (portalBadgeIcon) portalBadgeIcon.textContent = chosenType === 'code' ? '💻' : (chosenType === 'url' ? '🔗' : '📓');
+    if (portalBadgeIcon) portalBadgeIcon.innerHTML = chosenType === 'code' ? EXT_SVG_ICONS.code : (chosenType === 'url' ? EXT_SVG_ICONS.link : EXT_SVG_ICONS.note);
     if (portalFileNameBadge) portalFileNameBadge.textContent = chosenType === 'code' ? 'Code Snippet' : (chosenType === 'url' ? 'Beamed Link' : 'Notebook Note');
     if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${text.length} chars • Instant)`;
     if (qrScanInstruction) qrScanInstruction.textContent = 'Scan with Phone Camera or open link on PC to view Notebook';
@@ -1189,7 +1208,7 @@ async function startTextPortalSession(text) {
       portalRadarDot.style.boxShadow = '0 0 8px #10b981';
     }
     if (portalRadarText) {
-      portalRadarText.textContent = '⚡ Instant Notebook Ready (Zero Latency)';
+      portalRadarText.textContent = 'Instant Notebook Ready (Zero Latency)';
     }
   } else {
     // Large text fallback: Stream over WebRTC PeerJS
@@ -1200,7 +1219,7 @@ async function startTextPortalSession(text) {
 
     targetUrl = `${safeBaseUrl}/notebook.html?peer=${currentPeerId}&type=${chosenType}`;
 
-    if (portalBadgeIcon) portalBadgeIcon.textContent = chosenType === 'code' ? '💻' : '📓';
+    if (portalBadgeIcon) portalBadgeIcon.innerHTML = chosenType === 'code' ? EXT_SVG_ICONS.code : EXT_SVG_ICONS.note;
     if (portalFileNameBadge) portalFileNameBadge.textContent = chosenType === 'code' ? 'Large Code File' : 'Long Note Document';
     if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${formatBytes(text.length)} • WebRTC)`;
     if (qrScanInstruction) qrScanInstruction.textContent = 'Scan to stream directly into Notebook';
@@ -1291,7 +1310,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.textAlign = 'center';
   ctx.font = 'bold 32px system-ui, sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('⚡ BeamDrop', width / 2, 60);
+  ctx.fillText('BeamDrop', width / 2, 60);
 
   ctx.font = '600 13px monospace';
   ctx.fillStyle = '#38bdf8';
@@ -1312,7 +1331,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
     ctx.font = 'bold 16px system-ui, sans-serif';
     ctx.fillStyle = '#f8fafc';
     const displayTrunc = name.length > 28 ? name.slice(0, 25) + '...' : name;
-    ctx.fillText(`⚡ ${displayTrunc}`, 55, 129);
+    ctx.fillText(displayTrunc, 55, 129);
 
     if (size) {
       ctx.textAlign = 'right';
@@ -1348,7 +1367,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.font = 'bold 26px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('⚡', width / 2, qrY + qrBoxSize / 2);
+  ctx.fillText('BD', width / 2, qrY + qrBoxSize / 2);
 
   // Scan instruction
   ctx.textAlign = 'center';
@@ -1374,7 +1393,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 14px monospace';
   ctx.fillStyle = '#38bdf8';
-  ctx.fillText('⚡ BeamDrop • Universal P2P Bridge • RAM-to-RAM', width / 2, footerY + 20);
+  ctx.fillText('BeamDrop • Universal P2P Bridge • RAM-to-RAM', width / 2, footerY + 20);
 
   ctx.font = '500 11px monospace';
   ctx.fillStyle = '#64748b';
@@ -1399,7 +1418,7 @@ if (btnSaveQrWatermark) {
       a.href = card.toDataURL('image/png');
       a.download = `beamdrop-qr-${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
       a.click();
-      if (btnSaveQrWatermarkText) btnSaveQrWatermarkText.textContent = '✓ Saved QR Card!';
+      if (btnSaveQrWatermarkText) btnSaveQrWatermarkText.textContent = 'Saved QR Card';
       setTimeout(() => {
         if (btnSaveQrWatermarkText) btnSaveQrWatermarkText.textContent = originalText;
       }, 2000);
@@ -1625,7 +1644,7 @@ function setupConnectionHandlers(conn, type) {
       updateRemotePhoneStatus(msg);
 
       if (msg.device && transferDeviceName) {
-        transferDeviceName.innerHTML = `<span>📱</span><span>${escapeHtml(msg.device)}</span>`;
+        transferDeviceName.innerHTML = `${EXT_SVG_ICONS.phone}<span>${escapeHtml(msg.device)}</span>`;
       }
 
       if (msg.stage === 'scanned') {
@@ -1640,7 +1659,7 @@ function setupConnectionHandlers(conn, type) {
         isStreaming = false;
         showStage('complete');
         if (completeSubText) {
-          completeSubText.textContent = `✓ ${msg.fileName || 'Object'} verified received & saved to phone storage.`;
+          completeSubText.textContent = `${msg.fileName || 'Object'} verified received & saved to phone storage.`;
         }
         updateStatus('ready', 'Transfer Complete');
       } else if (msg.stage === 'failed') {
@@ -1658,7 +1677,7 @@ function setupConnectionHandlers(conn, type) {
           device: msg.device
         });
         if (transferDeviceName) {
-          transferDeviceName.innerHTML = `<span>📱</span><span>${escapeHtml(msg.device)}</span>`;
+          transferDeviceName.innerHTML = `${EXT_SVG_ICONS.phone}<span>${escapeHtml(msg.device)}</span>`;
         }
       }
       startTransmission();
@@ -2053,12 +2072,12 @@ const BUILT_IN_LATEST_REGISTRY = {
   version: '1.5.2',
   downloadUrl: 'https://beam-drop-mu.vercel.app/extension.zip',
   highlights: [
-    '📡 Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
-    '📓 Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
-    '⚡ Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction',
-    '🔄 In-Popup Instant Reload: Force reload files from disk directly with a single click',
-    '💻 Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code',
-    '✨ Ultra-Clean Cyber Glassmorphism UI: Fully refined premium interface for the Chrome Extension'
+    'Nearby Radar: AirDrop-style Wi-Fi & Bluetooth Device Discovery with Accept/Decline security',
+    'Instant Smart Notebook: Text, code, and links open directly into an interactive notebook on Phone & PC',
+    'Zero-ZIP 1-Click Auto Upgrade Engine: Direct in-place rebuild & reload with 0 manual ZIP downloads or file extraction',
+    'In-Popup Instant Reload: Force reload files from disk directly with a single click',
+    'Syntax Highlighting & Line Numbers: Auto-detects JavaScript, Python, HTML, SQL, and Shell code',
+    'Ultra-Clean Apple Liquid Glass UI: Fully refined premium interface for the Chrome Extension'
   ]
 };
 
@@ -2228,15 +2247,11 @@ async function checkForUpdates(manual = false) {
 
     const pulseTag = document.querySelector('.available-pulse-tag');
     if (pulseTag) {
-      pulseTag.textContent = isNewGitPatch
-        ? '⚡ Live Patch on GitHub'
-        : '⚡ New Version Available';
+      pulseTag.textContent = isNewGitPatch ? 'Live Patch on GitHub' : 'New Version Available';
     }
 
     if (currentVerPill) {
-      currentVerPill.textContent = isNewGitPatch
-        ? ('v' + localVer + ' (' + localSha + ') ➔')
-        : ('v' + localVer + ' ➔');
+      currentVerPill.textContent = isNewGitPatch ? ('v' + localVer + ' (' + localSha + ') ->') : ('v' + localVer + ' ->');
     }
     if (availableVerPill) {
       availableVerPill.textContent = isNewGitPatch
@@ -2281,10 +2296,10 @@ async function checkForUpdates(manual = false) {
 
       if (hasLinkedFolder) {
         if (btnTriggerUpdateText) {
-          btnTriggerUpdateText.textContent = `⚡ 1-Click Sync & Apply from GitHub (${targetLabel})`;
+          btnTriggerUpdateText.textContent = `1-Click Sync & Apply from GitHub (${targetLabel})`;
         }
         if (updateModeNotice) {
-          updateModeNotice.textContent = `📁 Linked: ${linkedFolderName} • Auto-Sync with raouf-djmilo/BeamDrop`;
+          updateModeNotice.textContent = `Linked: ${linkedFolderName} • Auto-Sync with raouf-djmilo/BeamDrop`;
         }
 
         if (btnTriggerUpdate) {
@@ -2304,10 +2319,10 @@ async function checkForUpdates(manual = false) {
         }
       } else {
         if (btnTriggerUpdateText) {
-          btnTriggerUpdateText.textContent = '📁 Link Extension Folder to Enable 1-Click Sync';
+          btnTriggerUpdateText.textContent = 'Link Extension Folder to Enable 1-Click Sync';
         }
         if (updateModeNotice) {
-          updateModeNotice.textContent = '⚡ Select your local extension folder once to enable 1-click in-place disk updates';
+          updateModeNotice.textContent = 'Select your local extension folder once to enable 1-click in-place disk updates';
         }
 
         if (btnTriggerUpdate) {
@@ -2339,8 +2354,8 @@ async function checkForUpdates(manual = false) {
     } else {
       // Web Store Production Mode
       if (unpackedGuide) unpackedGuide.style.display = 'none';
-      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '⚡ 1-Click Update & Reload';
-      if (updateModeNotice) updateModeNotice.textContent = '⚡ Managed by Chrome Web Store';
+      if (btnTriggerUpdateText) btnTriggerUpdateText.textContent = '1-Click Update & Reload';
+      if (updateModeNotice) updateModeNotice.textContent = 'Managed by Chrome Web Store';
 
       if (btnTriggerUpdate) {
         btnTriggerUpdate.style.display = 'flex';
@@ -2358,11 +2373,11 @@ async function checkForUpdates(manual = false) {
     }
 
     const notes = [
-      commitMessage ? `📌 GitHub Commit: ${commitMessage}` : '',
+      commitMessage ? `GitHub Commit: ${commitMessage}` : '',
       ...(remoteVersionInfo && remoteVersionInfo.highlights ? remoteVersionInfo.highlights : [
-        '🚀 Live WebRTC DataChannel optimizations & instant two-way handshake',
-        '⚡ Zero buffer deadlock with flow control threshold',
-        '🛡️ Direct File System 1-click in-place folder updates'
+        'Live WebRTC DataChannel optimizations & instant two-way handshake',
+        'Zero buffer deadlock with flow control threshold',
+        'Direct File System 1-click in-place folder updates'
       ])
     ].filter(Boolean);
 
@@ -2389,7 +2404,7 @@ async function checkForUpdates(manual = false) {
 
     const uptodateSub = document.querySelector('.uptodate-sub');
     if (uptodateSub) {
-      uptodateSub.innerHTML = `You have the latest version installed.<br><span style="color:#10b981; font-weight:600;">✓ Synchronized with GitHub: raouf-djmilo/BeamDrop@main</span><br><span style="font-size:10.5px; color:#64748b; font-family:monospace;">Verified Git Commit: ${escapeHtml(displaySha)}${commitMessage ? ' • ' + escapeHtml(commitMessage) : ''}</span>`;
+      uptodateSub.innerHTML = `You have the latest version installed.<br><span style="color:#10b981; font-weight:600;">Synchronized with GitHub: raouf-djmilo/BeamDrop@main</span><br><span style="font-size:10.5px; color:#64748b; font-family:monospace;">Verified Git Commit: ${escapeHtml(displaySha)}${commitMessage ? ' • ' + escapeHtml(commitMessage) : ''}</span>`;
     }
   }
 
@@ -2414,7 +2429,7 @@ if (btnCheckUpdates) {
 if (btnForceReloadExt) {
   btnForceReloadExt.addEventListener('click', () => {
     if (btnForceReloadExtText) {
-      btnForceReloadExtText.textContent = '🔄 Reloading Extension...';
+      btnForceReloadExtText.textContent = 'Reloading Extension...';
     }
     setTimeout(() => {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
@@ -2431,7 +2446,7 @@ if (btnForceReloadExt) {
 // ==========================================
 let myDeviceName = 'My Device';
 let myDeviceType = 'laptop';
-let myDeviceIcon = '💻';
+let myDeviceIcon = 'laptop';
 let myDiscoveryPeer = null;
 let myDiscoveryPeerId = null;
 // ==========================================
@@ -2466,13 +2481,12 @@ function playRadarBlipSound() {
 function detectLocalDeviceMeta() {
   const ua = navigator.userAgent;
   let type = 'laptop';
-  let icon = '💻';
-  let name = 'Windows PC';
-  if (/Android/i.test(ua)) { type = 'phone'; icon = '📱'; name = 'Android Device'; }
-  else if (/iPhone/i.test(ua)) { type = 'phone'; icon = '📱'; name = 'iPhone'; }
-  else if (/iPad|Tablet/i.test(ua)) { type = 'tablet'; icon = '📟'; name = 'Tablet'; }
-  else if (/Macintosh/i.test(ua)) { type = 'laptop'; icon = '💻'; name = 'MacBook Pro'; }
-  else if (/Linux/i.test(ua)) { type = 'desktop'; icon = '🖥️'; name = 'Linux PC'; }
+  let icon = 'laptop';
+  if (/Android/i.test(ua)) { type = 'phone'; icon = 'phone'; name = 'Android Device'; }
+  else if (/iPhone/i.test(ua)) { type = 'phone'; icon = 'phone'; name = 'iPhone'; }
+  else if (/iPad|Tablet/i.test(ua)) { type = 'tablet'; icon = 'tablet'; name = 'Tablet'; }
+  else if (/Macintosh/i.test(ua)) { type = 'laptop'; icon = 'laptop'; name = 'MacBook Pro'; }
+  else if (/Linux/i.test(ua)) { type = 'desktop'; icon = 'desktop'; name = 'Linux PC'; }
   return { type, icon, name };
 }
 
@@ -2516,7 +2530,7 @@ async function detectLanAndRoomInExtension() {
         if (json && json.success && json.roomHash) {
           detectedRoomHash = json.roomHash;
           if (telemetrySsid) {
-            telemetrySsid.textContent = '🟢 Connected to Mesh';
+            telemetrySsid.innerHTML = '<span class="status-dot-green"></span> Connected to Mesh';
           }
           if (telemetryBandSpeed) {
             telemetryBandSpeed.textContent = 'Room: ' + json.roomHash + ' • IP: ' + json.ip;
@@ -2572,7 +2586,7 @@ scanSpiderNetwork(); // Pre-scan immediately so radar telemetry & badge are read
 // Scan LAN & Hotspot via clean Cloud Mesh API
 async function scanSpiderNetwork(isManual = false) {
   if (isManual && radarScanningStatusText) {
-    radarScanningStatusText.textContent = "⚡ Spider sweep in progress...";
+    radarScanningStatusText.textContent = "Spider sweep in progress...";
   }
 
   let scanResult = null;
@@ -2618,8 +2632,7 @@ async function scanSpiderNetwork(isManual = false) {
     }
     if (chipWifiText) {
       chipWifiText.textContent = scanResult.network.isHotspot
-        ? '🔥 Mobile Hotspot Mode'
-        : `📶 ${scanResult.network.ssid}`;
+        ? 'Mobile Hotspot Mode' : scanResult.network.ssid;
     }
 
     let newlyDiscoveredCount = 0;
@@ -2722,7 +2735,7 @@ function registerDiscoveredPeer(peerData) {
     ip: peerData.ip || 'LAN Node',
     name: peerData.name || 'Nearby Device',
     deviceType: peerData.deviceType || 'phone',
-    icon: peerData.icon || (peerData.deviceType === 'phone' ? '📱' : '💻'),
+    icon: peerData.icon || (peerData.deviceType === 'phone' ? 'phone' : 'laptop'),
     protocol: peerData.protocol || 'wifi',
     latency: peerData.latency || 4,
     lastSeen: Date.now(),
@@ -2941,7 +2954,7 @@ function renderNearbyDevices() {
       blip.appendChild(tooltip);
 
       const iconSpan = document.createElement('span');
-      iconSpan.textContent = peer.icon || '📱';
+      iconSpan.innerHTML = peer.icon === 'laptop' ? EXT_SVG_ICONS.laptop : EXT_SVG_ICONS.phone;
       blip.appendChild(iconSpan);
 
       blip.addEventListener('click', (e) => {
@@ -2966,13 +2979,13 @@ function renderNearbyDevices() {
 
       const isBt = peer.protocol === 'bt';
       const isHotspot = peer.protocol === 'hotspot';
-      let protoLabel = '📶 Wi-Fi 5GHz';
+      let protoLabel = 'Wi-Fi 5GHz';
       let protoClass = 'device-protocol-badge wifi';
       if (isBt) {
-        protoLabel = '🔵 Bluetooth';
+        protoLabel = 'Bluetooth';
         protoClass = 'device-protocol-badge bt';
       } else if (isHotspot) {
-        protoLabel = '🔥 Hotspot';
+        protoLabel = 'Hotspot';
         protoClass = 'device-protocol-badge wifi';
       }
 
@@ -2981,7 +2994,7 @@ function renderNearbyDevices() {
 
       card.innerHTML = `
         <div class="device-avatar-wrap">
-          <span>${peer.icon || '📱'}</span>
+          <span>${peer.icon === 'laptop' ? EXT_SVG_ICONS.laptop : EXT_SVG_ICONS.phone}</span>
           <span class="device-online-dot"></span>
         </div>
         <div class="device-details-box">
@@ -2996,7 +3009,7 @@ function renderNearbyDevices() {
           </div>
         </div>
         <button class="btn-beam-device" type="button" title="Send object to ${escapeHtml(peer.name)}">
-          <span>⚡ Beam</span>
+          <span>Beam</span>
         </button>
       `;
 
@@ -3014,12 +3027,114 @@ function renderNearbyDevices() {
 // ==========================================
 // Web-to-Extension User Profile & Quota Bridge
 // ==========================================
+// IN-EXTENSION APPLE LIQUID GLASS AUTH ENGINE
+// ==========================================
+const FIREBASE_API_KEY = "AIzaSyB0oAPZdDEGJZGMcZuxRaF_MUuheH0kcAk";
+const FIREBASE_PROJECT_ID = "a7flow-30981";
+
 const userProfileBadge = document.getElementById('userProfileBadge');
 const userAvatarText = document.getElementById('userAvatarText');
 const userUsernameText = document.getElementById('userUsernameText');
 const userPlanPill = document.getElementById('userPlanPill');
 const btnConnectWebAccount = document.getElementById('btnConnectWebAccount');
 const btnConnectAccountText = document.getElementById('btnConnectAccountText');
+const btnSignOutExt = document.getElementById('btnSignOutExt');
+
+// In-Popup Auth Sheet DOM Elements
+const authSheetModal = document.getElementById('authSheetModal');
+const btnCloseAuthSheet = document.getElementById('btnCloseAuthSheet');
+const tabAuthSignIn = document.getElementById('tabAuthSignIn');
+const tabAuthSignUp = document.getElementById('tabAuthSignUp');
+const authAlertBox = document.getElementById('authAlertBox');
+const formExtSignIn = document.getElementById('formExtSignIn');
+const formExtSignUp = document.getElementById('formExtSignUp');
+const inputExtLoginId = document.getElementById('inputExtLoginId');
+const inputExtLoginPass = document.getElementById('inputExtLoginPass');
+const btnExtSubmitSignIn = document.getElementById('btnExtSubmitSignIn');
+const btnExtSubmitSignInText = document.getElementById('btnExtSubmitSignInText');
+const inputExtRegFullName = document.getElementById('inputExtRegFullName');
+const inputExtRegUsername = document.getElementById('inputExtRegUsername');
+const inputExtRegEmail = document.getElementById('inputExtRegEmail');
+const inputExtRegPass = document.getElementById('inputExtRegPass');
+const btnExtSubmitSignUp = document.getElementById('btnExtSubmitSignUp');
+const btnExtSubmitSignUpText = document.getElementById('btnExtSubmitSignUpText');
+const btnSwitchToSignUp = document.getElementById('btnSwitchToSignUp');
+const btnSwitchToSignIn = document.getElementById('btnSwitchToSignIn');
+
+function showAuthAlert(msg, type = 'error') {
+  if (!authAlertBox) return;
+  authAlertBox.textContent = msg;
+  authAlertBox.className = 'auth-alert-box ' + type;
+  authAlertBox.style.display = 'block';
+}
+
+function clearAuthAlert() {
+  if (!authAlertBox) return;
+  authAlertBox.textContent = '';
+  authAlertBox.style.display = 'none';
+}
+
+function openAuthSheet(mode = 'signin') {
+  if (!authSheetModal) return;
+  clearAuthAlert();
+  switchAuthTab(mode);
+  authSheetModal.style.display = 'flex';
+  setTimeout(() => {
+    if (mode === 'signin' && inputExtLoginId) inputExtLoginId.focus();
+    if (mode === 'signup' && inputExtRegFullName) inputExtRegFullName.focus();
+  }, 100);
+}
+
+function closeAuthSheet() {
+  if (!authSheetModal) return;
+  authSheetModal.style.display = 'none';
+  clearAuthAlert();
+}
+
+function switchAuthTab(mode) {
+  clearAuthAlert();
+  if (mode === 'signin') {
+    if (tabAuthSignIn) tabAuthSignIn.classList.add('active');
+    if (tabAuthSignUp) tabAuthSignUp.classList.remove('active');
+    if (formExtSignIn) formExtSignIn.style.display = 'flex';
+    if (formExtSignUp) formExtSignUp.style.display = 'none';
+  } else {
+    if (tabAuthSignIn) tabAuthSignIn.classList.remove('active');
+    if (tabAuthSignUp) tabAuthSignUp.classList.add('active');
+    if (formExtSignIn) formExtSignIn.style.display = 'none';
+    if (formExtSignUp) formExtSignUp.style.display = 'flex';
+  }
+}
+
+// Wire modal controls
+if (btnCloseAuthSheet) btnCloseAuthSheet.addEventListener('click', closeAuthSheet);
+if (authSheetModal) {
+  authSheetModal.addEventListener('click', (e) => {
+    if (e.target === authSheetModal) closeAuthSheet();
+  });
+}
+if (tabAuthSignIn) tabAuthSignIn.addEventListener('click', () => switchAuthTab('signin'));
+if (tabAuthSignUp) tabAuthSignUp.addEventListener('click', () => switchAuthTab('signup'));
+if (btnSwitchToSignUp) btnSwitchToSignUp.addEventListener('click', () => switchAuthTab('signup'));
+if (btnSwitchToSignIn) btnSwitchToSignIn.addEventListener('click', () => switchAuthTab('signin'));
+
+// Wire Open Auth Sheet button
+if (btnConnectWebAccount) {
+  btnConnectWebAccount.addEventListener('click', () => {
+    openAuthSheet('signin');
+  });
+}
+
+// Wire Sign Out button
+if (btnSignOutExt) {
+  btnSignOutExt.addEventListener('click', async () => {
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+      await chrome.storage.local.remove(['beamdrop_user', 'beamdrop_token', 'beamdrop_refresh_token']);
+    }
+    renderUserAccountBadge(null, null);
+    updateStatus('ready', 'Signed Out');
+  });
+}
 
 function renderUserAccountBadge(user, dailyUsage) {
   if (!userProfileBadge) return;
@@ -3029,24 +3144,25 @@ function renderUserAccountBadge(user, dailyUsage) {
   if (user && user.uid) {
     userProfileBadge.classList.remove('hidden');
     if (btnConnectWebAccount) btnConnectWebAccount.classList.add('hidden');
+    if (btnSignOutExt) btnSignOutExt.classList.remove('hidden');
 
     if (userAvatarText) {
-      const name = user.fullName || user.username || 'User';
+      const name = user.fullName || user.username || user.email || 'User';
       userAvatarText.textContent = name[0].toUpperCase();
     }
 
     if (userUsernameText) {
-      userUsernameText.textContent = `@${user.username || 'user'}`;
+      userUsernameText.textContent = user.username ? `@${user.username}` : user.email;
     }
 
     if (userPlanPill) {
       if (user.plan === 'pro') {
         userPlanPill.className = 'plan-pill-pro';
-        userPlanPill.textContent = '⚡ PRO';
+        userPlanPill.textContent = 'PRO';
       } else {
         const left = Math.max(0, 15 - sends);
         userPlanPill.className = 'plan-pill-free';
-        userPlanPill.textContent = `Free (${left}/15 left)`;
+        userPlanPill.textContent = `Member (${left}/15 left)`;
       }
     }
   } else {
@@ -3056,6 +3172,7 @@ function renderUserAccountBadge(user, dailyUsage) {
       btnConnectWebAccount.classList.remove('hidden');
       if (btnConnectAccountText) btnConnectAccountText.textContent = 'Sign In (15 Beams)';
     }
+    if (btnSignOutExt) btnSignOutExt.classList.add('hidden');
 
     if (userAvatarText) {
       userAvatarText.textContent = 'G';
@@ -3088,16 +3205,258 @@ if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
   });
 }
 
-// Connect Account Button Action
-if (btnConnectWebAccount) {
-  btnConnectWebAccount.addEventListener('click', () => {
-    const targetUrl = `${VERCEL_RECEIVER_URL}/?action=connect_extension`;
-    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url: targetUrl });
-    } else {
-      window.open(targetUrl, '_blank');
+// -------------------------------------------------------------
+// SIGN IN FORM SUBMISSION (Firebase Identity Toolkit REST API)
+// -------------------------------------------------------------
+if (formExtSignIn) {
+  formExtSignIn.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearAuthAlert();
+
+    const loginId = (inputExtLoginId?.value || '').trim();
+    const password = (inputExtLoginPass?.value || '').trim();
+
+    if (!loginId || !password) {
+      showAuthAlert('Please fill in both email/username and password.');
+      return;
+    }
+
+    if (btnExtSubmitSignIn) btnExtSubmitSignIn.disabled = true;
+    if (btnExtSubmitSignInText) btnExtSubmitSignInText.textContent = 'Signing in...';
+
+    try {
+      let email = loginId;
+
+      // Direct Firebase Auth REST Call
+      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          returnSecureToken: true
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errCode = data.error?.message || 'LOGIN_FAILED';
+        if (errCode.includes('INVALID_LOGIN_CREDENTIALS') || errCode.includes('INVALID_PASSWORD')) {
+          throw new Error('Invalid email or password. Please verify your credentials.');
+        } else if (errCode.includes('EMAIL_NOT_FOUND')) {
+          throw new Error('No BeamDrop account found with this email. Please create an account.');
+        } else if (errCode.includes('USER_DISABLED')) {
+          throw new Error('This account has been disabled.');
+        } else if (errCode.includes('TOO_MANY_ATTEMPTS')) {
+          throw new Error('Too many failed attempts. Please try again later.');
+        } else {
+          throw new Error(errCode);
+        }
+      }
+
+      // Success: Extract Tokens & UID
+      const idToken = data.idToken;
+      const uid = data.localId;
+      const userEmail = data.email || email;
+      const usernameFromEmail = userEmail.split('@')[0];
+
+      // Fetch user profile from Firestore REST
+      let profile = {
+        uid: uid,
+        email: userEmail,
+        username: usernameFromEmail,
+        fullName: data.displayName || usernameFromEmail,
+        plan: 'free'
+      };
+
+      try {
+        const firestoreUserRes = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`, {
+          headers: { 'Authorization': `Bearer ${idToken}` }
+        });
+        if (firestoreUserRes.ok) {
+          const userDoc = await firestoreUserRes.json();
+          if (userDoc.fields) {
+            profile.fullName = userDoc.fields.fullName?.stringValue || profile.fullName;
+            profile.username = userDoc.fields.username?.stringValue || profile.username;
+            profile.plan = userDoc.fields.plan?.stringValue || 'free';
+          }
+        }
+      } catch (profileErr) {
+        console.warn('Could not fetch remote user profile:', profileErr);
+      }
+
+      // Save to chrome.storage.local
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        await chrome.storage.local.set({
+          beamdrop_user: profile,
+          beamdrop_token: idToken,
+          beamdrop_daily_usage: {
+            date: new Date().toISOString().slice(0, 10),
+            sendOperations: 0,
+            receiveOperations: 0,
+            qrScansCount: 0
+          }
+        });
+      }
+
+      renderUserAccountBadge(profile, { sendOperations: 0 });
+      showAuthAlert('Signed in successfully! 15 Beams unlocked.', 'success');
+
+      setTimeout(() => {
+        closeAuthSheet();
+        if (inputExtLoginPass) inputExtLoginPass.value = '';
+      }, 700);
+
+    } catch (err) {
+      console.error('[BeamDrop Auth Error]:', err);
+      showAuthAlert(err.message || 'Login failed. Please check your internet connection.');
+    } finally {
+      if (btnExtSubmitSignIn) btnExtSubmitSignIn.disabled = false;
+      if (btnExtSubmitSignInText) btnExtSubmitSignInText.textContent = 'Sign In to BeamDrop';
     }
   });
 }
 
+// -------------------------------------------------------------
+// SIGN UP FORM SUBMISSION (Firebase Identity Toolkit REST API)
+// -------------------------------------------------------------
+if (formExtSignUp) {
+  formExtSignUp.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearAuthAlert();
 
+    const fullName = (inputExtRegFullName?.value || '').trim();
+    const username = (inputExtRegUsername?.value || '').trim().toLowerCase();
+    const email = (inputExtRegEmail?.value || '').trim().toLowerCase();
+    const password = (inputExtRegPass?.value || '').trim();
+
+    if (!fullName || !username || !email || !password) {
+      showAuthAlert('Please fill in all registration fields.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+      showAuthAlert('Username must be 3-20 characters (letters, numbers, or underscores).');
+      return;
+    }
+
+    if (password.length < 6) {
+      showAuthAlert('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (btnExtSubmitSignUp) btnExtSubmitSignUp.disabled = true;
+    if (btnExtSubmitSignUpText) btnExtSubmitSignUpText.textContent = 'Creating Account...';
+
+    try {
+      // 1. Create account via Firebase Auth REST API
+      const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          returnSecureToken: true
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errCode = data.error?.message || 'SIGNUP_FAILED';
+        if (errCode.includes('EMAIL_EXISTS')) {
+          throw new Error('This email address is already registered. Please sign in instead.');
+        } else if (errCode.includes('WEAK_PASSWORD')) {
+          throw new Error('Password is too weak. Please use at least 6 characters.');
+        } else if (errCode.includes('OPERATION_NOT_ALLOWED')) {
+          throw new Error('Email/Password registration is currently disabled in Firebase console.');
+        } else {
+          throw new Error(errCode);
+        }
+      }
+
+      const idToken = data.idToken;
+      const uid = data.localId;
+
+      // 2. Initialize Firestore user record
+      try {
+        await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            fields: {
+              uid: { stringValue: uid },
+              email: { stringValue: email },
+              username: { stringValue: username },
+              fullName: { stringValue: fullName },
+              plan: { stringValue: 'free' },
+              createdAt: { integerValue: String(Date.now()) },
+              transfersCount: { integerValue: "0" },
+              bytesTransferred: { integerValue: "0" }
+            }
+          })
+        });
+
+        // Claim username
+        await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/usernames/${encodeURIComponent(username)}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            fields: {
+              uid: { stringValue: uid },
+              email: { stringValue: email },
+              username: { stringValue: username },
+              createdAt: { integerValue: String(Date.now()) }
+            }
+          })
+        });
+      } catch (initErr) {
+        console.warn('Firestore profile initialization warning:', initErr);
+      }
+
+      // 3. Save profile to chrome.storage.local
+      const profile = {
+        uid: uid,
+        fullName: fullName,
+        username: username,
+        email: email,
+        plan: 'free'
+      };
+
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        await chrome.storage.local.set({
+          beamdrop_user: profile,
+          beamdrop_token: idToken,
+          beamdrop_daily_usage: {
+            date: new Date().toISOString().slice(0, 10),
+            sendOperations: 0,
+            receiveOperations: 0,
+            qrScansCount: 0
+          }
+        });
+      }
+
+      renderUserAccountBadge(profile, { sendOperations: 0 });
+      showAuthAlert('Account created! 15 Beams unlocked.', 'success');
+
+      setTimeout(() => {
+        closeAuthSheet();
+        if (formExtSignUp) formExtSignUp.reset();
+      }, 700);
+
+    } catch (err) {
+      console.error('[BeamDrop Registration Error]:', err);
+      showAuthAlert(err.message || 'Registration failed. Please check your internet connection.');
+    } finally {
+      if (btnExtSubmitSignUp) btnExtSubmitSignUp.disabled = false;
+      if (btnExtSubmitSignUpText) btnExtSubmitSignUpText.textContent = 'Create Account (Get 15 Beams)';
+    }
+  });
+}

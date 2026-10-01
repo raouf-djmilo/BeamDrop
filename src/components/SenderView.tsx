@@ -22,7 +22,9 @@ import {
   Presentation,
   Sparkles,
   Layers,
-  RefreshCw
+  RefreshCw,
+  AlertCircle,
+  Crosshair
 } from 'lucide-react';
 import { P2PTransferManager, PhoneStatusPayload } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
@@ -486,7 +488,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
           <div className="bg-sky-50/90 backdrop-blur-xl rounded-2xl p-3 border border-sky-300 flex items-center justify-between shadow-sm">
             <div className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 border border-sky-300 flex items-center justify-center text-sm font-bold shadow-xs">
-                <span>{targetedPeer.icon || '🎯'}</span>
+                <Crosshair className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
@@ -639,7 +641,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
                     className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-sky-500/25 transition-all flex items-center justify-center space-x-2 active:scale-95 cursor-pointer"
                   >
                     <Zap className="w-4 h-4 fill-current" />
-                    <span>⚡ Generate QR Code for this Upload</span>
+                    <span>Generate QR Code for this Upload</span>
                   </button>
                 ) : (
                   <div className="space-y-3">
@@ -698,9 +700,10 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 <button
                   onClick={handleGenerateQr}
                   disabled={!textPayload.trim()}
-                  className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-md shadow-sky-500/20 cursor-pointer"
+                  className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-md shadow-sky-500/20 cursor-pointer flex items-center gap-1.5"
                 >
-                  ⚡ Generate QR
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>Generate QR</span>
                 </button>
               </div>
             </div>
@@ -836,12 +839,14 @@ export const SenderView: React.FC<SenderViewProps> = ({
               }`}
             >
               <div className="flex items-center space-x-2 truncate">
-                <span className="shrink-0 text-base">
-                  {remotePhoneStatus.stage === 'delivered'
-                    ? '✓'
-                    : remotePhoneStatus.stage === 'failed'
-                    ? '⚠️'
-                    : '📱'}
+                <span className="shrink-0">
+                  {remotePhoneStatus.stage === 'delivered' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  ) : remotePhoneStatus.stage === 'failed' ? (
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                  ) : (
+                    <Smartphone className="w-4 h-4 text-sky-600" />
+                  )}
                 </span>
                 <div className="text-left truncate">
                   <p className="font-bold text-[11px] truncate">
@@ -937,8 +942,9 @@ export const SenderView: React.FC<SenderViewProps> = ({
                       <span>{copiedPortalLink ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
-                    <span>🔒 Client can download anywhere with zero app install</span>
+                  <p className="text-[10px] text-slate-500 flex items-center gap-1.5 font-mono">
+                    <ShieldCheck className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span>Client can download anywhere with zero app install</span>
                   </p>
                 </div>
               )}

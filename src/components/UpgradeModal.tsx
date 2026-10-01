@@ -122,7 +122,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <span>Daily Sends</span>
               </div>
               <div className="text-center text-slate-500">5 / day</div>
-              <div className="text-center font-bold text-emerald-600">Unlimited ⚡</div>
+              <div className="flex items-center justify-center space-x-1 font-bold text-emerald-600">
+                <span>Unlimited</span>
+                <Zap className="w-3 h-3 fill-emerald-600" />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 p-2.5 items-center hover:bg-slate-50/70">
@@ -131,7 +134,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <span>Daily Receives</span>
               </div>
               <div className="text-center text-slate-500">5 / day</div>
-              <div className="text-center font-bold text-emerald-600">Unlimited ⚡</div>
+              <div className="flex items-center justify-center space-x-1 font-bold text-emerald-600">
+                <span>Unlimited</span>
+                <Zap className="w-3 h-3 fill-emerald-600" />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 p-2.5 items-center hover:bg-slate-50/70">
@@ -140,7 +146,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <span>QR Scans / Links</span>
               </div>
               <div className="text-center text-slate-500">10 / day</div>
-              <div className="text-center font-bold text-emerald-600">Unlimited ⚡</div>
+              <div className="flex items-center justify-center space-x-1 font-bold text-emerald-600">
+                <span>Unlimited</span>
+                <Zap className="w-3 h-3 fill-emerald-600" />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 p-2.5 items-center hover:bg-slate-50/70">

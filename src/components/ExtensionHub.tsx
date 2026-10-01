@@ -352,7 +352,7 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
               <span>{copiedChromeUrl ? 'Copied chrome://extensions' : 'Copy: chrome://extensions'}</span>
             </button>
             <span className="text-[11px] text-slate-300 font-medium">
-              ➔ Paste in Chrome ➔ Toggle <strong>Developer mode</strong> ➔ Click <strong>Load unpacked</strong>
+              &rarr; Paste in Chrome &rarr; Toggle <strong>Developer mode</strong> &rarr; Click <strong>Load unpacked</strong>
             </span>
           </div>
         </div>

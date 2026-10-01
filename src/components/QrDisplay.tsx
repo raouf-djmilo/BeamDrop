@@ -104,7 +104,7 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
     ctx.font = 'bold 34px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText('⚡ BeamDrop', cardWidth / 2, 60);
+    ctx.fillText('BeamDrop', cardWidth / 2, 60);
 
     ctx.font = '500 16px system-ui, sans-serif';
     ctx.fillStyle = '#38bdf8';
@@ -175,11 +175,11 @@ export const QrDisplay: React.FC<QrDisplayProps> = ({
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
-    ctx.font = 'bold 26px system-ui';
+    ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⚡', centerBadgeX, centerBadgeY);
+    ctx.fillText('BD', centerBadgeX, centerBadgeY);
     ctx.restore();
 
     // 5. Scan Instruction text below QR

@@ -24,7 +24,9 @@ import {
   Camera,
   RefreshCw,
   FolderDown,
-  Info
+  Info,
+  X,
+  Zap
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileTypeMeta } from '../utils/formatters';
@@ -348,7 +350,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
 
               {/* Center Micro Badge */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center shadow-lg border-2 border-white text-white font-bold text-xs pointer-events-none">
-                ⚡
+                
               </div>
             </div>
             <p className="text-[11px] font-mono text-slate-500 font-semibold mt-2.5">
@@ -435,7 +437,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-sky-900 hover:from-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/20 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
             >
               <Apple className="w-4 h-4 text-sky-400" />
-              <span>📲 Get Official iOS Shortcut</span>
+              <span> Get Official iOS Shortcut</span>
               <ExternalLink className="w-3.5 h-3.5 opacity-70 ml-1" />
             </a>
             <button
@@ -454,7 +456,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 font-bold text-base">
-                🤖
+                
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">Android Share Sheet</h3>
@@ -474,11 +476,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               </div>
               <div className="flex items-center space-x-2 text-slate-700">
                 <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">2</span>
-                <span>Select media in Gallery/Files ➔ Tap Share ➔ "BeamDrop"</span>
+                <span>Select media in Gallery/Files &rarr; Tap Share &rarr; "BeamDrop"</span>
               </div>
               <div className="flex items-center space-x-2 text-slate-700">
                 <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">3</span>
-                <span>Point camera at this PC screen ➔ Transferred!</span>
+                <span>Point camera at this PC screen &rarr; Transferred!</span>
               </div>
             </div>
           </div>
@@ -488,7 +490,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               onClick={() => setShowAndroidGuideModal(true)}
               className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 hover:from-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-900/20 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
             >
-              <span>🤖 Setup Android Share Sheet</span>
+              <span> Setup Android Share Sheet</span>
               <ArrowRight className="w-3.5 h-3.5 opacity-70" />
             </button>
             <button
@@ -508,7 +510,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-sky-100">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs">
-              📥
+              
             </div>
             <div>
               <h3 className="text-sm font-extrabold text-slate-900">
@@ -602,9 +604,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               <button
                 onClick={() => setShowIosGuideModal(false)}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             {/* Modal Body */}
@@ -668,11 +668,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] shrink-0">2</span>
-                    <span>Tap the <strong>Share</strong> button ➔ select <strong>BeamDrop to PC</strong></span>
+                    <span>Tap the <strong>Share</strong> button &rarr; select <strong>BeamDrop to PC</strong></span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-4 h-4 rounded-full bg-sky-100 text-sky-800 font-bold flex items-center justify-center text-[10px] shrink-0">3</span>
-                    <span>Point iPhone camera at your PC screen ➔ files transfer instantly!</span>
+                    <span>Point iPhone camera at your PC screen &rarr; files transfer instantly!</span>
                   </div>
                 </div>
               </div>
@@ -724,7 +724,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
             <div className="p-5 bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-lg">
-                  🤖
+                  
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold">Android Native Share Sheet</h3>
@@ -734,9 +734,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
               <button
                 onClick={() => setShowAndroidGuideModal(false)}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
-              >
-                ✕
-              </button>
+              ><X className="w-4 h-4" /></button>
             </div>
 
             {/* Modal Body */}
@@ -781,7 +779,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                       <span>{copiedLink ? 'Link Copied!' : 'Copy Mobile Link'}</span>
                     </button>
                     <p className="text-[10px] text-slate-500 text-center">
-                      Tap Chrome Menu (⋮) ➔ <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                      Tap Chrome Menu (⋮) &rarr; <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
                     </p>
                   </div>
                 </div>
@@ -800,7 +798,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-[10px] shrink-0">B</span>
-                    <span>Select any photos, videos, zip, or files ➔ Tap <strong>Share</strong>.</span>
+                    <span>Select any photos, videos, zip, or files &rarr; Tap <strong>Share</strong>.</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 font-bold flex items-center justify-center text-[10px] shrink-0">C</span>
@@ -808,7 +806,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] shrink-0">D</span>
-                    <span>BeamDrop opens with your files ready. Point camera at PC QR ➔ Beamed!</span>
+                    <span>BeamDrop opens with your files ready. Point camera at PC QR &rarr; Beamed!</span>
                   </div>
                 </div>
               </div>

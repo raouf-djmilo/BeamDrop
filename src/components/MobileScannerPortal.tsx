@@ -330,7 +330,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
         {sharedFromAndroid && selectedFiles.length > 0 && (
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-2xl p-3.5 flex items-center space-x-3 text-emerald-950 animate-fade-in shadow-xs">
             <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs font-bold text-xs">
-              🤖
+              
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold flex items-center gap-1.5">
@@ -611,7 +611,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
                 <span>
                   {transferStatus === 'connecting'
                     ? 'Connecting to PC...'
-                    : `🚀 Beam ${selectedFiles.length} File(s) to PC Now`}
+                    : `Beam ${selectedFiles.length} File(s) to PC Now`}
                 </span>
               </button>
             )}

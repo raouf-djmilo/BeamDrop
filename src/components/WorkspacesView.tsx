@@ -36,7 +36,7 @@ export const WorkspacesView: React.FC = () => {
         id: transferManager.myPeerId || 'node-' + Math.random().toString(36).slice(2, 7),
         name: isMobile ? 'Mobile Node' : 'Workstation Node',
         deviceType: isMobile ? 'phone' : 'laptop',
-        icon: isMobile ? '📱' : '💻'
+        icon: isMobile ? 'phone' : 'laptop'
       }
     );
 
@@ -50,7 +50,7 @@ export const WorkspacesView: React.FC = () => {
           id: transferManager.myPeerId || 'node-' + Math.random().toString(36).slice(2, 7),
           name: isMobile ? 'Mobile Node' : 'Workstation Node',
           deviceType: isMobile ? 'phone' : 'laptop',
-          icon: isMobile ? '📱' : '💻'
+          icon: isMobile ? 'phone' : 'laptop'
         },
         (updatedNodes: WorkspaceNode[]) => setWorkspaceNodes(updatedNodes)
       );
@@ -173,7 +173,7 @@ export const WorkspacesView: React.FC = () => {
                 className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/80 flex items-center justify-between shadow-xs"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-xl">{node.icon || '💻'}</span>
+                  {node.icon === 'phone' ? <Smartphone className="w-5 h-5 text-sky-600" /> : <Laptop className="w-5 h-5 text-sky-600" />}
                   <div>
                     <p className="text-xs font-bold text-slate-900">{node.name}</p>
                     <p className="text-[10px] font-mono text-slate-500">ID: {node.id.slice(0, 10)}</p>

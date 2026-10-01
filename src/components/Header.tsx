@@ -257,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => setShowArchitectureModal(false)}
                 className="w-8 h-8 rounded-full bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-slate-400 hover:text-slate-800 text-xs cursor-pointer border border-sky-200/60"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 

@@ -193,7 +193,10 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                 <span>PRO Activated Successfully!</span>
               </span>
             ) : userTier === 'pro' ? (
-              <span>You are already PRO ⚡</span>
+              <span className="flex items-center justify-center gap-1.5">
+                <span>You are already PRO</span>
+                <Zap className="w-3.5 h-3.5 fill-current" />
+              </span>
             ) : (
               <>
                 <Zap className="w-4 h-4 fill-white" />
@@ -211,7 +214,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
               disabled={isActivating}
               className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200 transition-colors cursor-pointer"
             >
-              {isActivating ? 'Activating...' : '⚡ Instant Test Activation (Sandbox Demo)'}
+              {isActivating ? 'Activating...' : 'Instant Test Activation (Sandbox Demo)'}
             </button>
           )}
 

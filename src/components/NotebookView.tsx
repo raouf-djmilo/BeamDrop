@@ -13,7 +13,8 @@ import {
   Zap,
   FileText,
   Clock,
-  Terminal
+  Terminal,
+  X
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { playChime } from '../utils/audio';
@@ -301,9 +302,10 @@ export const NotebookView: React.FC<NotebookViewProps> = ({
               <span className="text-xs font-bold font-mono text-cyan-400 uppercase">Phone QR Portal</span>
               <button
                 onClick={() => setQrModalOpen(false)}
-                className="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 rounded-lg bg-slate-900"
+                className="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 rounded-lg bg-slate-900 flex items-center gap-1"
               >
-                ✕ Close
+                <X className="w-3.5 h-3.5" />
+                <span>Close</span>
               </button>
             </div>
 

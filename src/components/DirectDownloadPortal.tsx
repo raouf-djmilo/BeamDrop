@@ -488,8 +488,9 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           )}
 
           {/* Minimal Privacy Guarantee Tag */}
-          <p className="text-[11px] text-slate-500 font-mono pt-2 border-t border-sky-100">
-            🔒 Direct Device-to-Device Stream • Zero Cloud Storage
+          <p className="text-[11px] text-slate-500 font-mono pt-2 border-t border-sky-100 flex items-center justify-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            <span>Direct Device-to-Device Stream • Zero Cloud Storage</span>
           </p>
         </div>
       </main>

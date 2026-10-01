@@ -120,28 +120,28 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     let name = 'Local Workstation';
     let deviceType: 'phone' | 'laptop' | 'desktop' = 'laptop';
-    let icon = '💻';
+    let icon = 'laptop';
 
     if (/iPhone|iPad|iPod/i.test(ua)) {
       name = 'Apple iPhone';
       deviceType = 'phone';
-      icon = '📱';
+      icon = 'phone';
     } else if (/Android/i.test(ua)) {
       name = 'Android Smartphone';
       deviceType = 'phone';
-      icon = '📱';
+      icon = 'phone';
     } else if (/Macintosh|Mac OS/i.test(ua)) {
       name = 'MacBook Pro';
       deviceType = 'laptop';
-      icon = '💻';
+      icon = 'laptop';
     } else if (/Windows/i.test(ua)) {
       name = 'Windows PC';
       deviceType = 'desktop';
-      icon = '💻';
+      icon = 'laptop';
     } else if (/Linux/i.test(ua)) {
       name = 'Linux Station';
       deviceType = 'desktop';
-      icon = '💻';
+      icon = 'laptop';
     }
 
     return { name, deviceType, icon, ip: 'Detecting...' };
@@ -339,7 +339,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   ip: dev.ip || 'LAN Node',
                   mac: dev.mac,
                   deviceType: dev.deviceType || (dev.isGateway ? 'router' : 'phone'),
-                  icon: dev.icon || (dev.isGateway ? '🌐' : '📱'),
+                  icon: dev.icon || (dev.isGateway ? 'gateway' : 'phone'),
                   protocol: dev.protocol || 'wifi',
                   latency: dev.latency || 2,
                   isGateway: dev.isGateway,
@@ -375,7 +375,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
             name: data.name || 'Nearby Browser Peer',
             ip: data.ip || myDeviceInfo.ip || 'Local Station',
             deviceType: data.deviceType || 'laptop',
-            icon: data.icon || '💻',
+            icon: data.icon || 'laptop',
             protocol: 'wifi',
             latency: 2,
             x: 50,
@@ -533,7 +533,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   ? 'bg-amber-50 text-amber-800 border-amber-300'
                   : 'bg-sky-50 text-sky-800 border-sky-300'
               }`}>
-                {networkMeta.isHotspot ? '🔥 HOTSPOT MESH' : '📶 REAL WI-FI LAN'}
+                {networkMeta.isHotspot ? 'HOTSPOT MESH' : 'REAL WI-FI LAN'}
               </span>
             </div>
             <p className="text-xs text-slate-600 flex items-center flex-wrap gap-2 mt-0.5 font-mono">
@@ -597,7 +597,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
         {/* Dynamic Connection Instructions & Private Room PIN */}
         <div className="mt-3 pt-1 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           <div className="flex items-center space-x-2 text-slate-600 text-[11px]">
-            <span className="text-base shrink-0">📱</span>
+            <Smartphone className="w-4 h-4 text-sky-600 shrink-0" />
             <span>
               Open <strong className="text-sky-700 font-mono font-bold">https://beam-drop-mu.vercel.app</strong> on your phone (same Wi-Fi) to appear instantly on radar!
             </span>
@@ -746,7 +746,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'
               }`}
             >
-              <span>📱 Phones</span>
+              <span>Phones</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {phoneCount}
               </span>
@@ -760,7 +760,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
               }`}
             >
-              <span>💻 PCs</span>
+              <span>PCs</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {pcCount}
               </span>
@@ -774,7 +774,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                   : 'text-slate-600 hover:text-amber-700 hover:bg-amber-50'
               }`}
             >
-              <span>🌐 Gateway</span>
+              <span>Gateway</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 font-mono">
                 {routerCount}
               </span>
@@ -835,7 +835,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                               ? 'bg-amber-100 text-amber-800 border border-amber-300'
                               : 'bg-sky-100 text-sky-800 border border-sky-300'
                           }`}>
-                            {peer.protocol === 'hotspot' ? '🔥 Hotspot' : '📶 5GHz'}
+                            {peer.protocol === 'hotspot' ? 'Hotspot' : '5GHz'}
                           </span>
                         </div>
 
@@ -859,7 +859,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                         if (onDirectBeamTarget) {
                           onDirectBeamTarget(peer);
                         } else {
-                          alert(`🎯 Direct Beam initialized for ${peer.name} (${peer.ip})!\nSwitch to the "Beam Objects" tab to select files or notes to transmit.`);
+                          alert(`Direct Beam initialized for ${peer.name} (${peer.ip})!\nSwitch to the "Beam Objects" tab to select files or notes to transmit.`);
                         }
                       }}
                       className="px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs flex items-center space-x-1 shadow-md shadow-cyan-600/25 shrink-0 cursor-pointer transition-all"

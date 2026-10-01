@@ -23,7 +23,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { UpgradeModal } from './components/UpgradeModal';
 import { PricingModal } from './components/PricingModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { X } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
 
 const WorkspacesView = React.lazy(() =>
   import('./components/WorkspacesView').then((m) => ({ default: m.WorkspacesView }))
@@ -301,7 +301,7 @@ function MainApp() {
           <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-white flex items-center justify-between text-xs shadow-md">
             <div className="flex items-center space-x-2.5">
               <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center font-bold text-xs">
-                ⚡
+                <Zap className="w-3.5 h-3.5 fill-white text-white" />
               </div>
               <div>
                 <span className="font-bold">Install BeamDrop App</span>

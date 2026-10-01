@@ -185,7 +185,7 @@ export const SplitSimulator: React.FC = () => {
             }`}
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
-            <span>{isPaired ? '✓ WebRTC Paired (Direct Bridge)' : isConnecting ? 'Connecting P2P...' : '1-Click Direct Pair'}</span>
+            <span>{isPaired ? 'WebRTC Paired (Direct Bridge)' : isConnecting ? 'Connecting P2P...' : '1-Click Direct Pair'}</span>
           </button>
         </div>
       </div>
@@ -233,7 +233,7 @@ export const SplitSimulator: React.FC = () => {
                   extTab === 'objects' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                ⚡ Objects
+                Objects
               </button>
               <button
                 onClick={() => setExtTab('radar')}
@@ -250,7 +250,7 @@ export const SplitSimulator: React.FC = () => {
                   extTab === 'notebook' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                📓 Notes
+                Notes
               </button>
             </div>
 
@@ -319,7 +319,7 @@ export const SplitSimulator: React.FC = () => {
                   >
                     <div className="radar-blip-pulse bg-emerald-400/30"></div>
                     <div className="relative w-6 h-6 rounded-full bg-emerald-400 text-slate-950 font-bold flex items-center justify-center text-[10px] shadow">
-                      📱
+                      
                     </div>
                     <span className="text-[9px] font-mono text-emerald-300 mt-1">Galaxy (4ms)</span>
                   </div>
@@ -334,7 +334,7 @@ export const SplitSimulator: React.FC = () => {
                     onClick={() => triggerDirectBeam('Direct_Beam_Archive.zip', 400 * 1024, 'zip')}
                     className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold cursor-pointer"
                   >
-                    ⚡ Beam to Phone
+                    Beam to Phone
                   </button>
                 </div>
               </div>
@@ -352,7 +352,7 @@ export const SplitSimulator: React.FC = () => {
                   onClick={() => triggerDirectBeam('Note', 60, 'note')}
                   className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl text-xs cursor-pointer"
                 >
-                  ⚡ Beam Note to Receiver
+                  Beam Note to Receiver
                 </button>
               </div>
             )}
@@ -457,7 +457,7 @@ export const SplitSimulator: React.FC = () => {
                 {receivedSimTexts.map((txt, i) => (
                   <div key={i} className="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-bold text-indigo-300">
-                      <span>📓 Notebook Note</span>
+                      <span>Notebook Note</span>
                       <span className="font-mono text-slate-400">{txt.length} chars</span>
                     </div>
                     <p className="text-xs text-white font-mono break-all line-clamp-2">{txt}</p>

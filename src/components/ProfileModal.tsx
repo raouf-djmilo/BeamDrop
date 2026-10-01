@@ -151,20 +151,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Sends</span>
-              <span className="text-xs font-black text-slate-800">
-                {dailyUsage.sendOperations} {plan === 'pro' ? '⚡' : '/ 5'}
+              <span className="text-xs font-black text-slate-800 flex items-center justify-center gap-1">
+                <span>{dailyUsage.sendOperations}</span>
+                {plan === 'pro' ? <Zap className="w-3 h-3 fill-emerald-500 text-emerald-500" /> : <span className="text-slate-400 font-normal">/ 15</span>}
               </span>
             </div>
             <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Receives</span>
-              <span className="text-xs font-black text-slate-800">
-                {dailyUsage.receiveOperations} {plan === 'pro' ? '⚡' : '/ 5'}
+              <span className="text-xs font-black text-slate-800 flex items-center justify-center gap-1">
+                <span>{dailyUsage.receiveOperations}</span>
+                {plan === 'pro' ? <Zap className="w-3 h-3 fill-emerald-500 text-emerald-500" /> : <span className="text-slate-400 font-normal">/ 15</span>}
               </span>
             </div>
             <div className="p-2 rounded-xl bg-white border border-sky-100 shadow-2xs">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">QR Scans</span>
-              <span className="text-xs font-black text-slate-800">
-                {dailyUsage.qrScansCount} {plan === 'pro' ? '⚡' : '/ 10'}
+              <span className="text-xs font-black text-slate-800 flex items-center justify-center gap-1">
+                <span>{dailyUsage.qrScansCount}</span>
+                {plan === 'pro' ? <Zap className="w-3 h-3 fill-emerald-500 text-emerald-500" /> : <span className="text-slate-400 font-normal">/ 15</span>}
               </span>
             </div>
           </div>
