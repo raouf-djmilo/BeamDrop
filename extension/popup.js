@@ -1776,6 +1776,25 @@ async function releaseExtensionWakeLock() {
   } catch (e) {}
 }
 
+function createExtensionBinaryFrame(fileId, chunkIndex, totalChunks, payload) {
+  const FRAME_HEADER_SIZE = 32;
+  const buffer = new ArrayBuffer(FRAME_HEADER_SIZE + payload.byteLength);
+  const view = new DataView(buffer);
+  const uint8 = new Uint8Array(buffer);
+
+  const encoder = new TextEncoder();
+  const fileIdBytes = encoder.encode((fileId || '').padEnd(16, ' ')).slice(0, 16);
+  uint8.set(fileIdBytes, 0);
+
+  view.setUint32(16, chunkIndex, false);
+  view.setUint32(20, totalChunks, false);
+  view.setUint32(24, payload.byteLength, false);
+  view.setUint32(28, 0, false);
+
+  uint8.set(new Uint8Array(payload), FRAME_HEADER_SIZE);
+  return buffer;
+}
+
 async function startBackpressureStream(conn, file) {
   if (!file || isStreaming) return;
   isStreaming = true;
@@ -1789,9 +1808,13 @@ async function startBackpressureStream(conn, file) {
   transferSpeedText.textContent = 'Syncing...';
   transferEtaText.textContent = 'Awaiting receiver ACK...';
 
-  const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f-' + Date.now();
-  // Safe 32KB chunk size for universal mobile (iOS Safari WebKit + Android Chrome + Desktop)
-  const CHUNK_SIZE = 32 * 1024;
+  const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID().slice(0, 16) : ('f-' + Date.now()).padEnd(16, ' ').slice(0, 16);
+
+  // High-performance adaptive chunk size for mobile WebKit & modern Wi-Fi
+  const CHUNK_SIZE = file.size > 20 * 1024 * 1024
+    ? 192 * 1024
+    : (file.size > 2 * 1024 * 1024 ? 128 * 1024 : 64 * 1024);
+
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
   // 1. Send File Metadata Header
@@ -1802,6 +1825,7 @@ async function startBackpressureStream(conn, file) {
     fileSize: file.size,
     fileMime: file.type || 'application/octet-stream',
     totalChunks: totalChunks,
+    chunkSize: CHUNK_SIZE,
     payload: {
       id: fileId,
       name: file.name,
@@ -1812,16 +1836,16 @@ async function startBackpressureStream(conn, file) {
     }
   });
 
-  // Ensure bufferedAmountLowThreshold and binaryType
+  // Ensure optimized bufferedAmount thresholds on data channel
   const dc = conn.dataChannel;
   if (dc) {
     try {
       dc.binaryType = 'arraybuffer';
-      dc.bufferedAmountLowThreshold = 32 * 1024;
+      dc.bufferedAmountLowThreshold = 64 * 1024;
     } catch (_) {}
   }
 
-  // 2. WAIT FOR RECEIVER ACK_START (Lockstep Handshake - up to 2500ms for mobile round-trip)
+  // 2. WAIT FOR RECEIVER READY (Lockstep Handshake - up to 1500ms)
   await new Promise((resolve) => {
     let resolved = false;
     const onAck = (data) => {
@@ -1841,27 +1865,30 @@ async function startBackpressureStream(conn, file) {
 
     conn.on('data', onAck);
 
-    // Fallback: start sending after 2000ms if ACK was lost
     setTimeout(() => {
       if (!resolved) {
         resolved = true;
         resolve();
       }
-    }, 2000);
+    }, 1500);
   });
 
   updateStatus('connected', 'Streaming...');
   transferEtaText.textContent = 'Streaming data...';
 
-  // 3. High-speed raw binary slice pumping with Mobile-Friendly Backpressure
+  // 3. High-Throughput Pipelined Stream Engine with Double Buffering
   let offset = 0;
   let chunkIndex = 0;
   const startTime = Date.now();
   let lastSpeedCheck = startTime;
   let lastBytes = 0;
 
-  const HIGH_WATER_MARK = 256 * 1024;
-  const LOW_WATER_MARK = 32 * 1024;
+  const HIGH_WATER_MARK = 512 * 1024;
+  const LOW_WATER_MARK = 128 * 1024;
+
+  // Pre-load initial chunk
+  let currentSliceSize = Math.min(CHUNK_SIZE, file.size - offset);
+  let currentChunkPromise = file.slice(offset, offset + currentSliceSize).arrayBuffer();
 
   while (offset < file.size) {
     if (!conn.open) {
@@ -1869,6 +1896,7 @@ async function startBackpressureStream(conn, file) {
       break;
     }
 
+    // Wait for buffer to drain if congested
     if (dc && dc.bufferedAmount > HIGH_WATER_MARK) {
       await new Promise((resolve) => {
         let resolved = false;
@@ -1881,7 +1909,7 @@ async function startBackpressureStream(conn, file) {
           }
         };
 
-        const watchdog = setTimeout(done, 150);
+        const watchdog = setTimeout(done, 120);
 
         if (dc) {
           dc.onbufferedamountlow = done;
@@ -1892,22 +1920,31 @@ async function startBackpressureStream(conn, file) {
             clearInterval(pollInt);
             done();
           }
-        }, 10);
+        }, 8);
       });
     }
 
-    const currentSliceSize = Math.min(CHUNK_SIZE, file.size - offset);
-    const slice = file.slice(offset, offset + currentSliceSize);
-    const arrayBuffer = await slice.arrayBuffer();
+    // Await current chunk buffer
+    const arrayBuffer = await currentChunkPromise;
+    const nextOffset = offset + currentSliceSize;
 
-    // Send RAW ArrayBuffer directly
-    try {
-      conn.send(arrayBuffer);
-    } catch (sendErr) {
-      console.warn('[BeamDrop] Chunk send dropped:', sendErr);
+    // Pipelined Read-Ahead: Begin reading next chunk concurrently while sending current
+    if (nextOffset < file.size) {
+      const nextSliceSize = Math.min(CHUNK_SIZE, file.size - nextOffset);
+      currentChunkPromise = file.slice(nextOffset, nextOffset + nextSliceSize).arrayBuffer();
+      currentSliceSize = nextSliceSize;
     }
 
-    offset += currentSliceSize;
+    // Wrap in standard 32-byte binary frame for error-free mobile assembly
+    const framedBuffer = createExtensionBinaryFrame(fileId, chunkIndex, totalChunks, arrayBuffer);
+
+    try {
+      conn.send(framedBuffer);
+    } catch (sendErr) {
+      console.warn('[BeamDrop] Frame send warning:', sendErr);
+    }
+
+    offset = nextOffset;
     chunkIndex++;
 
     const progress = Math.min(100, Math.round((offset / file.size) * 100));
@@ -1915,8 +1952,8 @@ async function startBackpressureStream(conn, file) {
     transferPercentText.textContent = progress + "%";
 
     const now = Date.now();
-    if (now - lastSpeedCheck > 250) {
-      const durationSec = (now - lastSpeedCheck) / 1000;
+    if (now - lastSpeedCheck > 200 || offset >= file.size) {
+      const durationSec = Math.max((now - lastSpeedCheck) / 1000, 0.001);
       const bytesSent = offset - lastBytes;
       const speedMBs = (bytesSent / (1024 * 1024)) / durationSec;
       transferSpeedText.textContent = speedMBs.toFixed(1) + " MB/s";
@@ -1926,18 +1963,28 @@ async function startBackpressureStream(conn, file) {
       lastSpeedCheck = now;
       lastBytes = offset;
     }
+
+    // Fast yield every 6 chunks for UI responsiveness
+    if (chunkIndex % 6 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
   }
 
   // 4. Send Complete Signal
   try {
-    conn.send({ type: 'FILE_END', fileId: fileId });
+    conn.send({
+      type: 'FILE_END',
+      fileId: fileId,
+      totalChunks: totalChunks,
+      fileSize: file.size
+    });
     conn.send({ type: 'complete', fileId: fileId });
   } catch (_) {}
   
   isStreaming = false;
   releaseExtensionWakeLock();
 
-  // Immediate instant 100% visual completion
+  // Instant 100% visual completion
   transferProgressFill.style.width = '100%';
   transferPercentText.textContent = '100%';
   transferSpeedText.textContent = 'Completed';

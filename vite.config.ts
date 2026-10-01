@@ -341,7 +341,8 @@ export default defineConfig(() => {
 
               if (req.method === 'GET') {
                 const accept = (req.headers && req.headers['accept']) || '';
-                const item = transitStore.get(peer);
+                const token = u.searchParams.get('token') || '';
+                const item = transitStore.get(peer) || (token ? transitStore.get(`${peer}_${token}`) : null);
 
                 if (typeof accept === 'string' && accept.includes('text/html') && (!item || !item.buffer)) {
                   res.writeHead(302, { Location: `/?mode=scan&peer=${encodeURIComponent(peer)}` });
@@ -354,14 +355,49 @@ export default defineConfig(() => {
                   res.end(JSON.stringify({ error: 'not_found', peer }));
                   return;
                 }
+
+                // Clean up expired items (> 5 minutes)
+                const now = Date.now();
+                if (now - item.created > 5 * 60 * 1000) {
+                  transitStore.delete(peer);
+                  if (token) transitStore.delete(`${peer}_${token}`);
+                  res.statusCode = 404;
+                  res.end(JSON.stringify({ error: 'expired', peer }));
+                  return;
+                }
+
+                const totalSize = item.buffer.length;
+                const rangeHeader = req.headers['range'];
+
+                res.setHeader('Accept-Ranges', 'bytes');
                 res.setHeader('Content-Type', item.mime || 'application/octet-stream');
                 res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(item.name || 'beamed-object')}"`);
-                res.setHeader('Content-Length', item.buffer.length);
                 res.setHeader('X-BeamDrop-Name', encodeURIComponent(item.name || 'beamed-object'));
-                res.setHeader('X-BeamDrop-Size', item.buffer.length);
+                res.setHeader('X-BeamDrop-Size', totalSize);
+
+                if (rangeHeader && rangeHeader.startsWith('bytes=')) {
+                  const parts = rangeHeader.replace(/bytes=/, '').split('-');
+                  const start = parseInt(parts[0], 10);
+                  const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+
+                  if (start >= totalSize || end >= totalSize || start > end) {
+                    res.statusCode = 416;
+                    res.setHeader('Content-Range', `bytes */${totalSize}`);
+                    res.end();
+                    return;
+                  }
+
+                  const chunk = item.buffer.slice(start, end + 1);
+                  res.statusCode = 206;
+                  res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+                  res.setHeader('Content-Length', chunk.length);
+                  res.end(chunk);
+                  return;
+                }
+
+                res.setHeader('Content-Length', totalSize);
                 res.statusCode = 200;
                 res.end(item.buffer);
-                transitStore.delete(peer);
                 return;
               }
 
@@ -389,14 +425,20 @@ export default defineConfig(() => {
                     else if (mime.includes('zip')) name = `archive_${timestamp}.zip`;
                     else name = `beamed_file_${timestamp}.bin`;
                   }
-                  transitStore.set(peer, {
+                  const token = u.searchParams.get('token') || '';
+                  const record = {
                     peer,
+                    token,
                     name,
                     mime,
                     size: buffer.length,
                     buffer,
                     created: Date.now()
-                  });
+                  };
+                  transitStore.set(peer, record);
+                  if (token) {
+                    transitStore.set(`${peer}_${token}`, record);
+                  }
                   res.setHeader('Content-Type', 'application/json');
                   res.statusCode = 200;
                   res.end(JSON.stringify({ success: true, peer, name, size: buffer.length }));

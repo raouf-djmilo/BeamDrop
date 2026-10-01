@@ -927,7 +927,9 @@
         transferStatusText.textContent = 'Connecting via In-Memory RAM Bridge...';
 
         try {
-          const resp = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}&_t=${Date.now()}`);
+          const sessionToken = params.get('token') || params.get('nonce') || '';
+          const transitUrl = `/api/transit?peer=${encodeURIComponent(peerId)}${sessionToken ? '&token=' + encodeURIComponent(sessionToken) : ''}&_t=${Date.now()}`;
+          const resp = await fetch(transitUrl);
           if (!resp.ok) {
             console.log('[BeamDrop] Transit not ready yet, status:', resp.status);
             transitFallbackTriggered = false;
@@ -936,8 +938,12 @@
             return;
           }
 
-          const contentLength = parseInt(resp.headers.get('Content-Length') || String(expectedSize || 0), 10);
-          const totalSize = contentLength || expectedSize || 1;
+          const headerName = resp.headers.get('X-BeamDrop-Name');
+          if (headerName) {
+            try { expectedName = decodeURIComponent(headerName); } catch (_) {}
+          }
+          const headerSize = parseInt(resp.headers.get('X-BeamDrop-Size') || resp.headers.get('Content-Length') || '0', 10);
+          const totalSize = headerSize || expectedSize || 1;
           const reader = resp.body.getReader();
           const chunks = [];
           let received = 0;
@@ -994,6 +1000,26 @@
 
           try {
             triggerBrowserSave(currentDownloadUrl, expectedName);
+          } catch (_) {}
+
+          // Notify sender through WebRTC if connection is open
+          try {
+            if (connection && connection.open) {
+              const devName = navigator.userAgent.includes('Mobile') ? '📱 Mobile Phone' : '💻 PC Browser';
+              connection.send({
+                type: 'PHONE_STATUS',
+                stage: 'delivered',
+                fileName: expectedName,
+                fileSize: totalSize,
+                device: devName
+              });
+              connection.send({
+                type: 'TRANSFER_COMPLETE_ACK',
+                fileName: expectedName,
+                device: devName,
+                timestamp: Date.now()
+              });
+            }
           } catch (_) {}
 
           if (expectedMime && expectedMime.startsWith('image/')) {
@@ -1128,17 +1154,53 @@
       }
 
       let currentFileEntry = null;
+      const FRAME_HEADER_SIZE = 32;
+
+      function unpackChunkFrame(rawBuffer, fallbackIndex) {
+        if (rawBuffer && rawBuffer.byteLength >= FRAME_HEADER_SIZE) {
+          try {
+            const view = new DataView(rawBuffer);
+            const chunkIndex = view.getUint32(16, false);
+            const totalChunks = view.getUint32(20, false);
+            const payloadLength = view.getUint32(24, false);
+
+            if (payloadLength === rawBuffer.byteLength - FRAME_HEADER_SIZE && totalChunks > 0 && chunkIndex < totalChunks + 5) {
+              return {
+                isFramed: true,
+                chunkIndex: chunkIndex,
+                totalChunks: totalChunks,
+                payload: rawBuffer.slice(FRAME_HEADER_SIZE)
+              };
+            }
+          } catch (_) {}
+        }
+        return {
+          isFramed: false,
+          chunkIndex: fallbackIndex,
+          totalChunks: null,
+          payload: rawBuffer
+        };
+      }
 
       function handleIncomingData(data) {
         if (!data) return;
 
-        // 1. RAW BINARY CHUNK (ArrayBuffer or Uint8Array)
+        // 1. BINARY CHUNK (ArrayBuffer or Uint8Array)
         if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
           const rawBuffer = data instanceof ArrayBuffer ? data : data.buffer;
           if (!currentFileEntry) return;
 
-          currentFileEntry.chunks.push(rawBuffer);
-          currentFileEntry.receivedBytes += rawBuffer.byteLength;
+          const unpacked = unpackChunkFrame(rawBuffer, currentFileEntry.rawCounter);
+          currentFileEntry.rawCounter++;
+
+          if (unpacked.totalChunks && !currentFileEntry.totalChunks) {
+            currentFileEntry.totalChunks = unpacked.totalChunks;
+          }
+
+          // Store in indexed chunk map for pure zero-corruption reassembly
+          currentFileEntry.chunksMap.set(unpacked.chunkIndex, unpacked.payload);
+          currentFileEntry.receivedIndices.add(unpacked.chunkIndex);
+          currentFileEntry.receivedBytes += unpacked.payload.byteLength;
 
           const pct = Math.min(100, Math.round((currentFileEntry.receivedBytes / currentFileEntry.size) * 100));
           progressBarFill.style.width = pct + '%';
@@ -1155,7 +1217,7 @@
             currentFileEntry.lastBytes = currentFileEntry.receivedBytes;
           }
 
-          if (pct % 10 === 0 || pct >= 95) {
+          if (pct % 5 === 0 || pct >= 95) {
             try {
               if (connection && connection.open) {
                 connection.send({
@@ -1206,16 +1268,20 @@
             name: activeFileName,
             size: fileSize,
             mime: fileMime,
-            chunks: [],
+            totalChunks: msg.totalChunks || 0,
+            chunksMap: new Map(),
+            receivedIndices: new Set(),
+            rawCounter: 0,
             receivedBytes: 0,
             lastTime: Date.now(),
             lastBytes: 0
           };
 
-          // CRITICAL: Acknowledge FILE_START so the desktop extension knows we are ready for binary stream
+          // CRITICAL: Acknowledge FILE_START so the desktop knows we are ready for binary stream
           try {
             if (connection && connection.open) {
               connection.send({ type: 'ACK_START', fileId: msg.fileId });
+              connection.send({ type: 'RECEIVER_READY', fileId: msg.fileId });
             }
           } catch (_) {}
           return;
@@ -1224,9 +1290,49 @@
         // END OF FILE TRANSFER
         if (msg.type === 'FILE_END' || msg.type === 'complete') {
           if (!currentFileEntry) return;
-          isCompleted = true;
 
-          const blob = new Blob(currentFileEntry.chunks, { type: currentFileEntry.mime });
+          const total = currentFileEntry.totalChunks || currentFileEntry.chunksMap.size;
+          const sortedChunks = [];
+          const missing = [];
+
+          for (let i = 0; i < total; i++) {
+            const chunk = currentFileEntry.chunksMap.get(i);
+            if (chunk) {
+              sortedChunks.push(chunk);
+            } else {
+              missing.push(i);
+            }
+          }
+
+          // If chunks are missing, request fast retransmission from sender
+          if (missing.length > 0 && missing.length <= 10) {
+            console.warn('[BeamDrop Receiver] Missing chunks detected, sending NACK:', missing);
+            try {
+              if (connection && connection.open) {
+                connection.send({
+                  type: 'NACK_RETRY',
+                  fileId: currentFileEntry.id,
+                  missingIndices: missing
+                });
+                setTimeout(() => {
+                  if (!isCompleted && currentFileEntry.chunksMap.size < total) {
+                    attemptTransitFallback();
+                  }
+                }, 1200);
+                return;
+              }
+            } catch (_) {}
+          }
+
+          // If too many chunks missing or P2P died, engage instant Transit fallback
+          if (sortedChunks.length === 0 || (currentFileEntry.size > 0 && currentFileEntry.receivedBytes < currentFileEntry.size * 0.85)) {
+            console.warn('[BeamDrop Receiver] Incomplete WebRTC stream, activating Dual-Rail Transit fallback...');
+            attemptTransitFallback();
+            return;
+          }
+
+          isCompleted = true;
+          const blob = new Blob(sortedChunks, { type: currentFileEntry.mime });
           currentDownloadUrl = URL.createObjectURL(blob);
 
           progressBarFill.style.width = '100%';

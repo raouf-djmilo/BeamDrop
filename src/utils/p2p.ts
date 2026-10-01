@@ -734,7 +734,8 @@ export class P2PTransferManager {
     }
 
     const fileId = 'file-' + Math.random().toString(36).substring(2, 9);
-    const chunkSize = this.adaptiveChunker.currentChunkSize;
+    // Optimized 64KB - 256KB chunk sizing for mobile WebKit & modern Wi-Fi
+    const chunkSize = Math.min(Math.max(this.adaptiveChunker.currentChunkSize, 64 * 1024), 256 * 1024);
     const totalChunks = Math.ceil(file.size / chunkSize);
     (this as any).lastSentFileEntry = {
       file,
@@ -767,7 +768,10 @@ export class P2PTransferManager {
     const extraChannels = (peerId && this.subChannels.get(peerId)) || [];
     const allChannels = [dc, ...extraChannels].filter(Boolean) as RTCDataChannel[];
 
-    // 2. Stream Binary Framed Chunks
+    // Pre-read initial chunk for pipelined double-buffering
+    let currentSlicePromise = file.slice(0, Math.min(chunkSize, file.size)).arrayBuffer();
+
+    // 2. Stream Binary Framed Chunks with Pipelined Read-Ahead
     for (let i = 0; i < totalChunks; i++) {
       if (!this.isConnected && this.activeConnections.size === 0) {
         throw new Error('Connection lost during file transfer');
@@ -775,8 +779,15 @@ export class P2PTransferManager {
 
       const start = i * chunkSize;
       const end = Math.min(start + chunkSize, file.size);
-      const slice = file.slice(start, end);
-      let payload = await slice.arrayBuffer();
+      let payload = await currentSlicePromise;
+
+      // Pipelined read-ahead for next chunk
+      const nextIndex = i + 1;
+      if (nextIndex < totalChunks) {
+        const nextStart = nextIndex * chunkSize;
+        const nextEnd = Math.min(nextStart + chunkSize, file.size);
+        currentSlicePromise = file.slice(nextStart, nextEnd).arrayBuffer();
+      }
 
       let flags = 0;
       // Per-Chunk Encryption if key active
@@ -808,7 +819,7 @@ export class P2PTransferManager {
       const elapsed = (now - lastTime) / 1000;
       let speed = 0;
 
-      if (elapsed >= 0.25 || i === totalChunks - 1) {
+      if (elapsed >= 0.2 || i === totalChunks - 1) {
         speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
         lastTime = now;
         lastSent = sentBytes;
@@ -817,14 +828,17 @@ export class P2PTransferManager {
 
       // Yield event loop every 8 chunks
       if (i % 8 === 0) {
-        await new Promise((r) => setTimeout(r, 1));
+        await new Promise((r) => setTimeout(r, 0));
       }
     }
 
     // 3. Notify End
     this.sendMessage({
       type: 'FILE_END',
-      fileId
+      fileId,
+      totalChunks,
+      fileName: file.name,
+      fileSize: file.size
     });
 
     onProgress?.(100, 0);
