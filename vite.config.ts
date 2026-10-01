@@ -47,6 +47,8 @@ export default defineConfig(() => {
                 { name: 'popup.js', path: 'popup.js', language: 'javascript', description: 'Core extension client controller' },
                 { name: 'background.js', path: 'background.js', language: 'javascript', description: 'Service worker for background sync' },
                 { name: 'style.css', path: 'style.css', language: 'css', description: 'Liquid glass dark styles' },
+                { name: 'options.html', path: 'options.html', language: 'html', description: 'Extension options page' },
+                { name: 'options.js', path: 'options.js', language: 'javascript', description: 'Extension options controller' },
                 { name: 'updater.html', path: 'updater.html', language: 'html', description: 'Self-contained zero-zip updater UI' },
                 { name: 'updater.js', path: 'updater.js', language: 'javascript', description: 'Folder streaming updater script' },
                 { name: 'folderStore.js', path: 'folderStore.js', language: 'javascript', description: 'IndexedDB directory handle persistence' },
@@ -64,6 +66,70 @@ export default defineConfig(() => {
               });
               res.statusCode = 200;
               res.end(JSON.stringify({ success: true, files: filesList }));
+              return;
+            }
+
+            // Real-time extension tree endpoint providing all 25 files in extension/
+            if (req.url && (req.url === '/api/extension-tree' || req.url.startsWith('/api/extension-tree?'))) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Content-Type', 'application/json');
+              const extDir = path.resolve(__dirname, 'extension');
+              
+              const walkDir = (dir: string, base: string = ''): string[] => {
+                let results: string[] = [];
+                if (!fs.existsSync(dir)) return results;
+                const list = fs.readdirSync(dir);
+                for (const item of list) {
+                  if (item === '.git' || item.startsWith('.')) continue;
+                  const full = path.join(dir, item);
+                  const rel = base ? `${base}/${item}` : item;
+                  const stat = fs.statSync(full);
+                  if (stat.isDirectory()) {
+                    results = results.concat(walkDir(full, rel));
+                  } else {
+                    results.push(rel);
+                  }
+                }
+                return results;
+              };
+
+              const allExtFiles = walkDir(extDir);
+              res.statusCode = 200;
+              res.end(JSON.stringify({
+                success: true,
+                count: allExtFiles.length,
+                files: allExtFiles,
+                timestamp: Date.now()
+              }));
+              return;
+            }
+
+            // Raw extension file fetch endpoint
+            if (req.url && req.url.startsWith('/api/extension-file?')) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              const u = new URL(req.url, 'http://localhost');
+              const relPath = (u.searchParams.get('path') || '').replace(/^\/+/, '');
+              const safePath = path.normalize(relPath).replace(/^(\.\.[\/\\])+/, '');
+              const fullPath = path.resolve(__dirname, 'extension', safePath);
+              if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+                const ext = path.extname(fullPath).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                  '.html': 'text/html; charset=utf-8',
+                  '.js': 'application/javascript; charset=utf-8',
+                  '.css': 'text/css; charset=utf-8',
+                  '.json': 'application/json; charset=utf-8',
+                  '.png': 'image/png',
+                  '.svg': 'image/svg+xml',
+                  '.bat': 'text/plain; charset=utf-8',
+                  '.sh': 'text/plain; charset=utf-8'
+                };
+                res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+                res.statusCode = 200;
+                res.end(fs.readFileSync(fullPath));
+                return;
+              }
+              res.statusCode = 404;
+              res.end(JSON.stringify({ error: 'File not found' }));
               return;
             }
             next();

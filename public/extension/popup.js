@@ -191,6 +191,15 @@ const portalFileNameBadge = document.getElementById('portalFileNameBadge');
 const portalFileSizeBadge = document.getElementById('portalFileSizeBadge');
 const qrcodeCanvas = document.getElementById('qrcodeCanvas');
 const qrScanInstruction = document.getElementById('qrScanInstruction');
+const portalNonceBadge = document.getElementById('portalNonceBadge');
+const btnRebuildQr = document.getElementById('btnRebuildQr');
+const btnRebuildQrIcon = document.getElementById('btnRebuildQrIcon');
+const btnRebuildQrText = document.getElementById('btnRebuildQrText');
+const portalPhoneStatusCard = document.getElementById('portalPhoneStatusCard');
+const phoneStatusIcon = document.getElementById('phoneStatusIcon');
+const phoneStatusTitle = document.getElementById('phoneStatusTitle');
+const phoneStatusSub = document.getElementById('phoneStatusSub');
+const phoneStatusBadge = document.getElementById('phoneStatusBadge');
 const portalRadarPill = document.getElementById('portalRadarPill');
 const portalRadarDot = document.getElementById('portalRadarDot');
 const portalRadarText = document.getElementById('portalRadarText');
@@ -205,6 +214,8 @@ const btnCancelPortal = document.getElementById('btnCancelPortal');
 
 // Transfer Stage Elements
 const transferFileTitle = document.getElementById('transferFileTitle');
+const transferDeviceName = document.getElementById('transferDeviceName');
+const transferPhoneStatusSub = document.getElementById('transferPhoneStatusSub');
 const transferProgressFill = document.getElementById('transferProgressFill');
 const transferPercentText = document.getElementById('transferPercentText');
 const transferSpeedText = document.getElementById('transferSpeedText');
@@ -846,6 +857,231 @@ checkPendingShareFromBackground();
 // ==========================================
 // STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
 // ==========================================
+let extensionQrNonce = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+
+function generateExtensionNonce() {
+  extensionQrNonce = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+  const badge = document.getElementById('portalNonceBadge');
+  if (badge) badge.textContent = '#' + extensionQrNonce.slice(0, 6);
+  return extensionQrNonce;
+}
+
+function resetRemotePhoneStatusUI() {
+  const card = document.getElementById('portalPhoneStatusCard');
+  const title = document.getElementById('phoneStatusTitle');
+  const sub = document.getElementById('phoneStatusSub');
+  const badge = document.getElementById('phoneStatusBadge');
+  const icon = document.getElementById('phoneStatusIcon');
+  if (card) {
+    card.style.background = 'rgba(255, 255, 255, 0.9)';
+    card.style.borderColor = 'rgba(186, 230, 253, 0.9)';
+    card.style.boxShadow = '0 2px 8px rgba(2, 132, 199, 0.06)';
+  }
+  if (title) {
+    title.style.color = '#0f172a';
+    title.textContent = 'Waiting for phone scan...';
+  }
+  if (sub) {
+    sub.style.color = '#64748b';
+    sub.textContent = 'Aim camera to pair directly';
+  }
+  if (badge) {
+    badge.textContent = 'READY';
+    badge.style.color = '#64748b';
+    badge.style.background = '#f1f5f9';
+    badge.style.borderColor = '#cbd5e1';
+  }
+  if (icon) icon.textContent = '📱';
+}
+
+function updateRemotePhoneStatus(msg) {
+  const card = document.getElementById('portalPhoneStatusCard');
+  const title = document.getElementById('phoneStatusTitle');
+  const sub = document.getElementById('phoneStatusSub');
+  const badge = document.getElementById('phoneStatusBadge');
+  const icon = document.getElementById('phoneStatusIcon');
+  if (!card) return;
+
+  if (msg.stage === 'scanned') {
+    card.style.background = '#ecfdf5';
+    card.style.borderColor = '#6ee7b7';
+    card.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
+    if (title) {
+      title.style.color = '#065f46';
+      title.textContent = 'Phone Scanned: ' + (msg.device || 'Mobile Device');
+    }
+    if (sub) {
+      sub.style.color = '#047857';
+      sub.textContent = 'Scan detected • P2P socket open';
+    }
+    if (badge) {
+      badge.textContent = 'PAIRED';
+      badge.style.color = '#047857';
+      badge.style.background = '#d1fae5';
+      badge.style.borderColor = '#a7f3d0';
+    }
+    if (icon) icon.textContent = '📱';
+  } else if (msg.stage === 'downloading') {
+    card.style.background = '#f0f9ff';
+    card.style.borderColor = '#7dd3fc';
+    card.style.boxShadow = '0 0 12px rgba(2, 132, 199, 0.15)';
+    const pct = msg.progress || 0;
+    if (title) {
+      title.style.color = '#0369a1';
+      title.textContent = 'Phone Downloading: ' + pct + '%';
+    }
+    if (sub) {
+      sub.style.color = '#0284c7';
+      const speedStr = msg.speed ? (formatBytes(msg.speed) + '/s • ') : '';
+      sub.textContent = speedStr + 'Writing chunks to RAM';
+    }
+    if (badge) {
+      badge.textContent = 'STREAMING';
+      badge.style.color = '#0284c7';
+      badge.style.background = '#e0f2fe';
+      badge.style.borderColor = '#bae6fd';
+    }
+    if (icon) icon.textContent = '📥';
+  } else if (msg.stage === 'delivered') {
+    card.style.background = '#ecfdf5';
+    card.style.borderColor = '#10b981';
+    card.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.3)';
+    if (title) {
+      title.style.color = '#065f46';
+      title.textContent = 'Verified: Saved to Phone Storage!';
+    }
+    if (sub) {
+      sub.style.color = '#047857';
+      sub.textContent = (msg.fileName || 'Object') + ' confirmed saved on phone';
+    }
+    if (badge) {
+      badge.textContent = 'SAVED';
+      badge.style.color = '#065f46';
+      badge.style.background = '#a7f3d0';
+      badge.style.borderColor = '#6ee7b7';
+    }
+    if (icon) icon.textContent = '✓';
+  } else if (msg.stage === 'failed') {
+    card.style.background = '#fff1f2';
+    card.style.borderColor = '#fca5a5';
+    card.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.15)';
+    if (title) {
+      title.style.color = '#9f1239';
+      title.textContent = 'Delivery to Phone Failed';
+    }
+    if (sub) {
+      sub.style.color = '#be123c';
+      sub.textContent = msg.error || 'Connection closed unexpectedly';
+    }
+    if (badge) {
+      badge.textContent = 'FAILED';
+      badge.style.color = '#be123c';
+      badge.style.background = '#ffe4e6';
+      badge.style.borderColor = '#fecdd3';
+    }
+    if (icon) icon.textContent = '⚠️';
+  }
+}
+
+let isRebuildingSession = false;
+async function rebuildExtensionQrSession() {
+  if (isRebuildingSession) return;
+  isRebuildingSession = true;
+
+  if (btnRebuildQrIcon) {
+    btnRebuildQrIcon.style.transition = 'transform 0.6s ease';
+    btnRebuildQrIcon.style.transform = 'rotate(360deg)';
+  }
+  if (btnRebuildQrText) btnRebuildQrText.textContent = 'Rebuilding...';
+
+  // Generate fresh random nonce & peer ID
+  const nonce = generateExtensionNonce();
+  const randomSub = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).substring(2, 10);
+  currentPeerId = 'beam-' + randomSub;
+
+  // Cleanly close prior connection
+  if (activeConnection) {
+    try { activeConnection.close(); } catch (_) {}
+    activeConnection = null;
+  }
+  resetRemotePhoneStatusUI();
+
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  if (activePreparedFile) {
+    const fileNameEnc = encodeURIComponent(activePreparedFile.name);
+    const fileSize = activePreparedFile.size;
+    const mimeEnc = encodeURIComponent(activePreparedFile.type || 'application/octet-stream');
+    const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&token=${nonce}&nonce=${nonce}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
+
+    if (portalUrlText) portalUrlText.textContent = targetUrl;
+
+    try {
+      await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+        width: 196,
+        margin: 2,
+        color: { dark: '#030712', light: '#ffffff' }
+      });
+    } catch (e) {
+      console.error('QR render error:', e);
+    }
+
+    // Re-stage file in RAM transit
+    try {
+      fetch(`${safeBaseUrl}/api/transit?peer=${currentPeerId}&token=${nonce}&name=${fileNameEnc}&mime=${mimeEnc}`, {
+        method: 'POST',
+        body: activePreparedFile
+      }).catch(() => {});
+    } catch (_) {}
+
+    initPeerJsSession('file');
+  } else if (stagedTextContent) {
+    const chosenType = resolveTextType(stagedTextContent);
+    const isInstant = stagedTextContent.length <= 2200;
+    if (isInstant) {
+      const b64Data = btoa(unescape(encodeURIComponent(stagedTextContent)));
+      const targetUrl = `${safeBaseUrl}/notebook.html#data=${b64Data}&token=${nonce}&type=${chosenType}`;
+      if (portalUrlText) portalUrlText.textContent = targetUrl;
+      try {
+        await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+          width: 196,
+          margin: 2,
+          color: { dark: '#030712', light: '#ffffff' }
+        });
+      } catch (e) {}
+    } else {
+      const targetUrl = `${safeBaseUrl}/notebook.html?peer=${currentPeerId}&token=${nonce}&type=${chosenType}`;
+      if (portalUrlText) portalUrlText.textContent = targetUrl;
+      try {
+        await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
+          width: 196,
+          margin: 2,
+          color: { dark: '#030712', light: '#ffffff' }
+        });
+      } catch (e) {}
+      initPeerJsSession('text');
+    }
+  }
+
+  updateStatus('ready', 'QR Rebuilt');
+  if (btnRebuildQrText) btnRebuildQrText.textContent = '✓ Rebuilt!';
+  setTimeout(() => {
+    if (btnRebuildQrText) btnRebuildQrText.textContent = 'Rebuild QR';
+    if (btnRebuildQrIcon) {
+      btnRebuildQrIcon.style.transition = 'none';
+      btnRebuildQrIcon.style.transform = 'none';
+    }
+    isRebuildingSession = false;
+  }, 1200);
+}
+
+if (btnRebuildQr) {
+  btnRebuildQr.addEventListener('click', rebuildExtensionQrSession);
+}
 async function startFilePortalSession(file) {
   isStreaming = false;
   if (!activePreparedFile && file) {
@@ -869,7 +1105,10 @@ async function startFilePortalSession(file) {
     ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
     : "https://beam-drop-mu.vercel.app";
 
-  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
+  const nonce = generateExtensionNonce();
+  resetRemotePhoneStatusUI();
+
+  const targetUrl = `${safeBaseUrl}/download?peer=${currentPeerId}&token=${nonce}&nonce=${nonce}&type=file&name=${fileNameEnc}&size=${fileSize}&mime=${mimeEnc}`;
 
   // Update badge on top of QR code in popup
   const fileInfo = getExtensionFileTypeInfo(file.name, file.type);
@@ -1216,10 +1455,13 @@ function initPeerJsSession(type = 'file') {
     }
 
     activeConnection = conn;
-    updateStatus('connected', 'Device Connected');
+    updateStatus('connected', 'Phone Connected');
 
-    // Transition to transfer stage
-    showStage('transfer');
+    // Immediately detect that Phone Scanned QR code!
+    updateRemotePhoneStatus({
+      stage: 'scanned',
+      device: 'Mobile Phone'
+    });
 
     // Enforce strict binaryType on DataChannel
     if (conn.dataChannel) {
@@ -1366,8 +1608,47 @@ function setupConnectionHandlers(conn, type) {
       return;
     }
 
+    if (msg.type === 'PHONE_STATUS') {
+      console.log('[BeamDrop] Remote Phone Status received:', msg);
+      updateRemotePhoneStatus(msg);
+
+      if (msg.device && transferDeviceName) {
+        transferDeviceName.innerHTML = `<span>📱</span><span>${escapeHtml(msg.device)}</span>`;
+      }
+
+      if (msg.stage === 'scanned') {
+        updateStatus('connected', 'Phone Paired');
+      } else if (msg.stage === 'downloading') {
+        const pct = msg.progress || 0;
+        if (transferPercentText) transferPercentText.textContent = pct + '%';
+        if (transferProgressFill) transferProgressFill.style.width = pct + '%';
+        if (msg.speed && transferSpeedText) transferSpeedText.textContent = formatBytes(msg.speed) + '/s';
+        if (transferPhoneStatusSub) transferPhoneStatusSub.textContent = `Phone writing chunks (${pct}%)...`;
+      } else if (msg.stage === 'delivered') {
+        isStreaming = false;
+        showStage('complete');
+        if (completeSubText) {
+          completeSubText.textContent = `✓ ${msg.fileName || 'Object'} verified received & saved to phone storage.`;
+        }
+        updateStatus('ready', 'Transfer Complete');
+      } else if (msg.stage === 'failed') {
+        updateStatus('idle', 'Delivery Failed');
+        if (transferPhoneStatusSub) transferPhoneStatusSub.textContent = msg.error || 'Phone transfer failed';
+      }
+      return;
+    }
+
     if (msg.type === 'RECEIVER_READY' || msg.type === 'START_STREAM' || msg.type === 'DEVICE_INFO') {
       console.log('[BeamDrop] Receiver signaled readiness:', msg.type);
+      if (msg.device) {
+        updateRemotePhoneStatus({
+          stage: 'scanned',
+          device: msg.device
+        });
+        if (transferDeviceName) {
+          transferDeviceName.innerHTML = `<span>📱</span><span>${escapeHtml(msg.device)}</span>`;
+        }
+      }
       startTransmission();
       return;
     }
@@ -1382,6 +1663,17 @@ function setupConnectionHandlers(conn, type) {
       completeSubText.textContent = `Successfully received on ${msg.device || 'device'} with zero cloud storage.`;
       updateStatus('ready', 'Transfer Complete');
       return;
+    }
+  });
+
+  conn.on('close', () => {
+    console.log('[BeamDrop] Peer connection closed');
+    if (isStreaming) {
+      updateRemotePhoneStatus({
+        stage: 'failed',
+        error: 'Phone disconnected during transmission'
+      });
+      updateStatus('idle', 'Disconnected');
     }
   });
 

@@ -131,6 +131,13 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       if (status.toLowerCase().includes('error') || status.toLowerCase().includes('failed')) {
         setConnectionStatus('error');
         setErrorMessage(status);
+        try {
+          transferManager.sendMessage({
+            type: 'PHONE_STATUS',
+            stage: 'failed',
+            error: status
+          });
+        } catch (_) {}
         // On WebRTC error, immediately try Transit fallback
         fetchViaTransitFallback();
       }

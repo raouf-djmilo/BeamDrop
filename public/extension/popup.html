@@ -91,27 +91,18 @@
 
     <!-- SUB-VIEW 1: FILES & MEDIA -->
     <div id="viewFilesMode" style="display: flex; flex-direction: column; gap: 10px;">
-      <!-- Quick format pills -->
-      <div class="quick-types-pills">
-        <span class="q-pill q-pill-excel">📊 Excel</span>
-        <span class="q-pill q-pill-ppt">📽️ PowerPoint</span>
-        <span class="q-pill q-pill-pdf">📑 PDF</span>
-        <span class="q-pill q-pill-zip">📦 ZIP</span>
-        <span class="q-pill q-pill-media">🎬 Media</span>
-      </div>
-
       <!-- Drag & Drop Zone -->
       <div id="dropZone" class="drop-zone">
         <input type="file" id="fileInput" multiple style="display: none;">
         <div class="drop-icon-wrapper">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
         </div>
         <p class="drop-primary">Choose files or drop here</p>
-        <p class="drop-secondary">Documents, Photos, Videos, Multi-files (Auto-ZIP)</p>
+        <p class="drop-secondary">Fast &amp; Direct Device-to-Device Transfer</p>
       </div>
 
       <!-- Staged File Card -->
@@ -186,73 +177,54 @@
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
+      <!-- Top Action: Rebuild QR Button & Rolling Nonce Badge -->
+      <div class="portal-top-bar">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 11px; font-weight: 700; color: #0284c7;">⚡ One-Time QR</span>
+          <span id="portalNonceBadge" class="portal-nonce-pill">#live</span>
+        </div>
+        <button id="btnRebuildQr" class="btn-rebuild-qr" type="button" title="Regenerate fresh random QR session">
+          <svg id="btnRebuildQrIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+          <span id="btnRebuildQrText">Rebuild QR</span>
+        </button>
+      </div>
+
       <!-- Staged Object Info Badge on top of QR -->
       <div id="portalFileBadge" class="portal-file-badge">
         <span id="portalBadgeIcon" class="portal-badge-icon">📦</span>
-        <span id="portalFileNameBadge" class="portal-badge-name">file.ext</span>
-        <span id="portalFileSizeBadge" class="portal-badge-size">(0 KB)</span>
+        <span id="portalFileNameBadge" class="portal-filename">file.ext</span>
+        <span id="portalFileSizeBadge" class="portal-filesize">(0 KB)</span>
       </div>
 
       <div class="qr-box-200">
         <canvas id="qrcodeCanvas"></canvas>
       </div>
-      <p id="qrScanInstruction" class="qr-scan-instruction">Scan with phone camera to transfer directly</p>
-      <div id="portalRadarPill" class="portal-pill">
-        <span id="portalRadarDot" class="radar-dot"></span>
-        <span id="portalRadarText">Awaiting phone connection...</span>
+
+      <!-- Real-Time Remote Phone Detection & Verification Status Card -->
+      <div id="portalPhoneStatusCard" class="portal-phone-status-card">
+        <div class="phone-status-left">
+          <span id="phoneStatusIcon" class="phone-status-icon">📱</span>
+          <div class="phone-status-text">
+            <p id="phoneStatusTitle" class="phone-status-title">Waiting for phone scan...</p>
+            <p id="phoneStatusSub" class="phone-status-sub">Aim camera to pair directly</p>
+          </div>
+        </div>
+        <span id="phoneStatusBadge" class="phone-status-badge">READY</span>
       </div>
-      <p id="portalUrlText" class="portal-url-text">https://beam-drop-mu.vercel.app/download?peer=...</p>
 
-      <!-- Primary Action: Save Watermarked QR Code Image -->
-      <button id="btnSaveQrWatermark" class="btn-save-watermark-qr" type="button" title="Save QR card with BeamDrop watermark">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        <span id="btnSaveQrWatermarkText">Save QR Card (BeamDrop Watermark)</span>
-      </button>
-
-      <!-- Sub-row: Copy QR Code & Copy Link -->
-      <div class="portal-sub-actions">
-        <button id="btnCopyQrImage" class="btn-portal-sub" type="button" title="Copy QR Code Image to Clipboard">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          <span id="copyQrImageText">Copy QR Code</span>
-        </button>
-
-        <button id="btnCopyLink" class="btn-portal-sub" type="button" title="Copy Link URL">
+      <!-- Clean Actions Row -->
+      <div class="portal-sub-actions" style="margin-top: 4px;">
+        <button id="btnCopyLink" class="btn-portal-sub" type="button" style="flex: 1;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
           </svg>
           <span id="copyLinkText">Copy Link</span>
         </button>
+        <button id="btnCancelPortal" class="btn-portal-sub" type="button" style="color: #e11d48; border-color: rgba(225,29,72,0.3);">
+          <span>Cancel</span>
+        </button>
       </div>
-
-      <!-- Watermark Guarantee Notice -->
-      <div class="portal-watermark-notice">
-        <span class="watermark-dot"></span>
-        <span>BeamDrop Bridge Engine • Zero Cloud Storage</span>
-      </div>
-    </div>
-
-    <div class="action-row">
-      <button id="btnCancelPortal" class="btn-action-danger">Cancel Session</button>
-    </div>
-
-    <!-- Background Persistence Tip -->
-    <div class="persistence-tip">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="16" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-      </svg>
-      <span>Tip: Click 🗗 in header to detach into floating window or Side Panel so the connection stays open.</span>
     </div>
   </main>
 
@@ -261,7 +233,15 @@
     <div class="transfer-card">
       <div class="transfer-header-row">
         <span class="pulsing-radar"></span>
-        <h3 id="transferFileTitle" class="transfer-title">Streaming object...</h3>
+        <h3 id="transferFileTitle" class="transfer-title">Streaming to Phone...</h3>
+      </div>
+
+      <!-- Real-Time Connected Device & Operation Status -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(2,132,199,0.06); border: 1px solid rgba(186,230,253,0.8); border-radius: 10px; margin: 4px 0 12px; font-size: 11px;">
+        <span id="transferDeviceName" style="font-weight: 700; color: #0284c7; display: flex; align-items: center; gap: 5px;">
+          <span>📱</span><span>Phone Connected</span>
+        </span>
+        <span id="transferPhoneStatusSub" style="font-size: 10px; color: #64748b; font-family: ui-monospace, monospace; font-weight: 600;">Writing to RAM</span>
       </div>
 
       <div class="progress-container">
@@ -271,16 +251,7 @@
       <div class="transfer-metrics-row">
         <span id="transferPercentText">0%</span>
         <span id="transferSpeedText" class="speed-tag">0.0 MB/s</span>
-        <span id="transferEtaText">--s remaining</span>
-      </div>
-
-      <div class="persistence-tip" style="margin-top: 12px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-        <span>Streaming live RAM-to-RAM. Keep this window open until transfer reaches 100%.</span>
+        <span id="transferEtaText">Streaming</span>
       </div>
     </div>
   </main>

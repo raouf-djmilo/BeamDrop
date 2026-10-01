@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 import {
   Download,
   Copy,
   Check,
   FileCode,
   FolderArchive,
+  FolderOpen,
+  FolderCheck,
   Layers,
   Sparkles,
   ExternalLink,
@@ -13,7 +16,11 @@ import {
   Terminal,
   Cpu,
   HelpCircle,
-  Settings
+  Settings,
+  Chrome,
+  AlertCircle,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { getExtensionFiles, fetchExtensionFiles, generateExtensionZipBlob, ExtensionFile } from '../extension-source/extensionFiles';
 
@@ -26,6 +33,11 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
   const [selectedFileName, setSelectedFileName] = useState<string>('manifest.json');
   const [copied, setCopied] = useState<boolean>(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState<boolean>(false);
+  const [isUnpackingFolder, setIsUnpackingFolder] = useState<boolean>(false);
+  const [folderProgress, setFolderProgress] = useState<string>('');
+  const [unpackedSuccessFolder, setUnpackedSuccessFolder] = useState<string | null>(null);
+  const [folderErrorMessage, setFolderErrorMessage] = useState<string>('');
+  const [copiedChromeUrl, setCopiedChromeUrl] = useState<boolean>(false);
   const [files, setFiles] = useState<ExtensionFile[]>(() => getExtensionFiles(receiverBaseUrl));
 
   useEffect(() => {
@@ -44,6 +56,12 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyChromeUrl = () => {
+    navigator.clipboard.writeText('chrome://extensions');
+    setCopiedChromeUrl(true);
+    setTimeout(() => setCopiedChromeUrl(false), 2000);
+  };
+
   const handleDownloadZip = async () => {
     try {
       setIsDownloadingZip(true);
@@ -60,6 +78,87 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
       alert('Error generating zip: ' + e.message);
     } finally {
       setIsDownloadingZip(false);
+    }
+  };
+
+  // 1-Click Native Folder Unpacker via File System Access API (Zero-ZIP)
+  const handleDirectFolderUnpack = async () => {
+    setFolderErrorMessage('');
+    setUnpackedSuccessFolder(null);
+
+    if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
+      setFolderErrorMessage('Your browser does not support the native File System Access API. Please use Google Chrome, Brave, Edge, or Opera, or click "Download Extension (.ZIP)" to download the folder archive.');
+      return;
+    }
+
+    try {
+      setIsUnpackingFolder(true);
+      setFolderProgress('Opening folder picker on your PC...');
+
+      const dirHandle = await (window as any).showDirectoryPicker({
+        id: 'beamdrop-extension-folder',
+        mode: 'readwrite'
+      });
+
+      const targetName = dirHandle.name || 'Extension Folder';
+      setFolderProgress(`Cleaning previous files in "${targetName}"...`);
+
+      // Clean old files
+      try {
+        for await (const [name] of (dirHandle as any).entries()) {
+          if (name !== '.git') {
+            try {
+              await (dirHandle as any).removeEntry(name, { recursive: true });
+            } catch (_) {}
+          }
+        }
+      } catch (cleanErr) {
+        console.warn('Pre-clean notice:', cleanErr);
+      }
+
+      setFolderProgress('Downloading extension package...');
+      const zipRes = await fetch('/extension.zip?_t=' + Date.now());
+      if (!zipRes.ok) {
+        throw new Error(`Failed to download extension package: status ${zipRes.status}`);
+      }
+
+      const zipBuf = await zipRes.arrayBuffer();
+      const zip = await JSZip.loadAsync(zipBuf);
+
+      const fileKeys = Object.keys(zip.files).filter((k) => !zip.files[k].dir);
+      let count = 0;
+
+      for (const relPath of fileKeys) {
+        count++;
+        setFolderProgress(`Writing [${count}/${fileKeys.length}]: ${relPath}...`);
+        const fileData = await zip.files[relPath].async('uint8array');
+
+        const parts = relPath.split(/[/\\]/);
+        let targetDir = dirHandle;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+          const subDir = parts[i];
+          if (subDir) {
+            targetDir = await targetDir.getDirectoryHandle(subDir, { create: true });
+          }
+        }
+
+        const fileName = parts[parts.length - 1];
+        const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(fileData);
+        await writable.close();
+      }
+
+      setUnpackedSuccessFolder(targetName);
+      setFolderProgress('');
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Folder unpack failed:', err);
+        setFolderErrorMessage(err.message || 'Failed writing files to folder');
+      }
+    } finally {
+      setIsUnpackingFolder(false);
     }
   };
 
@@ -95,27 +194,171 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0">
+          <div className="flex flex-col gap-2.5 shrink-0 min-w-[240px]">
+            {/* Action 1: Direct Native Folder Writer */}
+            <button
+              onClick={handleDirectFolderUnpack}
+              disabled={isUnpackingFolder || isDownloadingZip}
+              className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2.5 active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Select a folder on your computer to directly write all 25 extension files (Load Unpacked)"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>{isUnpackingFolder ? 'Unpacking to Folder...' : 'Save Directly to Folder'}</span>
+            </button>
+
+            {/* Action 2: Traditional .ZIP Archive */}
             <button
               onClick={handleDownloadZip}
-              disabled={isDownloadingZip}
-              className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-cyan-500/30 transition-all flex items-center justify-center space-x-2.5 active:scale-95 cursor-pointer"
+              disabled={isDownloadingZip || isUnpackingFolder}
+              className="px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-cyan-500/30 transition-all flex items-center justify-center space-x-2.5 active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <FolderArchive className="w-5 h-5" />
+              <FolderArchive className="w-4 h-4" />
               <span>{isDownloadingZip ? 'Packaging Extension...' : 'Download Extension (.ZIP)'}</span>
             </button>
+
+            {/* Action 3: Open Updater Studio */}
             <a
-              href="#installation-guide"
-              className="px-5 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition-colors border border-slate-700/60"
+              href="/updater.html"
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-cyan-300 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors border border-cyan-500/30"
             >
-              <HelpCircle className="w-4 h-4" />
-              <span>Installation Steps</span>
+              <Zap className="w-3.5 h-3.5" />
+              <span>Open Updater Studio</span>
+              <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
             </a>
           </div>
         </div>
 
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#08334415_1px,transparent_1px),linear-gradient(to_bottom,#08334415_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+      </div>
+
+      {/* Live Unpacking Progress Feedback */}
+      {isUnpackingFolder && (
+        <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 flex items-center space-x-3 text-xs text-emerald-200 animate-pulse">
+          <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin shrink-0" />
+          <div className="flex-1 font-mono">
+            <span className="font-bold text-emerald-300">Writing Extension Folder: </span>
+            <span>{folderProgress || 'Processing...'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Success Unpacked Notification Banner */}
+      {unpackedSuccessFolder && (
+        <div className="bg-emerald-950/70 border border-emerald-400/50 rounded-2xl p-5 space-y-3 shadow-xl shadow-emerald-950/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-emerald-300 font-bold text-sm">
+              <FolderCheck className="w-5 h-5 text-emerald-400" />
+              <span>Extension Folder Ready in &quot;{unpackedSuccessFolder}&quot;!</span>
+            </div>
+            <button
+              onClick={() => setUnpackedSuccessFolder(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-xs text-emerald-100/90 leading-relaxed">
+            All 25 extension files and icons were written cleanly to your selected folder. You can now load it into Chrome in seconds:
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              onClick={handleCopyChromeUrl}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 font-mono text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+            >
+              {copiedChromeUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedChromeUrl ? 'Copied chrome://extensions' : 'Copy: chrome://extensions'}</span>
+            </button>
+            <span className="text-[11px] text-slate-300 font-medium">
+              ➔ Paste in Chrome ➔ Toggle <strong>Developer mode</strong> ➔ Click <strong>Load unpacked</strong>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Error Notice */}
+      {folderErrorMessage && (
+        <div className="bg-rose-950/50 border border-rose-500/40 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-200">
+          <div className="flex items-center space-x-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{folderErrorMessage}</span>
+          </div>
+          <button
+            onClick={() => setFolderErrorMessage('')}
+            className="text-rose-400 hover:text-rose-200 text-xs px-2 py-1"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* 3-Way Download & Setup Options Hub */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Option 1: Direct Folder Unpack */}
+        <div className="bg-slate-900/80 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl p-5 space-y-3 transition-all flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <FolderOpen className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Save Directly to Folder</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Native File System Access writes all 25 extension files directly into any local folder on your PC without extracting ZIPs.
+            </p>
+          </div>
+          <button
+            onClick={handleDirectFolderUnpack}
+            disabled={isUnpackingFolder}
+            className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>Pick Folder &amp; Save</span>
+          </button>
+        </div>
+
+        {/* Option 2: Traditional ZIP Download */}
+        <div className="bg-slate-900/80 border border-cyan-500/30 hover:border-cyan-500/60 rounded-2xl p-5 space-y-3 transition-all flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <FolderArchive className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Download Extension (.ZIP)</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Standard zip package containing all extension source files, icons, libraries, and Manifest V3 config ready for any platform.
+            </p>
+          </div>
+          <button
+            onClick={handleDownloadZip}
+            disabled={isDownloadingZip}
+            className="w-full px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download .ZIP (154 KB)</span>
+          </button>
+        </div>
+
+        {/* Option 3: In-Place Folder Updater */}
+        <div className="bg-slate-900/80 border border-slate-800 hover:border-sky-500/40 rounded-2xl p-5 space-y-3 transition-all flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+              <Zap className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-white">In-Place Folder Updater</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Dedicated updater studio to Clean old files from your folder and inject fresh releases from GitHub with 1-click.
+            </p>
+          </div>
+          <a
+            href="/updater.html"
+            target="_blank"
+            rel="noreferrer"
+            className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>Open Updater Studio</span>
+            <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+          </a>
+        </div>
       </div>
 
       {/* Extension Config & Receiver Endpoint */}
@@ -257,7 +500,7 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
 
           <div className="flex items-center space-x-3 shrink-0">
             <div className="px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-              Latest: <span className="text-cyan-400 font-bold">v1.5.2</span>
+              Latest: <span className="text-cyan-400 font-bold">v1.6.2</span>
             </div>
             <a
               href="/version.json"
@@ -275,16 +518,16 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
           <div className="bg-slate-950/90 border border-cyan-500/40 rounded-2xl p-4 space-y-2 shadow-lg shadow-cyan-950/20">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50">
-                v1.5.2 (LATEST)
+                v1.6.2 (LATEST)
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">2026-09-28</span>
+              <span className="text-[10px] text-slate-500 font-mono">2026-10-01</span>
             </div>
-            <h4 className="text-xs font-bold text-white">Direct Package Downloader & Dual Sync</h4>
+            <h4 className="text-xs font-bold text-white">Live GitHub Tree Injector & Clean Engine</h4>
             <ul className="text-[11px] text-slate-400 space-y-1 list-disc pl-4">
-              <li>Direct auto-download of update ZIP via chrome.downloads.</li>
-              <li>Dual cloud polling: Vercel + raw.githubusercontent.com.</li>
-              <li>Native desktop notification for new releases.</li>
-              <li>Interactive test switcher to simulate older versions.</li>
+              <li>Direct In-Place File System Injector for all 25 extension files.</li>
+              <li>Thorough 5-pass Clean Folder engine removing all obsolete files.</li>
+              <li>Real-time Remote Phone Status detection (scan, speed, delivery).</li>
+              <li>1-Click Rebuild QR button with ephemeral rolling nonce token.</li>
             </ul>
           </div>
 

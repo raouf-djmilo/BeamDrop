@@ -225,11 +225,23 @@
 
       const now = Date.now();
       const elapsed = (now - entry.lastSpeedTime) / 1000;
+      let curSpeed = 0;
       if (elapsed >= 0.25) {
-        const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
-        if (transferSpeed) transferSpeed.textContent = formatBytes(speed) + '/s';
+        curSpeed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
+        if (transferSpeed) transferSpeed.textContent = formatBytes(curSpeed) + '/s';
         entry.lastSpeedTime = now;
         entry.lastBytes = entry.receivedBytes;
+      }
+
+      if (progress % 10 === 0 || progress >= 95) {
+        if (connection && connection.open) {
+          connection.send({
+            type: 'PHONE_STATUS',
+            stage: 'downloading',
+            progress: progress,
+            speed: curSpeed
+          });
+        }
       }
     } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
       const entry = incomingFiles.get(msg.fileId);

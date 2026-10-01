@@ -154,10 +154,22 @@
 
     connection.on('open', () => {
       updateStatus('connected', 'Connected to BeamDrop Desktop');
+      const isIos = /iPhone|iPad/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const deviceLabel = isIos ? 'iPhone' : isAndroid ? 'Android Phone' : 'Mobile Device';
+      connection.send({
+        type: 'PHONE_STATUS',
+        stage: 'scanned',
+        device: deviceLabel
+      });
       connection.send({
         type: 'DEVICE_INFO',
         device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver'
       });
+      // Emit strict two-way handshake to tell desktop extension to start pumping stream immediately
+      try {
+        connection.send({ type: 'RECEIVER_READY', timestamp: Date.now() });
+      } catch (_) {}
     });
 
     connection.on('data', (data) => {
@@ -213,11 +225,23 @@
 
       const now = Date.now();
       const elapsed = (now - entry.lastSpeedTime) / 1000;
+      let curSpeed = 0;
       if (elapsed >= 0.25) {
-        const speed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
-        if (transferSpeed) transferSpeed.textContent = formatBytes(speed) + '/s';
+        curSpeed = (entry.receivedBytes - entry.lastBytes) / Math.max(elapsed, 0.001);
+        if (transferSpeed) transferSpeed.textContent = formatBytes(curSpeed) + '/s';
         entry.lastSpeedTime = now;
         entry.lastBytes = entry.receivedBytes;
+      }
+
+      if (progress % 10 === 0 || progress >= 95) {
+        if (connection && connection.open) {
+          connection.send({
+            type: 'PHONE_STATUS',
+            stage: 'downloading',
+            progress: progress,
+            speed: curSpeed
+          });
+        }
       }
     } else if (msg.type === 'FILE_END' || msg.type === 'complete') {
       const entry = incomingFiles.get(msg.fileId);
@@ -228,6 +252,15 @@
 
       // Trigger instant automatic download to phone storage
       triggerAutoDownload(downloadUrl, entry.name);
+
+      if (connection && connection.open) {
+        connection.send({
+          type: 'PHONE_STATUS',
+          stage: 'delivered',
+          fileName: entry.name,
+          fileSize: entry.size
+        });
+      }
 
       if (downloadSuccessCard) downloadSuccessCard.style.display = 'flex';
       if (btnManualDownload) {
@@ -264,36 +297,6 @@
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
-
-
-  // Auto-register presence in Mesh Network so desktop radar discovers this device instantly
-  const myMeshPresenceId = 'receiver-' + (targetPeerId || Math.random().toString(36).slice(2, 8));
-  const isMobileClient = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const myMeshClientName = isMobileClient
-    ? (navigator.userAgent.includes('iPhone') ? 'Apple iPhone' : 'Android Smartphone')
-    : 'Web Receiver Workstation';
-
-  function announceMeshPresence() {
-    const endpoints = [
-      '/api/mesh/announce',
-      'https://beam-drop-mu.vercel.app/api/mesh/announce'
-    ];
-    endpoints.forEach(url => {
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: myMeshPresenceId,
-          name: myMeshClientName,
-          deviceType: isMobileClient ? 'phone' : 'laptop',
-          icon: isMobileClient ? '📱' : '💻',
-          protocol: 'wifi'
-        })
-      }).catch(() => {});
-    });
-  }
-  announceMeshPresence();
-  setInterval(announceMeshPresence, 3000);
 
   // Auto start on page load
   window.addEventListener('DOMContentLoaded', initReceiver);

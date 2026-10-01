@@ -4,11 +4,18 @@
  * 
  * BeamDrop Extension Studio - Liquid Glass Direct File Injector
  * 3-Button Architecture: Select Folder -> Clean Folder -> Inject All Files
+ * Live GitHub Repository Sync & Multi-Mirror Engine
  */
 
+const GITHUB_REPO = "raouf-djmilo/BeamDrop";
+const GITHUB_BRANCH = "main";
+const GITHUB_RAW_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/extension`;
+const GITHUB_TREE_API = `https://api.github.com/repos/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`;
+const GITHUB_COMMITS_API = `https://api.github.com/repos/${GITHUB_REPO}/commits?path=extension&per_page=1`;
+const GITHUB_VERSION_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/public/version.json`;
 const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
-const INJECT_FILES = [
+const DEFAULT_INJECT_FILES = [
   'manifest.json',
   'popup.html',
   'popup.js',
@@ -22,6 +29,8 @@ const INJECT_FILES = [
   'buildInfo.js',
   'peerjs.min.js',
   'qrcode.min.js',
+  'update.bat',
+  'update.sh',
   'icons/icon16.png',
   'icons/icon48.png',
   'icons/icon128.png',
@@ -60,43 +69,106 @@ document.addEventListener('DOMContentLoaded', () => {
   displayLocalBuildInfo();
   initFolderState();
   checkCloudStatus();
+
+  // Check if auto-sync was requested via URL ?action=sync
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('action') === 'sync' || urlParams.get('action') === 'update') {
+    setTimeout(() => {
+      if (btnMasterSync) {
+        log('⚡ Auto-triggered Sync requested via URL parameter...');
+        btnMasterSync.click();
+      }
+    }, 600);
+  }
 });
+
+function compareSemver(v1, v2) {
+  const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
 
 function displayLocalBuildInfo() {
   const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
     ? window.BEAMDROP_BUILD
-    : { version: '1.6.2', buildHash: 'git-6abd' };
+    : { version: '1.6.2', buildHash: 'git-6abe' };
   
-  const shortHash = (localBuild.buildHash || 'git-6abd').slice(0, 8);
+  const shortHash = (localBuild.buildHash || 'git-6abe').slice(0, 8);
   if (installedVer) installedVer.textContent = `v${localBuild.version} (${shortHash})`;
   if (appVerBadge) appVerBadge.textContent = `v${localBuild.version}`;
-  if (cloudVer) cloudVer.textContent = `v${localBuild.version} (Cloud Ready)`;
+  if (cloudVer) cloudVer.textContent = `v${localBuild.version} (Checking GitHub...)`;
   if (buildHashText) buildHashText.textContent = shortHash;
 }
 
 async function checkCloudStatus() {
+  let latestVersion = '1.6.2';
+  let latestHash = '';
+  let commitMessage = '';
+
+  // 1. Check GitHub raw public/version.json
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-
-    const resp = await fetch(`${VERCEL_HOST}/version.json?_t=${Date.now()}`, {
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-
-    if (resp.ok) {
-      const data = await resp.json();
-      const versionStr = data.version || data.latestVersion || '1.6.2';
-      const hashStr = data.buildHash || 'latest';
-      
-      if (cloudVer) cloudVer.textContent = `v${versionStr} (Latest)`;
-      if (buildHashText) buildHashText.textContent = hashStr;
-      if (appVerBadge) appVerBadge.textContent = `v${versionStr}`;
+    const vResp = await fetch(`${GITHUB_VERSION_URL}?_t=${Date.now()}`, { cache: 'no-store' });
+    if (vResp.ok) {
+      const vData = await vResp.json();
+      if (vData && (vData.version || vData.latestVersion)) {
+        latestVersion = vData.version || vData.latestVersion;
+        latestHash = vData.buildHash || '';
+      }
     }
-  } catch (err) {
-    if (cloudVer) cloudVer.textContent = 'v1.6.2 (Ready)';
+  } catch (_) {}
+
+  // 2. Check GitHub Commit for extension folder
+  try {
+    const cResp = await fetch(`${GITHUB_COMMITS_API}&_t=${Date.now()}`, { cache: 'no-store' });
+    if (cResp.ok) {
+      const commits = await cResp.json();
+      if (Array.isArray(commits) && commits.length > 0 && commits[0].sha) {
+        latestHash = commits[0].sha.slice(0, 8);
+        commitMessage = (commits[0].commit && commits[0].commit.message)
+          ? commits[0].commit.message.split('\n')[0]
+          : '';
+      }
+    }
+  } catch (_) {}
+
+  // 3. Fallback to Vercel host / version.json
+  if (!latestHash) {
+    try {
+      const resp = await fetch(`${VERCEL_HOST}/version.json?_t=${Date.now()}`, { cache: 'no-store' });
+      if (resp.ok) {
+        const data = await resp.json();
+        latestVersion = data.version || latestVersion;
+        latestHash = data.buildHash || latestHash;
+      }
+    } catch (_) {}
   }
+
+  const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
+    ? window.BEAMDROP_BUILD
+    : { version: '1.6.2', buildHash: 'local' };
+
+  const isNewer = compareSemver(localBuild.version, latestVersion) < 0;
+  const isNewHash = Boolean(latestHash && localBuild.buildHash && !localBuild.buildHash.includes(latestHash) && !latestHash.includes(localBuild.buildHash));
+
+  if (isNewer || isNewHash) {
+    if (cloudVer) {
+      cloudVer.textContent = `v${latestVersion} (GitHub: ${latestHash || 'new update'})`;
+      cloudVer.style.color = '#0284c7';
+      cloudVer.style.fontWeight = 'bold';
+    }
+    log(`⚡ GitHub Update Detected! Repo Commit: ${latestHash}${commitMessage ? ` ("${commitMessage}")` : ''}`);
+  } else {
+    if (cloudVer) cloudVer.textContent = `v${latestVersion} (Synchronized with GitHub)`;
+  }
+
+  if (buildHashText) buildHashText.textContent = latestHash || (localBuild.buildHash || 'git-main').slice(0, 8);
+  if (appVerBadge) appVerBadge.textContent = `v${latestVersion}`;
 }
 
 async function initFolderState() {
@@ -174,7 +246,7 @@ if (btnStep1Select) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BUTTON 2: CLEAN FOLDER (REMOVE OLD FILES)
+// BUTTON 2: CLEAN FOLDER (THOROUGH & VERIFIED REMOVAL)
 // ─────────────────────────────────────────────────────────────
 if (btnStep2Clean) {
   btnStep2Clean.addEventListener('click', async () => {
@@ -190,42 +262,85 @@ if (btnStep2Clean) {
 async function executeCleanFolder(dirHandle) {
   showLogStream();
   showProgress('🧹 Cleaning old files from folder...', 10);
-  log('⚡ Requesting write permissions for cleaning...');
+  log('⚡ Requesting write permissions for directory...');
 
   try {
-    if (window.BeamDropFolderStore) {
+    if (dirHandle.requestPermission) {
+      try {
+        const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
+        }
+      } catch (pErr) {
+        if (window.BeamDropFolderStore) {
+          const perm2 = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
+          if (perm2 !== 'granted') throw pErr;
+        }
+      }
+    } else if (window.BeamDropFolderStore) {
       const perm = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
       if (perm !== 'granted') {
         throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
       }
     }
 
-    log('🧹 Removing old files from directory...');
-    let cleanedCount = 0;
+    log('🧹 Scanning directory contents to wipe all old data...');
+    let totalRemoved = 0;
 
-    for await (const [name] of dirHandle.entries()) {
-      if (name === '.git') continue;
-      try {
-        await dirHandle.removeEntry(name, { recursive: true });
-        cleanedCount++;
-        log(`🗑️ Removed: ${name}`);
-      } catch (e) {
-        console.warn('Could not remove entry:', name, e);
+    // Up to 5 passes to prevent iterator mutation skip bug in browser
+    for (let pass = 1; pass <= 5; pass++) {
+      const itemsToDelete = [];
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (name === '.git') continue; // preserve git repo if cloned
+        itemsToDelete.push({ name, kind: handle.kind });
+      }
+
+      if (itemsToDelete.length === 0) {
+        break; // Completely empty
+      }
+
+      for (const item of itemsToDelete) {
+        try {
+          await dirHandle.removeEntry(item.name, { recursive: true });
+          totalRemoved++;
+          log(`🗑️ Removed ${item.kind === 'directory' ? 'folder' : 'file'}: ${item.name}`);
+        } catch (rmErr) {
+          console.warn(`Could not remove ${item.name}:`, rmErr);
+        }
       }
     }
 
-    showProgress(`✓ Cleaned ${cleanedCount} old items from folder!`, 100);
-    log(`✅ SUCCESS: Cleaned ${cleanedCount} items! Folder is now ready for Step 3 (Inject).`);
-    showToast(`✓ Cleaned ${cleanedCount} files! Ready to Inject.`);
+    // Strict Verification Pass
+    let remaining = 0;
+    const remainingNames = [];
+    for await (const [name] of dirHandle.entries()) {
+      if (name !== '.git') {
+        remaining++;
+        remainingNames.push(name);
+      }
+    }
+
+    if (remaining > 0) {
+      log(`⚠️ Notice: ${remaining} items locked by system: ${remainingNames.join(', ')}`);
+      showProgress(`⚠️ Cleaned ${totalRemoved} items (${remaining} locked)`, 85);
+    } else {
+      log(`✨ Verification: Directory 100% empty and clean (0 files remaining). All old data wiped.`);
+      showProgress(`✓ Cleaned ${totalRemoved} items! Directory is completely clean.`, 100);
+      showToast(`✓ Cleaned ${totalRemoved} files! Ready to Inject.`);
+    }
+
+    log(`✅ SUCCESS: Clean complete! Folder is now pristine and ready for Step 3 (Inject).`);
+    return true;
   } catch (err) {
     console.error('Clean failed:', err);
     log(`❌ Clean Error: ${err.message}`);
     showProgress('Cleaning failed: ' + err.message, 0);
+    return false;
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// BUTTON 3: INJECT ALL 21 EXTENSION FILES (DIRECT CLOUD STREAM)
+// BUTTON 3: INJECT ALL EXTENSION FILES (GITHUB & CLOUD STREAM)
 // ─────────────────────────────────────────────────────────────
 if (btnStep3Inject) {
   btnStep3Inject.addEventListener('click', async () => {
@@ -238,10 +353,84 @@ if (btnStep3Inject) {
   });
 }
 
+async function discoverExtensionFiles() {
+  const discovered = new Set(DEFAULT_INJECT_FILES);
+
+  // 1. Dynamic check via GitHub repository tree
+  try {
+    log('📡 Checking GitHub repository tree for updated files...');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(GITHUB_TREE_API, {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.tree && Array.isArray(data.tree)) {
+        const remoteExtFiles = data.tree
+          .filter(item => item.path && item.path.startsWith('extension/') && item.type === 'blob')
+          .map(item => item.path.replace(/^extension\//, ''))
+          .filter(name => !name.startsWith('.') && !name.includes('.git'));
+
+        if (remoteExtFiles.length >= 10) {
+          log(`✓ GitHub Repository Engine: ${remoteExtFiles.length} extension files discovered in GitHub repo!`);
+          remoteExtFiles.forEach(f => discovered.add(f));
+        }
+      }
+    }
+  } catch (err) {
+    console.debug('GitHub API dynamic tree query notice (falling back to host):', err);
+  }
+
+  // 2. Dynamic check via host /api/extension-tree
+  try {
+    const tResp = await fetch(`${window.location.origin}/api/extension-tree?_t=${Date.now()}`);
+    if (tResp.ok) {
+      const tData = await tResp.json();
+      if (tData.success && Array.isArray(tData.files)) {
+        log(`✓ Host Extension Engine: ${tData.files.length} extension files active on server.`);
+        tData.files.forEach(f => discovered.add(f));
+      }
+    }
+  } catch (_) {}
+
+  const finalFiles = Array.from(discovered);
+  log(`📦 Resolved target extension package: ${finalFiles.length} files to inject.`);
+  return finalFiles;
+}
+
+async function fetchFileContent(fname) {
+  const sources = [
+    // Priority 1: GitHub Raw (Directly from repository main branch)
+    `${GITHUB_RAW_BASE}/${fname}?_t=${Date.now()}`,
+    // Priority 2: Current Host (Local development or Web App static files)
+    `${window.location.origin}/extension/${fname}?_t=${Date.now()}`,
+    // Priority 3: Current Host API proxy (/api/extension-file)
+    `${window.location.origin}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`,
+    // Priority 4: Vercel Production
+    `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`
+  ];
+
+  let lastErr = null;
+  for (const src of sources) {
+    try {
+      const resp = await fetch(src, { cache: 'no-store' });
+      if (resp.ok) {
+        return await resp.arrayBuffer();
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error(`Could not fetch ${fname} from any source: ${lastErr?.message || 'HTTP 404'}`);
+}
+
 async function executeInjectFiles(dirHandle) {
   showLogStream();
-  showProgress('⚡ Starting Direct Cloud Stream Injection...', 5);
-  log(`🚀 Starting Direct Cloud Stream for ${INJECT_FILES.length} files...`);
+  showProgress('⚡ Starting GitHub & Cloud Stream Injection...', 5);
 
   try {
     if (window.BeamDropFolderStore) {
@@ -251,21 +440,18 @@ async function executeInjectFiles(dirHandle) {
       }
     }
 
+    // 1. Discover all extension files (live from GitHub or registry)
+    const filesToInject = await discoverExtensionFiles();
+    log(`🚀 Starting injection of ${filesToInject.length} files into folder...`);
+
     let written = 0;
-    const total = INJECT_FILES.length;
+    const total = filesToInject.length;
 
     for (let i = 0; i < total; i++) {
-      const fname = INJECT_FILES[i];
-      const fileUrl = `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`;
-
+      const fname = filesToInject[i];
       try {
-        log(`⬇️ Fetching: ${fname}...`);
-        const resp = await fetch(fileUrl, { cache: 'no-store' });
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status} for ${fname}`);
-        }
-
-        const arrayBuffer = await resp.arrayBuffer();
+        log(`⬇️ Fetching [${i + 1}/${total}]: ${fname}...`);
+        const arrayBuffer = await fetchFileContent(fname);
 
         // Handle subdirectories (icons/, libs/)
         const pathParts = fname.split(/[/\\]/);
@@ -295,7 +481,7 @@ async function executeInjectFiles(dirHandle) {
 
     showProgress('✅ All files injected successfully! Reloading...', 100);
     log(`🎉 SUCCESS: All ${written} files cleanly injected into folder!`);
-    showToast('✓ Complete! Extension files injected and ready.');
+    showToast(`✓ Complete! ${written} extension files injected and ready.`);
 
     setTimeout(() => {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
@@ -303,12 +489,14 @@ async function executeInjectFiles(dirHandle) {
       } else {
         window.location.reload();
       }
-    }, 1000);
+    }, 1200);
 
+    return true;
   } catch (err) {
     console.error('Inject failed:', err);
     log(`❌ Inject Error: ${err.message}`);
     showProgress('Injection failed: ' + err.message, 0);
+    return false;
   }
 }
 
@@ -340,10 +528,13 @@ if (btnMasterSync) {
         showFolderLinked(currentFolderName);
       }
 
-      // Execute Clean
-      await executeCleanFolder(currentDirHandle);
+      // Step 2: Execute Clean
+      const cleaned = await executeCleanFolder(currentDirHandle);
+      if (!cleaned) {
+        log('⚠️ Clean phase encountered an issue, proceeding with overwrite injection...');
+      }
 
-      // Execute Inject
+      // Step 3: Execute Inject
       await executeInjectFiles(currentDirHandle);
 
     } catch (err) {

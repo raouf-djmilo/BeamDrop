@@ -1099,12 +1099,22 @@
               triggerBrowserSave(currentDownloadUrl, activeFileName);
             }
           };
-          // Emit immediate RECEIVER_READY two-way handshake
+
+          const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          const deviceLabel = isIos ? 'iPhone' : isAndroid ? 'Android Phone' : 'Mobile Phone';
+
+          // Emit immediate scan detected, PHONE_STATUS, and RECEIVER_READY two-way handshake
           try {
+            conn.send({
+              type: 'PHONE_STATUS',
+              stage: 'scanned',
+              device: deviceLabel
+            });
             conn.send({ type: 'RECEIVER_READY', timestamp: Date.now() });
             conn.send({ type: 'START_STREAM', timestamp: Date.now() });
           } catch (_) {}
-          conn.send({ type: 'DEVICE_INFO', device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Receiver' });
+          conn.send({ type: 'DEVICE_INFO', device: deviceLabel });
         });
 
         conn.on('data', function(msg) { handleIncomingData(msg); });
@@ -1137,11 +1147,25 @@
 
           const now = Date.now();
           const elapsed = (now - currentFileEntry.lastTime) / 1000;
+          let currentSpeed = 0;
           if (elapsed >= 0.2) {
-            const speed = (currentFileEntry.receivedBytes - currentFileEntry.lastBytes) / Math.max(elapsed, 0.001);
-            transferSpeedText.textContent = formatBytes(speed) + '/s';
+            currentSpeed = (currentFileEntry.receivedBytes - currentFileEntry.lastBytes) / Math.max(elapsed, 0.001);
+            transferSpeedText.textContent = formatBytes(currentSpeed) + '/s';
             currentFileEntry.lastTime = now;
             currentFileEntry.lastBytes = currentFileEntry.receivedBytes;
+          }
+
+          if (pct % 10 === 0 || pct >= 95) {
+            try {
+              if (connection && connection.open) {
+                connection.send({
+                  type: 'PHONE_STATUS',
+                  stage: 'downloading',
+                  progress: pct,
+                  speed: currentSpeed
+                });
+              }
+            } catch (_) {}
           }
           return;
         }
@@ -1241,6 +1265,13 @@
                 fileName: currentFileEntry.name,
                 device: devName,
                 timestamp: Date.now()
+              });
+              connection.send({
+                type: 'PHONE_STATUS',
+                stage: 'delivered',
+                fileName: currentFileEntry.name,
+                fileSize: currentFileEntry.size,
+                device: devName
               });
               connection.send({ type: 'TRANSFER_SAVED', fileId: currentFileEntry.id });
             }

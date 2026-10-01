@@ -93,6 +93,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
     isRebuildingRef.current = true;
 
     setIsRebuilding(true);
+    setRemotePhoneStatus(null);
     const nextNonce = generateSessionNonce();
     setQrSessionNonce(nextNonce);
 
@@ -518,43 +519,6 @@ export const SenderView: React.FC<SenderViewProps> = ({
         {/* Tab 1: File Staging & Upload */}
         {activeTab === 'files' && (
           <div className="space-y-4">
-            {/* Quick File Type Helpers */}
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-0.5">
-              <span className="text-slate-500 font-medium mr-1">Formats:</span>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Excel</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
-              >
-                <Presentation className="w-3.5 h-3.5 text-amber-600" />
-                <span>PowerPoint</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
-              >
-                <FileText className="w-3.5 h-3.5 text-rose-600" />
-                <span>PDF</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-slate-700 hover:text-sky-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
-              >
-                <Layers className="w-3.5 h-3.5 text-sky-600" />
-                <span>All Media &amp; Files</span>
-              </button>
-            </div>
-
             {/* Drop Zone */}
             <div
               onDragOver={(e) => e.preventDefault()}
