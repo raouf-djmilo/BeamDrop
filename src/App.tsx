@@ -3,80 +3,190 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { TransferProvider, useTransfer } from './context/TransferContext';
-import { Header, MainTab } from './components/Header';
+import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { NotificationBar } from './components/NotificationBar';
+import { Header } from './components/Header';
+import { Sidebar, MainTab } from './components/Sidebar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { SenderView } from './components/SenderView';
 import { SpiderRadarView } from './components/SpiderRadarView';
-import { WorkspacesView } from './components/WorkspacesView';
 import { ReceiveVaultView } from './components/ReceiveVaultView';
 import { MobileScannerPortal } from './components/MobileScannerPortal';
 import { ExtensionModal } from './components/ExtensionModal';
 import { DirectDownloadPortal } from './components/DirectDownloadPortal';
 import { PortalView } from './components/PortalView';
+import { AuthModal } from './components/AuthModal';
+import { ProfileModal } from './components/ProfileModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { X } from 'lucide-react';
 
-function MainApp() {
-  const { transferManager } = useTransfer();
+const WorkspacesView = React.lazy(() =>
+  import('./components/WorkspacesView').then((m) => ({ default: m.WorkspacesView }))
+);
+const NotebookView = React.lazy(() =>
+  import('./components/NotebookView').then((m) => ({ default: m.NotebookView }))
+);
+const ExtensionHub = React.lazy(() =>
+  import('./components/ExtensionHub').then((m) => ({ default: m.ExtensionHub }))
+);
 
-  // URL Params Evaluation
-  const urlSearchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const initialPeer = urlSearchParams ? (urlSearchParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '')) : '';
-  const initialName = urlSearchParams ? decodeURIComponent(urlSearchParams.get('name') || urlSearchParams.get('file') || '') : '';
-  const initialSize = urlSearchParams ? parseInt(urlSearchParams.get('size') || '0', 10) : 0;
-  const initialMime = urlSearchParams ? decodeURIComponent(urlSearchParams.get('mime') || '') : '';
-  const initialMode = urlSearchParams ? urlSearchParams.get('mode') : null;
+function resolveTabFromLocation(): MainTab {
+  if (typeof window === 'undefined') return 'sender';
 
-  const pathIsDownload = typeof window !== 'undefined' && (window.location.pathname.startsWith('/download') || window.location.pathname.startsWith('/dl'));
-  const isPortalPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal');
-  const portalIdMatch = typeof window !== 'undefined' ? window.location.pathname.match(/\/portal\/([^\/]+)/) : null;
-  const portalId = portalIdMatch ? portalIdMatch[1] : '';
-
-  const isDirectDownload = Boolean(initialPeer && initialMode !== 'app' && initialMode !== 'full' && initialMode !== 'scan' && initialMode !== 'scanner');
-
-  // URL Routing Sync & Distinct Path Navigation
-  const getInitialTabFromUrl = (): MainTab => {
-    if (typeof window === 'undefined') return 'sender';
+  try {
+    // 1. Path-based check
     const path = window.location.pathname.toLowerCase();
     if (path.startsWith('/receive') || path.startsWith('/vault')) return 'receive';
     if (path.startsWith('/radar') || path.startsWith('/nearby')) return 'radar';
     if (path.startsWith('/workspaces') || path.startsWith('/rooms')) return 'workspaces';
+    if (path.startsWith('/notebook') || path.startsWith('/notes') || path.startsWith('/text')) return 'notebook';
+    if (path.startsWith('/extension') || path.startsWith('/hub')) return 'extension';
     if (path.startsWith('/send')) return 'sender';
+
+    // 2. Query parameter check (?tab=... or ?mode=...)
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'receive' || params.get('mode') === 'vault') return 'receive';
-    if (params.get('mode') === 'radar') return 'radar';
-    return 'sender';
+    const mode = (params.get('mode') || params.get('tab') || '').toLowerCase();
+    if (mode === 'receive' || mode === 'vault') return 'receive';
+    if (mode === 'radar') return 'radar';
+    if (mode === 'workspaces' || mode === 'rooms') return 'workspaces';
+    if (mode === 'notebook') return 'notebook';
+    if (mode === 'extension') return 'extension';
+    if (mode === 'sender' || mode === 'send') return 'sender';
+
+    // 3. Hash-based check (#receive, #radar, etc.)
+    const hash = window.location.hash.toLowerCase().replace(/^#/, '');
+    if (hash === 'receive' || hash === 'vault') return 'receive';
+    if (hash === 'radar') return 'radar';
+    if (hash === 'workspaces' || hash === 'rooms') return 'workspaces';
+    if (hash === 'notebook') return 'notebook';
+    if (hash === 'extension') return 'extension';
+    if (hash === 'send' || hash === 'sender') return 'sender';
+  } catch (_) {}
+
+  return 'sender';
+}
+
+function MainApp() {
+  const { transferManager } = useTransfer();
+
+  // One-time initial URL inspection for direct downloads or ephemeral portals
+  const initialUrlInfo = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { isDownload: false, isPortal: false, peer: '', name: '', size: 0, mime: '', portalId: '' };
+    }
+
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const peer = searchParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
+      const name = decodeURIComponent(searchParams.get('name') || searchParams.get('file') || '');
+      const size = parseInt(searchParams.get('size') || '0', 10);
+      const mime = decodeURIComponent(searchParams.get('mime') || '');
+      const mode = searchParams.get('mode');
+
+      const path = window.location.pathname;
+      const isDlPath = path.startsWith('/download') || path.startsWith('/dl');
+      const isPortal = path.startsWith('/portal');
+      const portalMatch = path.match(/\/portal\/([^\/]+)/);
+      const portalId = portalMatch ? portalMatch[1] : '';
+
+      const isDirectDownload = Boolean(peer && mode !== 'app' && mode !== 'full' && mode !== 'scan' && mode !== 'scanner');
+
+      return {
+        isDownload: (isDirectDownload || isDlPath) && Boolean(peer),
+        isPortal: isPortal && Boolean(portalId || peer),
+        peer,
+        name,
+        size,
+        mime,
+        portalId
+      };
+    } catch (_) {
+      return { isDownload: false, isPortal: false, peer: '', name: '', size: 0, mime: '', portalId: '' };
+    }
+  }, []);
+
+  // Internal state drives 100% of UI tab rendering
+  const [activeTab, setActiveTab] = useState<MainTab>(() => resolveTabFromLocation());
+  const [targetedPeer, setTargetedPeer] = useState<any>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('beamdrop_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('beamdrop_sidebar_collapsed', String(next));
+      }
+      return next;
+    });
   };
 
-  // Streamlined 4-Mode Navigation: Send (/send), Receive (/receive), Radar (/radar), Workspaces (/workspaces)
-  const [activeTab, setActiveTab] = useState<MainTab>(getInitialTabFromUrl);
-  const [targetedPeer, setTargetedPeer] = useState<any>(null);
+  // Modals & PWA State
+  const [showMobileScanner, setShowMobileScanner] = useState<boolean>(false);
+  const [showExtensionModal, setShowExtensionModal] = useState<boolean>(false);
+  const [showArchitectureModal, setShowArchitectureModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
 
-  const handleTabChange = (newTab: MainTab) => {
+  /**
+   * Refactored handleTabChange:
+   * - Sets internal state synchronously so content updates immediately.
+   * - Uses history.replaceState (with try/catch) to keep URL clean without
+   *   triggering full page reloads, iframe resets, or unwanted navigation cycles.
+   */
+  const handleTabChange = useCallback((newTab: MainTab) => {
     setActiveTab(newTab);
+
     if (typeof window !== 'undefined') {
-      const targetPath = newTab === 'sender' ? '/send' : `/${newTab}`;
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState({ tab: newTab }, '', targetPath);
+      try {
+        const targetPath = newTab === 'sender' ? '/' : `/${newTab}`;
+        if (window.location.pathname !== targetPath) {
+          // Use replaceState to update the browser address without reloading or pushing endless history entries
+          window.history.replaceState({ tab: newTab }, '', targetPath);
+        }
+      } catch (err) {
+        // Fallback for sandboxed iframes without path manipulation permissions
+        try {
+          const targetHash = '#' + newTab;
+          if (window.location.hash !== targetHash) {
+            window.location.replace(window.location.pathname + targetHash);
+          }
+        } catch (_) {}
       }
     }
-  };
+  }, []);
 
+  // Listen for browser forward/back buttons without triggering reloads or loops
   useEffect(() => {
-    const handlePopState = () => {
-      setActiveTab(getInitialTabFromUrl());
+    const handlePopState = (e: PopStateEvent) => {
+      // 1. Prefer tab recorded in history state
+      if (e.state && typeof e.state.tab === 'string') {
+        const stateTab = e.state.tab as MainTab;
+        setActiveTab((prev) => (prev !== stateTab ? stateTab : prev));
+        return;
+      }
+
+      // 2. Otherwise resolve from updated location
+      const resolved = resolveTabFromLocation();
+      setActiveTab((prev) => (prev !== resolved ? resolved : prev));
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Modals & Mobile Scanner state
-  const [showMobileScanner, setShowMobileScanner] = useState<boolean>(initialMode === 'scan' || initialMode === 'scanner');
-  const [showExtensionModal, setShowExtensionModal] = useState<boolean>(false);
-  const [showArchitectureModal, setShowArchitectureModal] = useState<boolean>(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
-
+  // PWA Install prompt listener
   useEffect(() => {
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
@@ -101,114 +211,178 @@ function MainApp() {
     ? window.location.protocol + '//' + window.location.host
     : 'https://beam-drop-mu.vercel.app';
 
-  // DIRECT DOWNLOAD GATEWAY (For QR Code Scans)
-  if ((isDirectDownload || pathIsDownload) && initialPeer) {
+  // DIRECT DOWNLOAD GATEWAY (Only if loaded explicitly with download parameters)
+  if (initialUrlInfo.isDownload && initialUrlInfo.peer) {
     return (
-      <DirectDownloadPortal
-        peerId={initialPeer}
-        expectedFileName={initialName}
-        expectedFileSize={initialSize}
-        expectedFileMime={initialMime}
-      />
+      <ErrorBoundary fallbackTitle="Direct Download Gateway Error">
+        <DirectDownloadPortal
+          peerId={initialUrlInfo.peer}
+          expectedFileName={initialUrlInfo.name}
+          expectedFileSize={initialUrlInfo.size}
+          expectedFileMime={initialUrlInfo.mime}
+        />
+      </ErrorBoundary>
     );
   }
 
-  // 10-MINUTE EPHEMERAL DROP PORTAL
-  if (isPortalPath && (portalId || initialPeer)) {
+  // EPHEMERAL DROP PORTAL (Only if loaded explicitly with /portal path)
+  if (initialUrlInfo.isPortal && (initialUrlInfo.portalId || initialUrlInfo.peer)) {
     return (
-      <PortalView
-        portalId={portalId || 'active'}
-        expectedPeerId={initialPeer}
-        expectedFileName={initialName}
-        expectedFileSize={initialSize}
-        expectedFileMime={initialMime}
-      />
+      <ErrorBoundary fallbackTitle="Ephemeral Portal Error">
+        <PortalView
+          portalId={initialUrlInfo.portalId || 'active'}
+          expectedPeerId={initialUrlInfo.peer}
+          expectedFileName={initialUrlInfo.name}
+          expectedFileSize={initialUrlInfo.size}
+          expectedFileMime={initialUrlInfo.mime}
+        />
+      </ErrorBoundary>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex font-sans selection:bg-sky-500 selection:text-white relative overflow-x-hidden">
       {/* Background Soft Ambient Light Spheres (Liquid Glass Backdrop) */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-sky-300/40 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
-      <div className="fixed bottom-0 right-1/4 w-[450px] h-[450px] bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-slow" />
+      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-sky-300/30 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="fixed bottom-0 right-1/4 w-[450px] h-[450px] bg-cyan-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* PWA Native Install Banner */}
-      {showInstallBanner && (
-        <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-white flex items-center justify-between text-xs shadow-xl">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center font-bold">
-              ⚡
-            </div>
-            <div>
-              <span className="font-bold">Install BeamDrop App</span>
-              <span className="hidden sm:inline text-cyan-100 ml-1.5">• High-speed PWA with Web Share Target</span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleInstallPWA}
-              className="px-3.5 py-1 rounded-lg bg-white text-slate-900 font-bold hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Install
-            </button>
-            <button
-              onClick={() => setShowInstallBanner(false)}
-              className="p-1 text-white/80 hover:text-white cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Streamlined Floating Glass Capsule Header */}
-      <Header
+      {/* Desktop Persistent Sidebar & Mobile Slide-Out Drawer Navigation Menu */}
+      <Sidebar
         activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        onOpenExtensionModal={() => setShowExtensionModal(true)}
+        onSelectTab={handleTabChange}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenMobileScanner={() => setShowMobileScanner(true)}
-        showArchitectureModal={showArchitectureModal}
-        setShowArchitectureModal={setShowArchitectureModal}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
       />
 
-      {/* Main Container: Pure Separation of Send (/send) vs Receive (/receive) vs Radar (/radar) vs Rooms (/workspaces) */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-4">
-        {activeTab === 'sender' && (
-          <SenderView
-            transferManager={transferManager}
-            receiverBaseUrl={receiverBaseUrl}
-            targetedPeer={targetedPeer}
-          />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* PWA Native Install Banner */}
+        {showInstallBanner && (
+          <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-white flex items-center justify-between text-xs shadow-md">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center font-bold text-xs">
+                ⚡
+              </div>
+              <div>
+                <span className="font-bold">Install BeamDrop App</span>
+                <span className="hidden sm:inline text-cyan-100 ml-1.5">• High-speed PWA with Web Share Target</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={handleInstallPWA}
+                className="px-3 py-1 rounded-lg bg-white text-slate-900 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs"
+              >
+                Install
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowInstallBanner(false)}
+                className="p-1 text-white/80 hover:text-white cursor-pointer"
+                aria-label="Dismiss banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
 
-        {activeTab === 'receive' && (
-          <ReceiveVaultView
-            transferManager={transferManager}
-            onOpenMobileScanner={() => setShowMobileScanner(true)}
-          />
-        )}
+        {/* Responsive Top Bar: Hamburger Menu on Phone + Clean Breadcrumbs on Desktop */}
+        <Header
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          onOpenExtensionModal={() => setShowExtensionModal(true)}
+          onOpenMobileScanner={() => setShowMobileScanner(true)}
+          onOpenAuthModal={() => {
+            setAuthModalTab('login');
+            setShowAuthModal(true);
+          }}
+          onOpenProfileModal={() => setShowProfileModal(true)}
+          showArchitectureModal={showArchitectureModal}
+          setShowArchitectureModal={setShowArchitectureModal}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+          isMobileMenuOpen={isMobileMenuOpen}
+        />
 
-        {activeTab === 'radar' && (
-          <SpiderRadarView
-            onDirectBeamTarget={(peer) => {
-              setTargetedPeer(peer);
-              handleTabChange('sender');
-            }}
-          />
-        )}
+        {/* Main Tab Viewport: Driven Exclusively by Internal State `activeTab` */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 lg:pb-8">
+          <ErrorBoundary fallbackTitle={`Error Loading ${activeTab} View`} onReset={() => handleTabChange('sender')}>
+            <React.Suspense
+              fallback={
+                <div className="py-20 flex flex-col items-center justify-center space-y-3">
+                  <div className="w-8 h-8 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
+                  <span className="font-mono text-xs text-sky-700 font-semibold">Loading module...</span>
+                </div>
+              }
+            >
+              {activeTab === 'receive' && (
+                <ReceiveVaultView
+                  transferManager={transferManager}
+                  onOpenMobileScanner={() => setShowMobileScanner(true)}
+                />
+              )}
 
-        {activeTab === 'workspaces' && (
-          <WorkspacesView />
-        )}
-      </main>
+              {activeTab === 'radar' && (
+                <SpiderRadarView
+                  onDirectBeamTarget={(peer) => {
+                    setTargetedPeer(peer);
+                    handleTabChange('sender');
+                  }}
+                />
+              )}
+
+              {activeTab === 'workspaces' && (
+                <WorkspacesView />
+              )}
+
+              {activeTab === 'notebook' && (
+                <NotebookView />
+              )}
+
+              {activeTab === 'extension' && (
+                <ExtensionHub receiverBaseUrl={receiverBaseUrl} />
+              )}
+
+              {activeTab === 'sender' && (
+                <SenderView
+                  transferManager={transferManager}
+                  receiverBaseUrl={receiverBaseUrl}
+                  targetedPeer={targetedPeer}
+                />
+              )}
+            </React.Suspense>
+          </ErrorBoundary>
+        </main>
+
+        {/* Clean Minimal Desktop/Tablet Footer */}
+        <footer className="border-t border-sky-100 bg-white/60 backdrop-blur-md py-2 px-6 text-center text-xs text-slate-400 hidden sm:block">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-slate-600">BeamDrop</span>
+            <span className="text-slate-400">Direct Device-to-Device Transfer</span>
+          </div>
+        </footer>
+
+        {/* Mobile Smartphone Bottom Quick Navigation Bar */}
+        <MobileBottomNav
+          activeTab={activeTab}
+          onSelectTab={handleTabChange}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        />
+      </div>
 
       {/* Mobile Camera Scanner Modal & Portal */}
       {showMobileScanner && (
-        <MobileScannerPortal
-          transferManager={transferManager}
-          initialTargetPeer={initialPeer}
-          onClose={() => setShowMobileScanner(false)}
-        />
+        <ErrorBoundary fallbackTitle="Scanner Error" onReset={() => setShowMobileScanner(false)}>
+          <MobileScannerPortal
+            transferManager={transferManager}
+            initialTargetPeer={initialUrlInfo.peer}
+            onClose={() => setShowMobileScanner(false)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Extension Modal (File System Access 1-Click Unpacker) */}
@@ -218,38 +392,30 @@ function MainApp() {
         receiverBaseUrl={receiverBaseUrl}
       />
 
-      {/* Modern Liquid Glass Sky Blue Light Footer */}
-      <footer className="border-t border-sky-200/80 bg-white/70 backdrop-blur-md py-4 px-6 text-center text-xs text-slate-600 shadow-[0_-4px_20px_rgba(2,132,199,0.04)]">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2 font-mono text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-slate-700 font-semibold">BeamDrop Liquid Glass v1.6.0 Pro</span>
-            <span className="text-slate-400">•</span>
-            <span className="text-slate-500">Zero Cloud Storage & Database</span>
-          </div>
+      {/* Optional User Account Auth & Profile Modals */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultTab={authModalTab}
+      />
 
-          <div className="flex items-center space-x-4 text-[11px]">
-            <button
-              onClick={() => setShowExtensionModal(true)}
-              className="text-sky-600 hover:text-sky-800 transition-colors cursor-pointer font-mono font-semibold"
-            >
-              Chrome Extension Unpacker (v1.6.0)
-            </button>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-600">AES-GCM-256 E2EE</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-emerald-600 font-semibold">512KB LAN AIMD</span>
-          </div>
-        </div>
-      </footer>
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <TransferProvider>
-      <MainApp />
-    </TransferProvider>
+    <AuthProvider>
+      <NotificationProvider>
+        <TransferProvider>
+          <NotificationBar />
+          <MainApp />
+        </TransferProvider>
+      </NotificationProvider>
+    </AuthProvider>
   );
 }

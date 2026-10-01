@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Download,
   Copy,
@@ -15,7 +15,7 @@ import {
   HelpCircle,
   Settings
 } from 'lucide-react';
-import { getExtensionFiles, generateExtensionZipBlob, ExtensionFile } from '../extension-source/extensionFiles';
+import { getExtensionFiles, fetchExtensionFiles, generateExtensionZipBlob, ExtensionFile } from '../extension-source/extensionFiles';
 
 interface ExtensionHubProps {
   receiverBaseUrl: string;
@@ -26,8 +26,16 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
   const [selectedFileName, setSelectedFileName] = useState<string>('manifest.json');
   const [copied, setCopied] = useState<boolean>(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState<boolean>(false);
+  const [files, setFiles] = useState<ExtensionFile[]>(() => getExtensionFiles(receiverBaseUrl));
 
-  const files = getExtensionFiles(customUrl);
+  useEffect(() => {
+    fetchExtensionFiles(customUrl).then((loaded) => {
+      if (loaded && loaded.length > 0) {
+        setFiles(loaded);
+      }
+    });
+  }, [customUrl]);
+
   const currentFile = files.find((f) => f.name === selectedFileName) || files[0];
 
   const handleCopyCode = () => {

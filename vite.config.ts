@@ -35,6 +35,37 @@ export default defineConfig(() => {
               res.end(JSON.stringify({ success: true, ip: cleanIp, roomHash }));
               return;
             }
+
+            // Dedicated endpoint for ExtensionHub to safely fetch extension files as JSON
+            if (req.url && (req.url === '/api/extension-files' || req.url.startsWith('/api/extension-files?'))) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Content-Type', 'application/json');
+              const extDir = path.resolve(__dirname, 'extension');
+              const defs = [
+                { name: 'manifest.json', path: 'manifest.json', language: 'json', description: 'Chrome Manifest V3 configuration' },
+                { name: 'popup.html', path: 'popup.html', language: 'html', description: 'Extension UI popup interface' },
+                { name: 'popup.js', path: 'popup.js', language: 'javascript', description: 'Core extension client controller' },
+                { name: 'background.js', path: 'background.js', language: 'javascript', description: 'Service worker for background sync' },
+                { name: 'style.css', path: 'style.css', language: 'css', description: 'Liquid glass dark styles' },
+                { name: 'updater.html', path: 'updater.html', language: 'html', description: 'Self-contained zero-zip updater UI' },
+                { name: 'updater.js', path: 'updater.js', language: 'javascript', description: 'Folder streaming updater script' },
+                { name: 'folderStore.js', path: 'folderStore.js', language: 'javascript', description: 'IndexedDB directory handle persistence' },
+                { name: 'buildInfo.js', path: 'buildInfo.js', language: 'javascript', description: 'Version stamp metadata' },
+                { name: 'update.bat', path: 'update.bat', language: 'bat', description: 'Windows 1-click update script' },
+                { name: 'update.sh', path: 'update.sh', language: 'bash', description: 'Mac/Linux 1-click update script' }
+              ];
+              const filesList = defs.map(d => {
+                const fp = path.join(extDir, d.path);
+                let content = '';
+                if (fs.existsSync(fp)) {
+                  try { content = fs.readFileSync(fp, 'utf8'); } catch (_) {}
+                }
+                return { ...d, content };
+              });
+              res.statusCode = 200;
+              res.end(JSON.stringify({ success: true, files: filesList }));
+              return;
+            }
             next();
           });
           const meshPeers = new Map<string, any>();
@@ -382,9 +413,9 @@ export default defineConfig(() => {
             }
 
             // Persistent Team Workspace Mesh Signaling Endpoint (/api/mesh/workspace)
-            // Serve Raw Extension Files for 1-Click Folder Unpacker (/extension/*)
-            if (req.url?.startsWith('/extension/')) {
-              const urlPath = req.url.split('?')[0].replace(/^\/extension\//, '');
+            // Serve Raw Extension Files for 1-Click Folder Unpacker (/api/extension-file/*)
+            if (req.url?.startsWith('/api/extension-file/')) {
+              const urlPath = req.url.split('?')[0].replace(/^\/api\/extension-file\//, '');
               const filePath = path.resolve(__dirname, 'extension', urlPath);
               if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
                 const ext = path.extname(filePath);

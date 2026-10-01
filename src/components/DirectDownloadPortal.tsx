@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
+import { useNotification } from '../context/NotificationContext';
 import { playChime } from '../utils/audio';
 
 interface DirectDownloadPortalProps {
@@ -32,6 +33,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   expectedFileSize = 0,
   expectedFileMime = ''
 }) => {
+  const { notifyPending, notifySuccess, notifyError } = useNotification();
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [currentFile, setCurrentFile] = useState<TransferFile | null>(null);
@@ -138,6 +140,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       if (!isMounted) return;
       setCurrentFile(file);
       playChime('connect');
+      notifyPending(
+        `Incoming: ${file.name}`,
+        'Receiving stream from host...',
+        { name: file.name, size: file.size, mime: file.type }
+      );
     };
 
     transferManager.onFileProgress = (fileId, progress, speed) => {
@@ -152,6 +159,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
       setCurrentFile(null);
       setDownloadedFile(completedFile);
       playChime('complete');
+      notifySuccess(
+        'File Downloaded!',
+        `${completedFile.name} received cleanly.`,
+        { name: completedFile.name, size: completedFile.size, mime: completedFile.type }
+      );
 
       // Direct automatic download to phone storage
       if (!autoTriggeredRef.current && completedFile.downloadUrl) {
@@ -288,6 +300,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
               <span className="text-[10px] font-mono uppercase tracking-widest text-sky-700 font-bold px-2 py-0.5 rounded-full bg-sky-100 border border-sky-300">
                 Direct Download
               </span>
+              {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('token') && (
+                <span className="text-[10px] font-mono text-emerald-700 font-bold px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300">
+                  Token: #{new URLSearchParams(window.location.search).get('token')!.slice(0, 6)}
+                </span>
+              )}
             </div>
             <h1 className="text-xl font-bold text-slate-900 break-words max-w-full pt-1" title={displayName}>
               {displayName}

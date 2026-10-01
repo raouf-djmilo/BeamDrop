@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Connection testing endpoint for health check
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // User Profile Documents
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && incoming().uid == request.auth.uid
+        && incoming().fullName is string
+        && incoming().fullName.size() > 0
+        && incoming().fullName.size() <= 100
+        && incoming().username is string
+        && incoming().username.size() >= 3
+        && incoming().username.size() <= 30
+        && incoming().email is string
+        && incoming().email.size() <= 100
+        && incoming().createdAt is string;
+
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().username == existing().username
+        && incoming().createdAt == existing().createdAt;
+
+      allow delete: if false;
+
+      // User Transfer History Subcollection
+      match /transfers/{transferId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(transferId)
+          && incoming().userId == request.auth.uid
+          && incoming().fileName is string
+          && incoming().fileName.size() <= 255
+          && incoming().fileSize is number;
+        allow update, delete: if false;
+      }
+    }
+
+    // Username Index for lookup and uniqueness check
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && username is string
+        && username.size() >= 3
+        && username.size() <= 30
+        && username.matches('^[a-zA-Z0-9_]+$')
+        && incoming().uid == request.auth.uid
+        && incoming().username == username
+        && incoming().email is string
+        && incoming().createdAt is string;
+
+      allow update, delete: if false;
+    }
+  }
+}

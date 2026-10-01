@@ -21,13 +21,16 @@ import {
   FileSpreadsheet,
   Presentation,
   Sparkles,
-  Layers
+  Layers,
+  RefreshCw
 } from 'lucide-react';
 import { P2PTransferManager } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
 import { ephemeralPortalEngine, EphemeralPortalSession } from '../utils/engine/portal';
 import { Clock, Globe, Shield } from 'lucide-react';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import { playChime } from '../utils/audio';
 
 interface SenderViewProps {
@@ -43,6 +46,8 @@ export const SenderView: React.FC<SenderViewProps> = ({
   targetedPeer,
   initialTextPayload
 }) => {
+  const { recordTransfer } = useAuth();
+  const { notifyPending, notifySuccess, notifyError, notifyInfo, updateNotification } = useNotification();
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [isQrGenerated, setIsQrGenerated] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'files' | 'text'>(initialTextPayload ? 'text' : 'files');
@@ -62,6 +67,65 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [active10MinPortal, setActive10MinPortal] = useState<EphemeralPortalSession | null>(null);
   const [copiedPortalLink, setCopiedPortalLink] = useState(false);
 
+  // Guards against re-entrant loops
+  const lastRebuildTimeRef = useRef<number>(0);
+  const isRebuildingRef = useRef<boolean>(false);
+  const hasSentCurrentBatchRef = useRef<boolean>(false);
+  const isSendingRef = useRef<boolean>(false);
+
+  // Rolling Ephemeral One-Time QR Protocol Engine
+  const generateSessionNonce = () => {
+    return Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+  };
+
+  const [qrSessionNonce, setQrSessionNonce] = useState<string>(() => generateSessionNonce());
+  const [rebuiltNotice, setRebuiltNotice] = useState<string | null>(null);
+  const [isRebuilding, setIsRebuilding] = useState<boolean>(false);
+
+  const rebuildQrSession = (reason: 'scan' | 'complete' | 'error' | 'manual' = 'manual') => {
+    const now = Date.now();
+    // Guard against infinite loops: strict cooldown debounce (at least 2.5s between rebuilds)
+    if (now - lastRebuildTimeRef.current < 2500 || isRebuildingRef.current) {
+      return;
+    }
+    lastRebuildTimeRef.current = now;
+    isRebuildingRef.current = true;
+
+    setIsRebuilding(true);
+    const nextNonce = generateSessionNonce();
+    setQrSessionNonce(nextNonce);
+
+    let message = 'Fresh random QR Code rebuilt';
+    if (reason === 'complete') {
+      message = 'Beam complete • QR rotated to new random session';
+    } else if (reason === 'error') {
+      message = 'Session reset • Fresh QR generated';
+    } else if (reason === 'scan') {
+      message = 'Scan processed • QR rotated for next session';
+    } else if (reason === 'manual') {
+      message = 'QR rebuilt with new random token';
+    }
+
+    setRebuiltNotice(message);
+    notifyInfo(message, 'Single-use rolling security session refreshed');
+    setTimeout(() => {
+      setIsRebuilding(false);
+      isRebuildingRef.current = false;
+    }, 600);
+    setTimeout(() => setRebuiltNotice(null), 3500);
+
+    // Re-stage file in transit cache with new token safely
+    if (stagedFiles.length > 0 && transferManager.myPeerId) {
+      const file = stagedFiles[0];
+      const fileNameEnc = encodeURIComponent(file.name);
+      const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
+      fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&token=${nextNonce}&name=${fileNameEnc}&mime=${mimeEnc}`, {
+        method: 'POST',
+        body: file
+      }).catch((e) => console.debug('Transit fallback stage notice:', e));
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Default to provided receiver base URL or current origin
@@ -75,8 +139,8 @@ export const SenderView: React.FC<SenderViewProps> = ({
     : '';
 
   const receiverUrl = activeTab === 'files'
-    ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}${fileParams}`
-    : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&type=text`;
+    ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&nonce=${qrSessionNonce}${fileParams}`
+    : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&type=text`;
 
   const qrValue = directQrMode && textPayload.trim() && textPayload.length < 500
     ? textPayload.trim()
@@ -98,6 +162,8 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const addFiles = (newFiles: File[]) => {
     setStagedFiles((prev) => [...prev, ...newFiles]);
     setTransferCompleted(false);
+    hasSentCurrentBatchRef.current = false;
+    notifyInfo('Files Staged', `${newFiles.length} item${newFiles.length > 1 ? 's' : ''} ready to beam`);
   };
 
   const removeFile = (index: number) => {
@@ -115,6 +181,8 @@ export const SenderView: React.FC<SenderViewProps> = ({
     setIsQrGenerated(false);
     setCurrentTransfer(null);
     setTransferCompleted(false);
+    hasSentCurrentBatchRef.current = false;
+    rebuildQrSession('manual');
   };
 
   const handleGenerateQr = () => {
@@ -140,24 +208,42 @@ export const SenderView: React.FC<SenderViewProps> = ({
   // Automatic Hands-Free Stream Initiation when Phone Receiver Connects
   useEffect(() => {
     transferManager.onConnected = () => {
-      if (stagedFiles.length > 0 && isQrGenerated && !isSending) {
+      if (
+        stagedFiles.length > 0 &&
+        isQrGenerated &&
+        !isSendingRef.current &&
+        !hasSentCurrentBatchRef.current
+      ) {
         startSendFiles();
       }
     };
-  }, [transferManager, stagedFiles, isQrGenerated, isSending]);
+
+    return () => {
+      transferManager.onConnected = undefined;
+    };
+  }, [transferManager, stagedFiles, isQrGenerated]);
 
   // Start sending files over WebRTC
   const startSendFiles = async () => {
     if (!transferManager.isConnected) {
-      alert('Please scan the QR code with your phone or remote device first to connect!');
+      notifyError(
+        'Remote Device Not Connected',
+        'Please scan the QR code with your phone or remote browser to pair first.'
+      );
       return;
     }
 
-    if (stagedFiles.length === 0) return;
+    if (stagedFiles.length === 0 || isSendingRef.current || hasSentCurrentBatchRef.current) {
+      return;
+    }
 
+    isSendingRef.current = true;
     setIsSending(true);
 
+    let allSucceeded = true;
+
     for (const file of stagedFiles) {
+      let notifId = '';
       try {
         setCurrentTransfer({
           fileName: file.name,
@@ -166,10 +252,22 @@ export const SenderView: React.FC<SenderViewProps> = ({
           fileSize: file.size
         });
 
+        // Trigger real-time streaming notification in liquid glass bar
+        notifId = notifyPending(
+          `Streaming ${file.name}`,
+          'Direct P2P transmission over encrypted WebRTC DataChannel',
+          { name: file.name, size: file.size, mime: file.type },
+          0,
+          0
+        );
+
         await transferManager.sendFile(file, (progress, speed) => {
           setCurrentTransfer((prev) =>
             prev ? { ...prev, progress, speed } : null
           );
+          if (notifId) {
+            updateNotification(notifId, { progress, speed });
+          }
         });
 
         setSentHistory((prev) => [
@@ -181,24 +279,58 @@ export const SenderView: React.FC<SenderViewProps> = ({
           },
           ...prev
         ]);
+        recordTransfer(file.name, file.size, file.type, 'sent');
+
+        if (notifId) {
+          updateNotification(notifId, {
+            type: 'success',
+            title: 'File Delivered Successfully!',
+            message: `${file.name} (${formatBytes(file.size)}) transferred cleanly with zero cloud latency.`,
+            progress: 100,
+            duration: 4500
+          });
+        }
       } catch (err: any) {
-        console.error('File transfer failed:', err);
-        alert('File transfer failed: ' + err.message);
+        console.warn('File transfer notice:', err);
+        allSucceeded = false;
+        if (notifId) {
+          updateNotification(notifId, {
+            type: 'error',
+            title: 'Transfer Interrupted',
+            message: `Could not finish streaming ${file.name}: ${err?.message || 'Remote socket connection closed.'}`,
+            duration: 6000
+          });
+        } else {
+          notifyError('Transfer Interrupted', `Could not finish streaming ${file.name}. Remote device may have closed.`);
+        }
         break;
       }
     }
 
-    playChime('complete');
+    isSendingRef.current = false;
     setIsSending(false);
     setCurrentTransfer(null);
-    setTransferCompleted(true);
+
+    if (allSucceeded) {
+      hasSentCurrentBatchRef.current = true;
+      playChime('complete');
+      setTransferCompleted(true);
+      if (stagedFiles.length > 1) {
+        notifySuccess('All Transfers Complete', `${stagedFiles.length} files successfully beamed.`);
+      }
+      // Safely regenerate QR session once after successful beam
+      rebuildQrSession('complete');
+    }
   };
 
   const sendTextPayload = () => {
-    if (!textPayload.trim()) return;
+    if (!textPayload.trim()) {
+      notifyError('Empty Text Beam', 'Please type or paste some text before beaming.');
+      return;
+    }
 
     if (!transferManager.isConnected) {
-      alert('Please scan the QR code with your phone first!');
+      notifyError('Device Not Connected', 'Please scan the QR code with your phone first!');
       return;
     }
 
@@ -214,8 +346,16 @@ export const SenderView: React.FC<SenderViewProps> = ({
         },
         ...prev
       ]);
+      recordTransfer('Text Beam', new Blob([textPayload]).size, 'text/plain', 'sent');
+      notifySuccess(
+        'Text Beam Delivered',
+        textPayload.trim().slice(0, 45) + (textPayload.length > 45 ? '...' : '')
+      );
       setTextPayload('');
       setTransferCompleted(true);
+      rebuildQrSession('complete');
+    } else {
+      notifyError('Text Beam Failed', 'Could not transmit snippet over active data channel.');
     }
   };
 
@@ -234,12 +374,14 @@ export const SenderView: React.FC<SenderViewProps> = ({
     );
     setActive10MinPortal(session);
     playChime('connect');
+    notifySuccess('10-Min Portal Active', 'Single-use expiring link generated with client-side encryption key.');
   };
 
   const copyPortalLink = () => {
     if (active10MinPortal) {
       navigator.clipboard.writeText(active10MinPortal.shareUrl);
       setCopiedPortalLink(true);
+      notifyInfo('Link Copied', 'Portal link copied to clipboard.');
       setTimeout(() => setCopiedPortalLink(false), 2000);
     }
   };
@@ -247,6 +389,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const copyPairLink = () => {
     navigator.clipboard.writeText(receiverUrl);
     setCopiedLink(true);
+    notifyInfo('Link Copied', 'Pairing link copied to clipboard.');
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
@@ -304,28 +447,41 @@ export const SenderView: React.FC<SenderViewProps> = ({
         )}
 
         {/* Mode Selector */}
-        <div className="bg-white/80 backdrop-blur-xl border border-sky-200/80 p-1.5 rounded-2xl flex items-center space-x-1 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-xl border border-sky-200/90 p-1.5 rounded-2xl flex items-center shadow-xs">
           <button
+            type="button"
             onClick={() => setActiveTab('files')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
               activeTab === 'files'
-                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/80'
+                ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-sky-50'
             }`}
           >
             <UploadCloud className="w-4 h-4" />
-            <span>Send Files (Excel, PowerPoint, PDF, Media, ZIP)</span>
+            <span>Send Files</span>
+            {stagedFiles.length > 0 && (
+              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                activeTab === 'files' ? 'bg-white/25 text-white' : 'bg-sky-100 text-sky-800'
+              }`}>
+                {stagedFiles.length}
+              </span>
+            )}
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab('text')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
               activeTab === 'text'
-                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25'
-                : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/80'
+                ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-sky-50'
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>Quick Text / Links</span>
+            <span>Text &amp; Links</span>
+            {textPayload.trim() && (
+              <span className={`w-2 h-2 rounded-full ${activeTab === 'text' ? 'bg-emerald-300' : 'bg-emerald-500'}`} />
+            )}
           </button>
         </div>
 
@@ -333,39 +489,39 @@ export const SenderView: React.FC<SenderViewProps> = ({
         {activeTab === 'files' && (
           <div className="space-y-4">
             {/* Quick File Type Helpers */}
-            <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              <span className="text-slate-500 font-semibold">Quick Upload:</span>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-0.5">
+              <span className="text-slate-500 font-medium mr-1">Formats:</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Excel (.xlsx, .csv)</span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Excel</span>
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <Presentation className="w-3.5 h-3.5" />
-                <span>PowerPoint (.pptx)</span>
+                <Presentation className="w-3.5 h-3.5 text-amber-600" />
+                <span>PowerPoint</span>
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 hover:bg-rose-100 flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>PDF Documents</span>
+                <FileText className="w-3.5 h-3.5 text-rose-600" />
+                <span>PDF</span>
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-300 text-sky-700 hover:bg-sky-100 flex items-center space-x-1 transition-colors cursor-pointer shadow-xs"
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-slate-700 hover:text-sky-700 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span>All Formats</span>
+                <Layers className="w-3.5 h-3.5 text-sky-600" />
+                <span>All Media &amp; Files</span>
               </button>
             </div>
 
@@ -388,10 +544,10 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 <UploadCloud className="w-8 h-8" />
               </div>
               <h3 className="text-sm font-bold text-slate-900">
-                Drop ANY Excel, PowerPoint, PDF, 4K Video, or File Here
+                Drop files here to beam
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Full support for .xlsx, .pptx, .pdf, .docx, .zip, and raw media. Direct RAM stream without cloud limits.
+                Photos, videos, documents, or archives • Fast &amp; Direct
               </p>
             </div>
 
@@ -601,37 +757,67 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 <Smartphone className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900">QR Generator & Portal</p>
-                <p className="text-[10px] text-slate-500 font-mono">BeamDrop Direct Engine</p>
+                <p className="text-xs font-bold text-slate-900">Scan to Connect</p>
+                <p className="text-[10px] text-slate-500 font-mono">Mobile / Tablet Pairing</p>
               </div>
             </div>
 
-            <div
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                transferManager.isConnected
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                  : 'bg-amber-50 text-amber-700 border-amber-300'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  transferManager.isConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => rebuildQrSession('manual')}
+                className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-slate-700 hover:text-sky-800 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
+                title="Regenerate fresh random QR Code & session token"
+              >
+                <RefreshCw className={`w-3 h-3 text-sky-600 ${isRebuilding ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Rebuild QR</span>
+              </button>
+
+              <div
+                className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                  transferManager.isConnected
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-sky-50 text-slate-600 border-sky-200'
                 }`}
-              />
-              <span>{transferManager.isConnected ? 'Phone Connected' : 'Waiting for Scan'}</span>
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    transferManager.isConnected ? 'bg-emerald-500' : 'bg-sky-400'
+                  }`}
+                />
+                <span>{transferManager.isConnected ? 'Connected' : 'Ready'}</span>
+              </div>
             </div>
           </div>
 
-          {/* QR Display with Branded Watermark & Copy Engine */}
+          {/* Rolling Ephemeral Security Protocol Bar */}
+          <div className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px]">
+            <div className="flex items-center space-x-1.5 text-slate-600">
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span className="font-semibold text-slate-700">Rolling One-Time QR</span>
+            </div>
+            <span className="font-mono text-[10px] text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-200 font-bold">
+              #{qrSessionNonce.slice(0, 6)}
+            </span>
+          </div>
+
+          {/* Rebuilt Notice feedback */}
+          {rebuiltNotice && (
+            <div className="w-full px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center space-x-2 animate-fade-in">
+              <RefreshCw className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>{rebuiltNotice}</span>
+            </div>
+          )}
+
+          {/* QR Display with Scanner Framing */}
           <div className="py-1 flex flex-col items-center">
             <QrDisplay
               value={qrValue}
-              size={210}
-              label={firstFile ? `Scan to Download "${firstFile.name}"` : 'Vercel Web Receiver QR'}
-              sublabel="Scan with phone camera or QR scanner to trigger direct stream"
+              size={220}
               fileName={firstFile ? (stagedFiles.length > 1 ? `${firstFile.name} (+${stagedFiles.length - 1} more)` : firstFile.name) : undefined}
               fileSize={stagedFiles.length > 0 ? stagedFiles.reduce((acc, f) => acc + f.size, 0) : undefined}
               fileCategory={firstFile ? getFileCategory(firstFile.type, firstFile.name) : undefined}
+              sessionToken={qrSessionNonce}
               showControls={true}
             />
           </div>
@@ -711,17 +897,6 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 <span>{copiedLink ? 'Copied' : 'Copy'}</span>
               </button>
             </div>
-          </div>
-
-          <div className="pt-1 flex items-center justify-center space-x-4 text-[11px] text-slate-500">
-            <div className="flex items-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-              <span>Direct P2P Stream</span>
-            </div>
-            <span>•</span>
-            <div>Zero Cloud Storage</div>
-            <span>•</span>
-            <div className="text-sky-700 font-semibold">BeamDrop Watermark</div>
           </div>
         </div>
       </div>

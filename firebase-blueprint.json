@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with display information and transfer statistics",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "fullName": { "type": "string", "maxLength": 100, "description": "User full name" },
+        "username": { "type": "string", "maxLength": 30, "pattern": "^[a-zA-Z0-9_]+$", "description": "Unique username" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "createdAt": { "type": "string", "description": "Timestamp when account was created" },
+        "photoURL": { "type": "string", "description": "Optional avatar URL" },
+        "transfersCount": { "type": "integer", "description": "Total files beamed" },
+        "bytesTransferred": { "type": "integer", "description": "Total bytes transferred" }
+      },
+      "required": ["uid", "fullName", "username", "email", "createdAt"]
+    },
+    "UsernameIndex": {
+      "title": "UsernameIndex",
+      "description": "Index mapping unique lowercase usernames to UID and email for username-based login",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "maxLength": 30, "pattern": "^[a-zA-Z0-9_]+$", "description": "Lowercase username" },
+        "uid": { "type": "string", "description": "User UID" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "createdAt": { "type": "string", "description": "Timestamp when username was registered" }
+      },
+      "required": ["username", "uid", "email", "createdAt"]
+    },
+    "UserTransfer": {
+      "title": "UserTransfer",
+      "description": "Record of a file or text beam transfer associated with an account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transfer unique ID" },
+        "userId": { "type": "string", "description": "Owner UID" },
+        "fileName": { "type": "string", "maxLength": 255, "description": "Name of transferred file" },
+        "fileSize": { "type": "integer", "description": "Size of file in bytes" },
+        "fileType": { "type": "string", "maxLength": 100, "description": "MIME type" },
+        "direction": { "type": "string", "enum": ["sent", "received"], "description": "Transfer direction" },
+        "createdAt": { "type": "string", "description": "Timestamp of transfer" }
+      },
+      "required": ["id", "userId", "fileName", "fileSize", "direction", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents keyed by Auth UID"
+    },
+    "/usernames/{username}": {
+      "schema": "UsernameIndex",
+      "description": "Unique username lookup index keyed by lowercase username"
+    },
+    "/users/{userId}/transfers/{transferId}": {
+      "schema": "UserTransfer",
+      "description": "User beam transfer history records"
+    }
+  }
+}

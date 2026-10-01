@@ -201,7 +201,13 @@ export class P2PTransferManager {
         });
 
         this.peer.on('connection', (conn) => {
-          this.setupConnection(conn);
+          if (conn.open) {
+            this.setupConnection(conn);
+          } else {
+            conn.once('open', () => {
+              this.setupConnection(conn);
+            });
+          }
         });
 
         this.peer.on('error', (err: any) => {
@@ -322,6 +328,10 @@ export class P2PTransferManager {
   }
 
   private setupConnection(conn: DataConnection) {
+    if (!conn.open) {
+      conn.once('open', () => this.setupConnection(conn));
+      return;
+    }
     this.connection = conn;
     this.connectedPeerId = conn.peer;
     this.activeConnections.set(conn.peer, conn);
@@ -630,7 +640,7 @@ export class P2PTransferManager {
       }
     });
 
-    if (!anySent && this.connection && this.isConnected) {
+    if (!anySent && this.connection && this.isConnected && this.connection.open) {
       try {
         this.connection.send(msg);
         return true;

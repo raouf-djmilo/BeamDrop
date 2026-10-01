@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileTypeMeta } from '../utils/formatters';
+import { useNotification } from '../context/NotificationContext';
 import { playChime } from '../utils/audio';
 import { downloadIosShortcut, OFFICIAL_IOS_SHORTCUT_ICLOUD_URL } from '../utils/shortcutGenerator';
 import { MobileScannerPortal } from './MobileScannerPortal';
@@ -41,6 +42,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   transferManager,
   onOpenMobileScanner
 }) => {
+  const { notifyPending, notifySuccess, updateNotification } = useNotification();
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [shortcutQrDataUrl, setShortcutQrDataUrl] = useState<string>('');
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
@@ -100,6 +102,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   useEffect(() => {
     transferManager.onFileReceiveStart = (file: TransferFile) => {
       setCurrentIncomingFile(file);
+      notifyPending(
+        `Incoming: ${file.name}`,
+        'Receiving direct encrypted P2P stream',
+        { name: file.name, size: file.size, mime: file.type }
+      );
     };
 
     transferManager.onFileProgress = (_fileId: string, progress: number, speed: number) => {
@@ -110,6 +117,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
       setCurrentIncomingFile(null);
       setVaultFiles((prev) => [file, ...prev]);
       playChime('complete');
+      notifySuccess(
+        'File Received!',
+        `${file.name} saved to local Vault.`,
+        { name: file.name, size: file.size, mime: file.type }
+      );
 
       if (autoDownload && file.blob) {
         const url = URL.createObjectURL(file.blob);
@@ -122,7 +134,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
         setTimeout(() => URL.revokeObjectURL(url), 4000);
       }
     };
-  }, [transferManager, autoDownload]);
+  }, [transferManager, autoDownload, notifyPending, notifySuccess]);
 
   // Listen for incoming files via Ephemeral In-Memory Transit (iOS Shortcut Direct HTTP Upload)
   useEffect(() => {
@@ -157,7 +169,8 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
             progress: 100,
             speed: blob.size,
             status: 'completed',
-            blob: blob
+            blob: blob,
+            direction: 'receive'
           };
 
           setVaultFiles((prev) => [newFile, ...prev]);
@@ -257,17 +270,12 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
         <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
           {/* Left: Info & Wallet-Style Receive Address */}
           <div className="flex-1 space-y-4 text-center md:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-100 text-sky-800 text-xs font-semibold border border-sky-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Permanent Receive Address • Live Vault</span>
-            </div>
-
             <div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                Scan to Beam to this Device
+                Receive Files
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-md">
-                Works like a crypto wallet address for your files. Point any iPhone, Android, or mobile camera to beam media directly into this PC.
+                Scan the QR code with any phone or device camera to beam files directly.
               </p>
             </div>
 

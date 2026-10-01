@@ -138,14 +138,11 @@ export const NotebookView: React.FC<NotebookViewProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-base font-extrabold text-white tracking-tight">
-                BeamDrop Notebook Hub
+                Notebook
               </h2>
-              <span className="text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/50 px-2 py-0.5 rounded-full">
-                RAM-to-RAM Sync
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live zero-cloud editor for beamed notes, code snippets, and URL links.
+              Live text editor for beamed notes, code snippets, and links.
             </p>
           </div>
         </div>

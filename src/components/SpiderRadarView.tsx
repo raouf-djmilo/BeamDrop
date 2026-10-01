@@ -471,7 +471,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
             <p className="text-xs text-slate-500 font-mono mt-0.5">
               {isWorkspaceActive
                 ? 'Connected to /w/' + workspaceSlug + ' (' + workspaceNodes.length + ' devices online)'
-                : 'Connect distributed team members across different Wi-Fi networks'}
+                : 'Connect devices across different Wi-Fi networks'}
             </p>
           </div>
         </div>

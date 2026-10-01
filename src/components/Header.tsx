@@ -1,29 +1,41 @@
 import React from 'react';
 import {
+  Menu,
+  X,
   Zap,
   Radio,
   Building2,
-  Smartphone,
+  BookOpen,
+  Chrome,
+  Camera,
   Info,
   ShieldCheck,
   Cpu,
-  Chrome,
-  Download,
   QrCode,
-  Camera
+  Layers,
+  ChevronRight,
+  ExternalLink,
+  User as UserIcon,
+  LogIn
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
+import { useAuth } from '../context/AuthContext';
 import { APP_VERSION } from '../config/version';
+import { MainTab, TABS_CONFIG } from './Sidebar';
 
-export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces';
+export { type MainTab };
 
 interface HeaderProps {
   activeTab: MainTab;
   setActiveTab: (tab: MainTab) => void;
   onOpenExtensionModal: () => void;
   onOpenMobileScanner?: () => void;
+  onOpenAuthModal?: () => void;
+  onOpenProfileModal?: () => void;
   showArchitectureModal: boolean;
   setShowArchitectureModal: (show: boolean) => void;
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,178 +43,161 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenExtensionModal,
   onOpenMobileScanner,
+  onOpenAuthModal,
+  onOpenProfileModal,
   showArchitectureModal,
-  setShowArchitectureModal
+  setShowArchitectureModal,
+  onToggleMobileMenu,
+  isMobileMenuOpen = false
 }) => {
   const { isConnected, connectedPeers, isQueueSending, currentTransfer } = useTransfer();
+  const { currentUser, userProfile } = useAuth();
   const peerCount = connectedPeers.length;
 
-  const tabs: Array<{
-    id: MainTab;
-    label: string;
-    subLabel: string;
-    icon: React.ReactNode;
-    activeStyle: string;
-  }> = [
-    {
-      id: 'sender',
-      label: 'Send',
-      subLabel: 'PC ➔ Phone',
-      icon: <Zap className="w-4 h-4 shrink-0" />,
-      activeStyle: 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/30'
-    },
-    {
-      id: 'receive',
-      label: 'Receive',
-      subLabel: 'Phone ➔ PC',
-      icon: <QrCode className="w-4 h-4 shrink-0" />,
-      activeStyle: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30'
-    },
-    {
-      id: 'radar',
-      label: 'Radar',
-      subLabel: 'Nearby',
-      icon: <Radio className="w-4 h-4 shrink-0" />,
-      activeStyle: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30'
-    },
-    {
-      id: 'workspaces',
-      label: 'Rooms',
-      subLabel: 'Workspaces',
-      icon: <Building2 className="w-4 h-4 shrink-0" />,
-      activeStyle: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/30'
-    }
-  ];
+  const currentTab = TABS_CONFIG.find((t) => t.id === activeTab) || TABS_CONFIG[0];
+  const TabIcon = currentTab.icon;
 
   return (
     <>
-      {/* Floating Centered Liquid Glass Capsule Header (Permanent zero scrollbar, overflow-hidden) */}
-      <header className="sticky top-4 z-40 w-full px-3 sm:px-6 pointer-events-none mb-6">
-        <div className="max-w-5xl mx-auto pointer-events-auto">
-          <div className="bg-white/85 backdrop-blur-2xl border border-white/95 rounded-full px-3 sm:px-5 py-2 flex items-center justify-between gap-2 sm:gap-4 shadow-[0_12px_36px_rgba(2,132,199,0.12)] overflow-hidden">
-            
-            {/* Brand Mark (Glowing Electric Cyan) */}
+      {/* TOP NAVIGATION BAR (Responsive: Mobile Bar with Hamburger & Desktop Breadcrumbs Bar) */}
+      <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-2xl border-b border-sky-200/70 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+          
+          {/* LEFT ZONE: Mobile Hamburger Button & Brand + Desktop Breadcrumbs */}
+          <div className="flex items-center space-x-3">
+            {/* Mobile Hamburger Button */}
+            {onToggleMobileMenu && (
+              <button
+                type="button"
+                onClick={onToggleMobileMenu}
+                className="lg:hidden p-2 rounded-xl text-slate-700 hover:text-sky-700 hover:bg-sky-50 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center border border-sky-200/60"
+                aria-label="Toggle Navigation Menu"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="w-5 h-5 text-sky-700" />
+                ) : (
+                  <Menu className="w-5 h-5 text-slate-800" />
+                )}
+              </button>
+            )}
+
+            {/* Mobile Brand Mark */}
             <div
               onClick={() => setActiveTab('sender')}
-              className="flex items-center space-x-2.5 cursor-pointer group shrink-0"
+              className="flex lg:hidden items-center space-x-2 cursor-pointer group shrink-0"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/25 group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 via-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
                 <Zap className="w-4 h-4 text-white fill-white" />
               </div>
-              <div className="flex items-center space-x-1.5">
-                <span className="text-sm font-extrabold text-slate-900 tracking-tight">
-                  BeamDrop
-                </span>
-                <span className="hidden sm:inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200">
-                  v{APP_VERSION.full}
-                </span>
-              </div>
+              <span className="text-sm font-black text-slate-900 leading-none tracking-tight">
+                BeamDrop
+              </span>
             </div>
 
-            {/* Exactly 4 Clean Navigation Tabs: Send (PC->Phone), Receive (Phone->PC), Radar, Rooms */}
-            <nav className="flex items-center p-1 rounded-full bg-slate-100/90 border border-slate-200/90 space-x-1 shrink-0">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={'relative flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ' + (
-                      isActive
-                        ? `${tab.activeStyle} scale-[1.02]`
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-                    )}
-                    title={`${tab.label} (${tab.subLabel})`}
-                  >
-                    {tab.icon}
-                    <span className="inline whitespace-nowrap">{tab.label}</span>
-                    <span className="hidden md:inline text-[9.5px] opacity-80 font-normal whitespace-nowrap">
-                      {tab.subLabel}
-                    </span>
-                    {tab.id === 'radar' && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Right Utilities: Extension Pill Button + P2P Specs Modal */}
-            <div className="flex items-center space-x-2 shrink-0">
-              {/* Background Stream Pill if running in background */}
-              {isQueueSending && currentTransfer && (
-                <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-sky-100 border border-sky-300 text-sky-800 text-[10px] font-mono animate-pulse">
-                  <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
-                  <span>Streaming {currentTransfer.progress}%</span>
-                </div>
-              )}
-
-              {/* Mobile Camera Scan Launcher Button */}
-              {onOpenMobileScanner && (
-                <button
-                  onClick={onOpenMobileScanner}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white transition-all text-xs font-semibold cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
-                  title="Open Mobile Camera Scanner to beam files"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline font-mono text-[11px]">Scan &amp; Send</span>
-                </button>
-              )}
-
-              {/* Dedicated Specular Glass Extension Pill */}
-              <button
-                onClick={onOpenExtensionModal}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-sky-700 hover:text-sky-900 border border-sky-200/80 transition-all text-xs font-semibold cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
-                title="Unpack or Download Chrome Extension"
-              >
-                <Chrome className="w-3.5 h-3.5 text-sky-600" />
-                <span className="hidden sm:inline font-mono text-[11px]">Get Extension</span>
-                <span className="text-[9px] font-mono font-bold bg-sky-100 text-sky-700 px-1 py-0.2 rounded border border-sky-300">
-                  v{APP_VERSION.full}
-                </span>
-              </button>
-
-              {/* Connected Devices Indicator */}
-              <div
-                className={'hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium border ' + (
-                  isConnected || peerCount > 0
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                    : 'bg-sky-50 text-slate-500 border-sky-200'
-                )}
-              >
-                <span
-                  className={'w-1.5 h-1.5 rounded-full ' + (
-                    isConnected || peerCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-                  )}
-                />
-                <span>
-                  {peerCount > 0 ? peerCount + ' Peer' + (peerCount > 1 ? 's' : '') : 'Ready'}
-                </span>
+            {/* Desktop Clean Breadcrumbs */}
+            <div className="hidden lg:flex items-center space-x-2 text-xs">
+              <span className="font-bold text-slate-400 tracking-tight">
+                BeamDrop
+              </span>
+              <span className="text-slate-300">/</span>
+              <div className="flex items-center space-x-2 bg-sky-50/80 text-slate-800 px-2.5 py-1 rounded-lg border border-sky-200/60 font-semibold">
+                <TabIcon className="w-3.5 h-3.5 text-sky-600" />
+                <span>{currentTab.label}</span>
               </div>
-
-              {/* Architecture Info Button */}
-              <button
-                onClick={() => setShowArchitectureModal(true)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-sky-700 bg-white/80 hover:bg-white border border-sky-200 transition-colors cursor-pointer shadow-sm"
-                title="How P2P RAM-to-RAM Works"
-              >
-                <Info className="w-4 h-4 text-sky-600" />
-              </button>
             </div>
-
           </div>
+
+          {/* RIGHT ZONE: Status & Camera Scanner */}
+          <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
+            {/* Active Streaming Pill */}
+            {isQueueSending && currentTransfer && (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-sky-100 border border-sky-300 text-sky-900 text-[10px] font-mono animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+                <span className="truncate max-w-[90px] sm:max-w-[140px]">{currentTransfer.fileName}</span>
+                <span className="font-bold">{currentTransfer.progress}%</span>
+              </div>
+            )}
+
+            {/* Connected Peers Status Badge */}
+            <div
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium border ${
+                isConnected || peerCount > 0
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-sky-50 text-slate-500 border-sky-200'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isConnected || peerCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                }`}
+              />
+              <span className="hidden sm:inline">
+                {peerCount > 0 ? `${peerCount} Connected` : 'Ready'}
+              </span>
+              <span className="sm:hidden">
+                {peerCount > 0 ? `${peerCount}` : 'P2P'}
+              </span>
+            </div>
+
+            {/* Mobile / Desktop Camera Scan Launcher */}
+            {onOpenMobileScanner && (
+              <button
+                type="button"
+                onClick={onOpenMobileScanner}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-all text-xs font-semibold cursor-pointer shadow-xs active:scale-95 min-h-[36px]"
+                title="Scan QR Code via Camera"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Scan QR</span>
+              </button>
+            )}
+
+            {/* User Account / Profile Entry Point (Optional for Users) */}
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                className="flex items-center space-x-2 pl-1.5 pr-2.5 sm:pr-3 py-1 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 text-slate-800 transition-all cursor-pointer shadow-2xs hover:border-sky-300 min-h-[36px]"
+                title="View Account Profile & History"
+              >
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-xs">
+                  {userProfile?.fullName
+                    ? userProfile.fullName[0].toUpperCase()
+                    : currentUser.displayName
+                    ? currentUser.displayName[0].toUpperCase()
+                    : 'U'}
+                </div>
+                <div className="text-left hidden sm:block max-w-[95px] truncate leading-tight">
+                  <span className="text-[11px] font-bold text-slate-800 truncate block">
+                    {userProfile?.username ? `@${userProfile.username}` : userProfile?.fullName || 'Account'}
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenAuthModal}
+                className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 text-slate-700 hover:text-sky-800 transition-all text-xs font-semibold cursor-pointer shadow-2xs hover:border-sky-300 min-h-[36px]"
+                title="Sign In / Create Account (Optional)"
+              >
+                <UserIcon className="w-3.5 h-3.5 text-sky-600" />
+                <span className="hidden sm:inline text-[11px]">Sign In</span>
+              </button>
+            )}
+          </div>
+
         </div>
       </header>
 
-      {/* Architecture Modal */}
+      {/* Architecture Spec Modal */}
       {showArchitectureModal && (
         <div
           onClick={() => setShowArchitectureModal(false)}
-          className="fixed inset-0 z-50 bg-slate-900/35 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-fade-in"
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer animate-fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white/95 backdrop-blur-2xl border border-white/95 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 cursor-default max-h-[85vh] overflow-y-auto no-scrollbar shadow-[0_25px_60px_rgba(2,132,199,0.18)]"
+            className="bg-white/95 backdrop-blur-2xl border border-white/95 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 cursor-default max-h-[85vh] overflow-y-auto shadow-[0_25px_60px_rgba(2,132,199,0.18)]"
           >
             <div className="flex items-center justify-between pb-3 border-b border-sky-100">
               <div className="flex items-center space-x-2.5">
@@ -240,6 +235,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </h4>
                 <p className="text-slate-600">
                   Dynamic chunk sizing scales up to 512KB on ultra-fast LANs and down to 32KB on lossy mobile networks. A 400ms Watchdog safety timer eliminates silent buffer freezes on iOS Safari.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-purple-50/80 border border-purple-200/90 space-y-1">
+                <h4 className="font-bold text-purple-900 flex items-center space-x-1.5">
+                  <Layers className="w-4 h-4 text-purple-600" />
+                  <span>Chrome Extension Native Integration</span>
+                </h4>
+                <p className="text-slate-600">
+                  Download or unpack the Chrome extension in 1 click. Right-click any image, video, link, or text anywhere on the web to beam it directly to your mobile phone or connected peers.
                 </p>
               </div>
             </div>
