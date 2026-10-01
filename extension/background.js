@@ -157,7 +157,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'clear_update_badge') {
     chrome.action.setBadgeText({ text: '' });
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.remove(['updateAvailable']);
+    }
     sendResponse({ cleared: true });
+    return true;
+  }
+
+  if (message.action === 'get_extension_version') {
+    const manifest = (chrome.runtime && chrome.runtime.getManifest)
+      ? chrome.runtime.getManifest()
+      : { version: '1.6.2' };
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['installedCommitSha', 'installedShortSha', 'installedVersion'], (stored) => {
+        sendResponse({
+          success: true,
+          version: (stored && stored.installedVersion) || manifest.version || '1.6.2',
+          commitSha: (stored && (stored.installedShortSha || stored.installedCommitSha)) || '38027b1',
+          manifestVersion: manifest.version || '1.6.2'
+        });
+      });
+      return true;
+    }
+    sendResponse({
+      success: true,
+      version: manifest.version || '1.6.2',
+      commitSha: '38027b1',
+      manifestVersion: manifest.version || '1.6.2'
+    });
     return true;
   }
 

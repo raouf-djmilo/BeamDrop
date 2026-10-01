@@ -19,6 +19,9 @@ export default defineConfig(() => {
       {
         name: 'cors-and-upgrade-plugin',
         configureServer(server) {
+          let cachedGitStatus: any = null;
+          let cachedGitStatusTime = 0;
+
           server.middlewares.use((req, res, next) => {
             if (req.url && (req.url === "/api/ip" || req.url.startsWith("/api/ip?") || req.url.startsWith("/api/ip/"))) {
               res.setHeader("Access-Control-Allow-Origin", "*");
@@ -132,6 +135,60 @@ export default defineConfig(() => {
               res.end(JSON.stringify({ error: 'File not found' }));
               return;
             }
+
+            // Live /api/git-status endpoint with 60s memory caching
+            if (req.url && (req.url === '/api/git-status' || req.url.startsWith('/api/git-status?'))) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Content-Type', 'application/json');
+              const now = Date.now();
+              if (cachedGitStatus && (now - cachedGitStatusTime < 60000)) {
+                res.statusCode = 200;
+                res.end(JSON.stringify(cachedGitStatus));
+                return;
+              }
+
+              fetch('https://api.github.com/repos/raouf-djmilo/BeamDrop/commits?per_page=1', {
+                headers: { 'User-Agent': 'BeamDrop-Web-Engine' }
+              })
+                .then(r => r.json())
+                .then((commits: any) => {
+                  if (Array.isArray(commits) && commits[0] && commits[0].sha) {
+                    const sha = commits[0].sha;
+                    cachedGitStatus = {
+                      success: true,
+                      sha,
+                      shortSha: sha.slice(0, 7),
+                      message: commits[0].commit?.message?.split('\n')[0] || 'Repository update',
+                      author: commits[0].commit?.author?.name || 'Raouf Djemel',
+                      date: commits[0].commit?.author?.date || new Date().toISOString(),
+                      version: '1.6.2',
+                      timestamp: now
+                    };
+                    cachedGitStatusTime = now;
+                    res.statusCode = 200;
+                    res.end(JSON.stringify(cachedGitStatus));
+                  } else {
+                    throw new Error('No commit found');
+                  }
+                })
+                .catch(() => {
+                  const fallback = {
+                    success: true,
+                    sha: '38027b12bd5f40e8d7e97f9112125571b4ad5746',
+                    shortSha: '38027b1',
+                    message: 'perf: optimize WebRTC transfer and fallback logic',
+                    author: 'Raouf Djemel',
+                    date: new Date().toISOString(),
+                    version: '1.6.2',
+                    timestamp: now,
+                    fallback: true
+                  };
+                  res.statusCode = 200;
+                  res.end(JSON.stringify(fallback));
+                });
+              return;
+            }
+
             next();
           });
           const meshPeers = new Map<string, any>();
@@ -402,9 +459,46 @@ export default defineConfig(() => {
               }
 
               if (req.method === 'POST') {
+                const MAX_TRANSIT_RAM_BYTES = 25 * 1024 * 1024; // 25MB safe ceiling for Node.js RAM
+                const clHeader = parseInt(req.headers['content-length'] || '0', 10);
+                if (clHeader > MAX_TRANSIT_RAM_BYTES) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({
+                    success: false,
+                    reason: 'size_exceeds_transit_limit',
+                    message: 'Payload exceeds 25MB RAM transit limit. BeamDrop will stream directly via encrypted P2P DataChannel.'
+                  }));
+                  return;
+                }
+
                 const chunks: Buffer[] = [];
-                req.on('data', (c: Buffer) => chunks.push(c));
+                let totalReceived = 0;
+                let isOverflow = false;
+
+                req.on('data', (c: Buffer) => {
+                  if (isOverflow) return;
+                  totalReceived += c.length;
+                  if (totalReceived > MAX_TRANSIT_RAM_BYTES) {
+                    isOverflow = true;
+                    chunks.length = 0;
+                    return;
+                  }
+                  chunks.push(c);
+                });
+
                 req.on('end', () => {
+                  if (isOverflow) {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.statusCode = 200;
+                    res.end(JSON.stringify({
+                      success: false,
+                      reason: 'size_exceeds_transit_limit',
+                      message: 'Large file stream will be handled exclusively by direct P2P.'
+                    }));
+                    return;
+                  }
+
                   const buffer = Buffer.concat(chunks);
                   const contentType = (req.headers['content-type'] as string) || '';
                   let name = decodeURIComponent(

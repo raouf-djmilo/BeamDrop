@@ -39,6 +39,68 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
   const [folderErrorMessage, setFolderErrorMessage] = useState<string>('');
   const [copiedChromeUrl, setCopiedChromeUrl] = useState<boolean>(false);
   const [files, setFiles] = useState<ExtensionFile[]>(() => getExtensionFiles(receiverBaseUrl));
+  const [gitStatus, setGitStatus] = useState<{
+    sha: string;
+    shortSha: string;
+    message: string;
+    author: string;
+    date: string;
+    isLoading: boolean;
+  }>({
+    sha: '38027b12bd5f40e8d7e97f9112125571b4ad5746',
+    shortSha: '38027b1',
+    message: 'perf: optimize WebRTC transfer and fallback logic',
+    author: 'Raouf Djemel',
+    date: 'Just now',
+    isLoading: false
+  });
+
+  const checkGitHubCommit = async () => {
+    setGitStatus(prev => ({ ...prev, isLoading: true }));
+    try {
+      const res = await fetch('https://api.github.com/repos/raouf-djmilo/BeamDrop/commits?per_page=1', { cache: 'no-store' });
+      if (res.ok) {
+        const commits = await res.json();
+        if (Array.isArray(commits) && commits[0] && commits[0].sha) {
+          const sha = commits[0].sha;
+          setGitStatus({
+            sha,
+            shortSha: sha.slice(0, 7),
+            message: commits[0].commit?.message?.split('\n')[0] || 'Repository update',
+            author: commits[0].commit?.author?.name || 'Raouf Djemel',
+            date: new Date(commits[0].commit?.author?.date || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isLoading: false
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to internal /api/git-status
+    try {
+      const res2 = await fetch('/api/git-status?_t=' + Date.now());
+      if (res2.ok) {
+        const data = await res2.json();
+        if (data && data.sha) {
+          setGitStatus({
+            sha: data.sha,
+            shortSha: data.shortSha || data.sha.slice(0, 7),
+            message: data.message || 'Repository update',
+            author: data.author || 'Raouf Djemel',
+            date: new Date(data.date || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isLoading: false
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+
+    setGitStatus(prev => ({ ...prev, isLoading: false }));
+  };
+
+  useEffect(() => {
+    checkGitHubCommit();
+  }, []);
 
   useEffect(() => {
     fetchExtensionFiles(customUrl).then((loaded) => {
@@ -148,6 +210,24 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
         const writable = await fileHandle.createWritable();
         await writable.write(fileData);
         await writable.close();
+      }
+
+      // Stamp fresh buildInfo.js with canonical GitHub SHA
+      try {
+        const buildInfoJs = `window.BEAMDROP_BUILD = {\n` +
+          `  version: "1.6.2",\n` +
+          `  commitSha: ${JSON.stringify(gitStatus.sha || '38027b12bd5f40e8d7e97f9112125571b4ad5746')},\n` +
+          `  shortSha: ${JSON.stringify(gitStatus.shortSha || '38027b1')},\n` +
+          `  buildHash: ${JSON.stringify(gitStatus.shortSha || '38027b1')},\n` +
+          `  buildTimestamp: ${Math.floor(Date.now() / 1000)},\n` +
+          `  patchNotes: ${JSON.stringify(gitStatus.message || 'Synchronized with GitHub main branch')}\n` +
+          `};\n`;
+        const bHandle = await (dirHandle as any).getFileHandle('buildInfo.js', { create: true });
+        const bWriter = await bHandle.createWritable();
+        await bWriter.write(new TextEncoder().encode(buildInfoJs));
+        await bWriter.close();
+      } catch (bErr) {
+        console.warn('Failed stamping buildInfo.js on folder unpack:', bErr);
       }
 
       setUnpackedSuccessFolder(targetName);
@@ -486,6 +566,42 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
 
       {/* Release History & OTA Update Engine */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        {/* Live GitHub Status Card */}
+        <div className="bg-slate-950/80 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-xs font-mono text-emerald-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="font-bold">LIVE GITHUB VERIFICATION (raouf-djmilo/BeamDrop)</span>
+            </div>
+            <p className="text-sm font-semibold text-white">
+              Latest Repo Commit: <span className="font-mono text-cyan-300 font-bold">{gitStatus.shortSha}</span> • &quot;{gitStatus.message}&quot;
+            </p>
+            <p className="text-xs text-slate-400">
+              Author: <span className="text-slate-300 font-medium">{gitStatus.author}</span> • Checked: {gitStatus.date}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={checkGitHubCommit}
+              disabled={gitStatus.isLoading}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors flex items-center space-x-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${gitStatus.isLoading ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>{gitStatus.isLoading ? 'Checking GitHub...' : 'Sync GitHub Status'}</span>
+            </button>
+            <a
+              href="https://github.com/raouf-djmilo/BeamDrop/commits/main"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition-colors flex items-center space-x-1"
+            >
+              <span>GitHub Commits</span>
+              <ExternalLink className="w-3.5 h-3.5 ml-1" />
+            </a>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
           <div className="space-y-1">
             <div className="inline-flex items-center space-x-2 text-xs font-mono text-cyan-400">

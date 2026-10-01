@@ -116,15 +116,19 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }, 600);
     setTimeout(() => setRebuiltNotice(null), 3500);
 
-    // Re-stage file in transit cache with new token safely
+    // Re-stage file in transit cache with new token safely (only for lightweight files <= 25MB)
     if (stagedFiles.length > 0 && transferManager.myPeerId) {
       const file = stagedFiles[0];
-      const fileNameEnc = encodeURIComponent(file.name);
-      const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
-      fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&token=${nextNonce}&name=${fileNameEnc}&mime=${mimeEnc}`, {
-        method: 'POST',
-        body: file
-      }).catch((e) => console.debug('Transit fallback stage notice:', e));
+      if (file.size <= 25 * 1024 * 1024) {
+        const fileNameEnc = encodeURIComponent(file.name);
+        const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
+        fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&token=${nextNonce}&name=${fileNameEnc}&mime=${mimeEnc}`, {
+          method: 'POST',
+          body: file
+        }).catch((e) => console.debug('Transit fallback stage notice:', e));
+      } else {
+        console.log(`[BeamDrop] Large file (${file.name}, ${(file.size / (1024 * 1024)).toFixed(1)} MB) optimized for direct high-speed P2P DataChannel transmission.`);
+      }
     }
   };
 
@@ -193,17 +197,21 @@ export const SenderView: React.FC<SenderViewProps> = ({
     setTransferCompleted(false);
     playChime('connect');
 
-    // Pre-stage in Ephemeral RAM Transit for instant 4G/5G mobile cellular phone fallback
+    // Pre-stage in Ephemeral RAM Transit for instant 4G/5G mobile cellular phone fallback (only files <= 25MB)
     if (stagedFiles.length > 0 && transferManager.myPeerId) {
       const file = stagedFiles[0];
-      const fileNameEnc = encodeURIComponent(file.name);
-      const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
-      fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&name=${fileNameEnc}&mime=${mimeEnc}`, {
-        method: 'POST',
-        body: file
-      }).then(res => res.json()).then(data => {
-        console.log('[BeamDrop] Pre-staged file in RAM transit for mobile fallback:', data);
-      }).catch((e) => console.debug('Transit fallback stage notice:', e));
+      if (file.size <= 25 * 1024 * 1024) {
+        const fileNameEnc = encodeURIComponent(file.name);
+        const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
+        fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&name=${fileNameEnc}&mime=${mimeEnc}`, {
+          method: 'POST',
+          body: file
+        }).then(res => res.json()).then(data => {
+          console.log('[BeamDrop] Pre-staged file in RAM transit for mobile fallback:', data);
+        }).catch((e) => console.debug('Transit fallback stage notice:', e));
+      } else {
+        console.log(`[BeamDrop] Staged large payload (${file.name}, ${(file.size / (1024 * 1024)).toFixed(1)} MB) configured for ultra-fast direct P2P streaming.`);
+      }
     }
   };
 

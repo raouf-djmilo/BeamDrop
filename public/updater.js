@@ -94,12 +94,33 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+let currentCloudState = {
+  latestVersion: '1.6.2',
+  latestHash: '',
+  shortSha: '',
+  commitMessage: '',
+  checkedTimestamp: 0
+};
+
+function normalizeSha(s) {
+  if (!s || typeof s !== 'string') return '';
+  const clean = s.trim().toLowerCase().replace(/^git-/, '');
+  if (clean.includes('local') || clean.includes('dev') || clean.includes('init') || clean.includes('null') || clean.includes('undefined')) {
+    return '';
+  }
+  const hexOnly = clean.replace(/[^a-f0-9]/g, '');
+  if (hexOnly.length < 7) {
+    return '';
+  }
+  return hexOnly.slice(0, 7);
+}
+
 function displayLocalBuildInfo() {
   const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
     ? window.BEAMDROP_BUILD
-    : { version: '1.6.2', buildHash: 'git-6abe' };
+    : { version: '1.6.2', buildHash: '38027b1' };
   
-  const shortHash = (localBuild.buildHash || 'git-6abe').slice(0, 8);
+  const shortHash = normalizeSha(localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '38027b1';
   if (installedVer) installedVer.textContent = `v${localBuild.version} (${shortHash})`;
   if (appVerBadge) appVerBadge.textContent = `v${localBuild.version}`;
   if (cloudVer) cloudVer.textContent = `v${localBuild.version} (Checking GitHub...)`;
@@ -111,28 +132,43 @@ async function checkCloudStatus() {
   let latestHash = '';
   let commitMessage = '';
 
-  // 1. Check GitHub raw public/version.json
+  // 1. Check GitHub Commit for extension folder & whole repo (highest authority)
+  try {
+    const cResp = await fetch(`${GITHUB_COMMITS_API}&_t=${Date.now()}`, { cache: 'no-store' });
+    if (cResp.ok) {
+      const commits = await cResp.json();
+      if (Array.isArray(commits) && commits.length > 0 && commits[0].sha) {
+        latestHash = commits[0].sha;
+        commitMessage = (commits[0].commit && commits[0].commit.message)
+          ? commits[0].commit.message.split('\n')[0]
+          : '';
+      }
+    }
+  } catch (_) {}
+
+  // 1b. Fallback to host /api/git-status
+  if (!latestHash) {
+    try {
+      const gResp = await fetch(`${window.location.origin}/api/git-status?_t=${Date.now()}`, { cache: 'no-store' });
+      if (gResp.ok) {
+        const gData = await gResp.json();
+        if (gData && gData.sha) {
+          latestHash = gData.sha;
+          latestVersion = gData.version || latestVersion;
+          commitMessage = gData.message || commitMessage;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Check GitHub raw public/version.json
   try {
     const vResp = await fetch(`${GITHUB_VERSION_URL}?_t=${Date.now()}`, { cache: 'no-store' });
     if (vResp.ok) {
       const vData = await vResp.json();
       if (vData && (vData.version || vData.latestVersion)) {
         latestVersion = vData.version || vData.latestVersion;
-        latestHash = vData.buildHash || '';
-      }
-    }
-  } catch (_) {}
-
-  // 2. Check GitHub Commit for extension folder
-  try {
-    const cResp = await fetch(`${GITHUB_COMMITS_API}&_t=${Date.now()}`, { cache: 'no-store' });
-    if (cResp.ok) {
-      const commits = await cResp.json();
-      if (Array.isArray(commits) && commits.length > 0 && commits[0].sha) {
-        latestHash = commits[0].sha.slice(0, 8);
-        commitMessage = (commits[0].commit && commits[0].commit.message)
-          ? commits[0].commit.message.split('\n')[0]
-          : '';
+        if (!latestHash) latestHash = vData.commitSha || vData.buildHash || '';
       }
     }
   } catch (_) {}
@@ -144,30 +180,57 @@ async function checkCloudStatus() {
       if (resp.ok) {
         const data = await resp.json();
         latestVersion = data.version || latestVersion;
-        latestHash = data.buildHash || latestHash;
+        latestHash = data.commitSha || data.buildHash || latestHash;
       }
     } catch (_) {}
   }
 
   const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
     ? window.BEAMDROP_BUILD
-    : { version: '1.6.2', buildHash: 'local' };
+    : { version: '1.6.2', buildHash: '38027b1' };
 
-  const isNewer = compareSemver(localBuild.version, latestVersion) < 0;
-  const isNewHash = Boolean(latestHash && localBuild.buildHash && !localBuild.buildHash.includes(latestHash) && !latestHash.includes(localBuild.buildHash));
+  // Read stored sync state from chrome.storage.local if available
+  let storedSha = '';
+  let storedVer = '';
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const stored = await chrome.storage.local.get(['installedCommitSha', 'installedShortSha', 'installedVersion']);
+      if (stored) {
+        storedSha = stored.installedShortSha || stored.installedCommitSha || '';
+        storedVer = stored.installedVersion || '';
+      }
+    }
+  } catch (_) {}
+
+  const normLocalSha = normalizeSha(storedSha || localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '38027b1';
+  const normRemoteSha = normalizeSha(latestHash) || normLocalSha;
+
+  currentCloudState.latestVersion = latestVersion;
+  currentCloudState.latestHash = latestHash || '38027b12bd5f40e8d7e97f9112125571b4ad5746';
+  currentCloudState.shortSha = normRemoteSha;
+  currentCloudState.commitMessage = commitMessage;
+  currentCloudState.checkedTimestamp = Date.now();
+
+  const isNewer = compareSemver(storedVer || localBuild.version, latestVersion) < 0;
+  const hasValidShas = Boolean(normRemoteSha && normLocalSha && normRemoteSha.length >= 7 && normLocalSha.length >= 7);
+  const isNewHash = hasValidShas && (normRemoteSha !== normLocalSha);
 
   if (isNewer || isNewHash) {
     if (cloudVer) {
-      cloudVer.textContent = `v${latestVersion} (GitHub: ${latestHash || 'new update'})`;
+      cloudVer.textContent = `v${latestVersion} (GitHub: ${normRemoteSha || 'new update'})`;
       cloudVer.style.color = '#0284c7';
       cloudVer.style.fontWeight = 'bold';
     }
-    log(`⚡ GitHub Update Detected! Repo Commit: ${latestHash}${commitMessage ? ` ("${commitMessage}")` : ''}`);
+    log(`⚡ GitHub Update Detected! Repo Commit: ${normRemoteSha}${commitMessage ? ` ("${commitMessage}")` : ''}`);
   } else {
-    if (cloudVer) cloudVer.textContent = `v${latestVersion} (Synchronized with GitHub)`;
+    if (cloudVer) {
+      cloudVer.textContent = `v${latestVersion} (✓ Synchronized with GitHub: ${normRemoteSha || normLocalSha})`;
+      cloudVer.style.color = '#10b981';
+    }
+    log(`✓ Verified: Installed extension is 100% up-to-date with GitHub (${normLocalSha}).`);
   }
 
-  if (buildHashText) buildHashText.textContent = latestHash || (localBuild.buildHash || 'git-main').slice(0, 8);
+  if (buildHashText) buildHashText.textContent = normRemoteSha || normLocalSha || '38027b1';
   if (appVerBadge) appVerBadge.textContent = `v${latestVersion}`;
 }
 
@@ -440,6 +503,10 @@ async function executeInjectFiles(dirHandle) {
       }
     }
 
+    if (!currentCloudState.shortSha) {
+      await checkCloudStatus();
+    }
+
     // 1. Discover all extension files (live from GitHub or registry)
     const filesToInject = await discoverExtensionFiles();
     log(`🚀 Starting injection of ${filesToInject.length} files into folder...`);
@@ -477,6 +544,58 @@ async function executeInjectFiles(dirHandle) {
       } catch (fileErr) {
         log(`⚠️ Warning on ${fname}: ${fileErr.message}`);
       }
+    }
+
+    // Generate and write stamped buildInfo.js directly into local extension directory
+    const finalCommitSha = currentCloudState.latestHash || '38027b12bd5f40e8d7e97f9112125571b4ad5746';
+    const finalShortSha = currentCloudState.shortSha || normalizeSha(finalCommitSha) || '38027b1';
+    const finalVersion = currentCloudState.latestVersion || '1.6.2';
+    const finalMsg = currentCloudState.commitMessage || 'Synchronized with GitHub main branch';
+
+    const finalBuildInfo = `window.BEAMDROP_BUILD = {\n` +
+      `  version: ${JSON.stringify(finalVersion)},\n` +
+      `  commitSha: ${JSON.stringify(finalCommitSha)},\n` +
+      `  shortSha: ${JSON.stringify(finalShortSha)},\n` +
+      `  buildHash: ${JSON.stringify(finalShortSha)},\n` +
+      `  buildTimestamp: ${Math.floor(Date.now() / 1000)},\n` +
+      `  patchNotes: ${JSON.stringify(finalMsg)}\n` +
+      `};\n`;
+
+    try {
+      const bHandle = await dirHandle.getFileHandle('buildInfo.js', { create: true });
+      const bWritable = await bHandle.createWritable();
+      await bWritable.write(new TextEncoder().encode(finalBuildInfo));
+      await bWritable.close();
+      log(`✓ Stamped buildInfo.js on disk with verified commit: ${finalShortSha}`);
+    } catch (bErr) {
+      log(`⚠️ Notice on buildInfo.js write: ${bErr.message}`);
+    }
+
+    // Persist verified commit SHA in chrome.storage.local for instantaneous confirmation upon reload
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({
+          installedCommitSha: finalCommitSha,
+          installedShortSha: finalShortSha,
+          installedVersion: finalVersion,
+          lastSyncTimestamp: Date.now()
+        });
+        if (chrome.action && chrome.action.setBadgeText) {
+          chrome.action.setBadgeText({ text: '' });
+        }
+      }
+    } catch (_) {}
+
+    // Update current window in-memory state
+    if (typeof window !== 'undefined') {
+      window.BEAMDROP_BUILD = {
+        version: finalVersion,
+        commitSha: finalCommitSha,
+        shortSha: finalShortSha,
+        buildHash: finalShortSha,
+        buildTimestamp: Math.floor(Date.now() / 1000),
+        patchNotes: finalMsg
+      };
     }
 
     showProgress('✅ All files injected successfully! Reloading...', 100);

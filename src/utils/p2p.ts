@@ -278,19 +278,10 @@ export class P2PTransferManager {
   private startHeartbeat() {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
-      if (this.peer && !this.peer.destroyed) {
-        if (this.peer.disconnected) {
-          this.attemptReconnect();
-        } else {
-          try {
-            const socket = (this.peer as any).socket;
-            if (socket && socket._socket && socket._socket.readyState === WebSocket.OPEN) {
-              socket._send({ type: 'HEARTBEAT' });
-            }
-          } catch (e) {}
-        }
+      if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+        this.attemptReconnect();
       }
-    }, 15000);
+    }, 10000);
   }
 
   private stopHeartbeat() {
@@ -309,11 +300,7 @@ export class P2PTransferManager {
       if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
         try {
           this.peer.reconnect();
-        } catch (e) {
-          try {
-            this.init(this.myPeerId).catch(() => {});
-          } catch (_) {}
-        }
+        } catch (_) {}
       }
     }, 1500);
   }
@@ -745,103 +732,113 @@ export class P2PTransferManager {
       isEncrypted: Boolean(this.sessionCryptoKey)
     };
 
-    // 1. Notify Start
-    this.sendMessage({
-      type: 'FILE_START',
-      fileId,
-      fileName: file.name,
-      fileSize: file.size,
-      fileMime: file.type || 'application/octet-stream',
-      chunkSize,
-      totalChunks,
-      encrypted: Boolean(this.sessionCryptoKey)
-    });
+    this.isSending = true;
+    try {
+      // 1. Notify Start
+      this.sendMessage({
+        type: 'FILE_START',
+        fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileMime: file.type || 'application/octet-stream',
+        chunkSize,
+        totalChunks,
+        encrypted: Boolean(this.sessionCryptoKey)
+      });
 
-    let sentBytes = 0;
-    let lastTime = Date.now();
-    let lastSent = 0;
+      let sentBytes = 0;
+      let lastTime = Date.now();
+      let lastSent = 0;
 
-    // Get active data channels for striping
-    const primaryConn = this.connection || this.activeConnections.values().next().value;
-    const dc = (primaryConn as any)?.dataChannel as RTCDataChannel | undefined;
-    const peerId = primaryConn ? primaryConn.peer : '';
-    const extraChannels = (peerId && this.subChannels.get(peerId)) || [];
-    const allChannels = [dc, ...extraChannels].filter(Boolean) as RTCDataChannel[];
+      // Get active data channels for striping
+      const primaryConn = this.connection || this.activeConnections.values().next().value;
+      const dc = (primaryConn as any)?.dataChannel as RTCDataChannel | undefined;
+      if (dc) {
+        try {
+          dc.bufferedAmountLowThreshold = Math.max(chunkSize * 2, 64 * 1024);
+        } catch (_) {}
+      }
+      const peerId = primaryConn ? primaryConn.peer : '';
+      const extraChannels = (peerId && this.subChannels.get(peerId)) || [];
+      const allChannels = [dc, ...extraChannels].filter(Boolean) as RTCDataChannel[];
 
-    // Pre-read initial chunk for pipelined double-buffering
-    let currentSlicePromise = file.slice(0, Math.min(chunkSize, file.size)).arrayBuffer();
+      // Pre-read initial chunk for pipelined double-buffering
+      let currentSlicePromise = file.slice(0, Math.min(chunkSize, file.size)).arrayBuffer();
 
-    // 2. Stream Binary Framed Chunks with Pipelined Read-Ahead
-    for (let i = 0; i < totalChunks; i++) {
-      if (!this.isConnected && this.activeConnections.size === 0) {
-        throw new Error('Connection lost during file transfer');
+      // 2. Stream Binary Framed Chunks with Pipelined Read-Ahead
+      for (let i = 0; i < totalChunks; i++) {
+        if (!this.isConnected && this.activeConnections.size === 0) {
+          throw new Error('Connection lost during file transfer');
+        }
+
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        let payload = await currentSlicePromise;
+
+        // Pipelined read-ahead for next chunk
+        const nextIndex = i + 1;
+        if (nextIndex < totalChunks) {
+          const nextStart = nextIndex * chunkSize;
+          const nextEnd = Math.min(nextStart + chunkSize, file.size);
+          currentSlicePromise = file.slice(nextStart, nextEnd).arrayBuffer();
+        }
+
+        let flags = 0;
+        // Per-Chunk Encryption if key active
+        if (this.sessionCryptoKey) {
+          payload = await encryptChunkPayload(payload, this.sessionCryptoKey);
+          flags = 1;
+        }
+
+        // Encode 32-byte binary frame
+        const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
+
+        // Select channel using round-robin striping
+        const targetChannel = allChannels[i % allChannels.length] || dc;
+
+        if (targetChannel && targetChannel.readyState === 'open') {
+          // Backpressure check
+          await this.adaptiveChunker.handleBackpressure(targetChannel);
+          targetChannel.send(frameBuffer);
+        } else {
+          // Fallback to PeerJS connection
+          this.activeConnections.forEach((c) => {
+            if (c.open) (c as any).send(frameBuffer);
+          });
+        }
+
+        sentBytes += (end - start);
+        const progress = Math.min(100, Math.round((sentBytes / file.size) * 100));
+        const now = Date.now();
+        const elapsed = (now - lastTime) / 1000;
+        let speed = 0;
+
+        if (elapsed >= 0.2 || i === totalChunks - 1) {
+          speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
+          lastTime = now;
+          lastSent = sentBytes;
+          onProgress?.(progress, speed);
+        }
+
+        // Yield event loop every 8 chunks
+        if (i % 8 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
       }
 
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, file.size);
-      let payload = await currentSlicePromise;
+      // 3. Notify End
+      this.sendMessage({
+        type: 'FILE_END',
+        fileId,
+        totalChunks,
+        fileName: file.name,
+        fileSize: file.size
+      });
 
-      // Pipelined read-ahead for next chunk
-      const nextIndex = i + 1;
-      if (nextIndex < totalChunks) {
-        const nextStart = nextIndex * chunkSize;
-        const nextEnd = Math.min(nextStart + chunkSize, file.size);
-        currentSlicePromise = file.slice(nextStart, nextEnd).arrayBuffer();
-      }
-
-      let flags = 0;
-      // Per-Chunk Encryption if key active
-      if (this.sessionCryptoKey) {
-        payload = await encryptChunkPayload(payload, this.sessionCryptoKey);
-        flags = 1;
-      }
-
-      // Encode 32-byte binary frame
-      const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
-
-      // Select channel using round-robin striping
-      const targetChannel = allChannels[i % allChannels.length] || dc;
-
-      if (targetChannel && targetChannel.readyState === 'open') {
-        // Backpressure check
-        await this.adaptiveChunker.handleBackpressure(targetChannel);
-        targetChannel.send(frameBuffer);
-      } else {
-        // Fallback to PeerJS connection
-        this.activeConnections.forEach((c) => {
-          if (c.open) (c as any).send(frameBuffer);
-        });
-      }
-
-      sentBytes += (end - start);
-      const progress = Math.min(100, Math.round((sentBytes / file.size) * 100));
-      const now = Date.now();
-      const elapsed = (now - lastTime) / 1000;
-      let speed = 0;
-
-      if (elapsed >= 0.2 || i === totalChunks - 1) {
-        speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
-        lastTime = now;
-        lastSent = sentBytes;
-        onProgress?.(progress, speed);
-      }
-
-      // Yield event loop every 8 chunks
-      if (i % 8 === 0) {
-        await new Promise((r) => setTimeout(r, 0));
-      }
+      onProgress?.(100, 0);
+    } finally {
+      this.isSending = false;
     }
-
-    // 3. Notify End
-    this.sendMessage({
-      type: 'FILE_END',
-      fileId,
-      totalChunks,
-      fileName: file.name,
-      fileSize: file.size
-    });
-
-    onProgress?.(100, 0);
   }
 
   public disconnect() {

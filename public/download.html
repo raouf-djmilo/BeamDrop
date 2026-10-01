@@ -1197,8 +1197,8 @@
             currentFileEntry.totalChunks = unpacked.totalChunks;
           }
 
-          // Store in indexed chunk map for pure zero-corruption reassembly
-          currentFileEntry.chunksMap.set(unpacked.chunkIndex, unpacked.payload);
+          // Store in indexed chunk array for pure zero-copy reassembly
+          currentFileEntry.chunks[unpacked.chunkIndex] = unpacked.payload;
           currentFileEntry.receivedIndices.add(unpacked.chunkIndex);
           currentFileEntry.receivedBytes += unpacked.payload.byteLength;
 
@@ -1269,7 +1269,7 @@
             size: fileSize,
             mime: fileMime,
             totalChunks: msg.totalChunks || 0,
-            chunksMap: new Map(),
+            chunks: [],
             receivedIndices: new Set(),
             rawCounter: 0,
             receivedBytes: 0,
@@ -1291,21 +1291,17 @@
         if (msg.type === 'FILE_END' || msg.type === 'complete') {
           if (!currentFileEntry) return;
 
-          const total = currentFileEntry.totalChunks || currentFileEntry.chunksMap.size;
-          const sortedChunks = [];
+          const total = currentFileEntry.totalChunks || currentFileEntry.chunks.length;
           const missing = [];
 
           for (let i = 0; i < total; i++) {
-            const chunk = currentFileEntry.chunksMap.get(i);
-            if (chunk) {
-              sortedChunks.push(chunk);
-            } else {
+            if (!currentFileEntry.chunks[i]) {
               missing.push(i);
             }
           }
 
           // If chunks are missing, request fast retransmission from sender
-          if (missing.length > 0 && missing.length <= 10) {
+          if (missing.length > 0 && missing.length <= 15) {
             console.warn('[BeamDrop Receiver] Missing chunks detected, sending NACK:', missing);
             try {
               if (connection && connection.open) {
@@ -1315,24 +1311,26 @@
                   missingIndices: missing
                 });
                 setTimeout(() => {
-                  if (!isCompleted && currentFileEntry.chunksMap.size < total) {
+                  if (!isCompleted && currentFileEntry.receivedBytes < currentFileEntry.size * 0.95) {
                     attemptTransitFallback();
                   }
-                }, 1200);
+                }, 1500);
                 return;
               }
             } catch (_) {}
           }
 
           // If too many chunks missing or P2P died, engage instant Transit fallback
-          if (sortedChunks.length === 0 || (currentFileEntry.size > 0 && currentFileEntry.receivedBytes < currentFileEntry.size * 0.85)) {
+          if (currentFileEntry.chunks.length === 0 || (currentFileEntry.size > 0 && currentFileEntry.receivedBytes < currentFileEntry.size * 0.85)) {
             console.warn('[BeamDrop Receiver] Incomplete WebRTC stream, activating Dual-Rail Transit fallback...');
             attemptTransitFallback();
             return;
           }
 
           isCompleted = true;
-          const blob = new Blob(sortedChunks, { type: currentFileEntry.mime });
+          // Direct zero-copy Blob creation from chunks array with instant memory release
+          const blob = new Blob(currentFileEntry.chunks, { type: currentFileEntry.mime });
+          currentFileEntry.chunks = null; // Free RAM immediately!
           currentDownloadUrl = URL.createObjectURL(blob);
 
           progressBarFill.style.width = '100%';

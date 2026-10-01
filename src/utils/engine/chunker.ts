@@ -76,34 +76,39 @@ export class AdaptiveChunker {
 
   /**
    * Adaptive Backpressure Control:
-   * Returns true if channel is safe to send, or false if sender must wait for onbufferedamountlow
+   * Smoothly pauses the sender when SCTP buffer fills up, without degrading chunk sizing.
    */
   public async handleBackpressure(channel: RTCDataChannel): Promise<void> {
-    const HIGH_WATER_MARK = this.currentChunkSize * 4;
-    const LOW_WATER_MARK = this.currentChunkSize * 2;
+    const HIGH_WATER_MARK = Math.max(this.currentChunkSize * 4, 256 * 1024);
+    const LOW_WATER_MARK = Math.max(this.currentChunkSize * 2, 64 * 1024);
 
     if (channel.bufferedAmount > HIGH_WATER_MARK) {
-      // Multiplicative Decrease under buffer congestion
-      this.currentChunkSize = Math.max(32 * 1024, Math.floor(this.currentChunkSize / 2));
+      try {
+        channel.bufferedAmountLowThreshold = LOW_WATER_MARK;
+      } catch (_) {}
 
       await new Promise<void>((resolve) => {
-        const checkInterval = setInterval(() => {
-          if (channel.bufferedAmount <= LOW_WATER_MARK) {
-            clearInterval(checkInterval);
+        let isDone = false;
+        const finish = () => {
+          if (!isDone) {
+            isDone = true;
+            if (watchdog) clearTimeout(watchdog);
+            if (checkInterval) clearInterval(checkInterval);
             channel.onbufferedamountlow = null;
             resolve();
           }
-        }, 4);
-
-        channel.onbufferedamountlow = () => {
-          clearInterval(checkInterval);
-          channel.onbufferedamountlow = null;
-          resolve();
         };
+
+        const watchdog = setTimeout(finish, 200);
+
+        channel.onbufferedamountlow = finish;
+
+        const checkInterval = setInterval(() => {
+          if (channel.bufferedAmount <= LOW_WATER_MARK) {
+            finish();
+          }
+        }, 5);
       });
-    } else if (channel.bufferedAmount < LOW_WATER_MARK && this.currentRtt < 20) {
-      // Additive Increase when pipe is empty on low latency LAN
-      this.currentChunkSize = Math.min(512 * 1024, this.currentChunkSize + 32 * 1024);
     }
   }
 }
