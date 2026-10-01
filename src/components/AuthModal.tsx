@@ -87,6 +87,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setError('Incorrect password or credentials. Please try again.');
       } else if (err.code === 'auth/user-not-found') {
         setError('No account found with this email or username.');
+      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('identitytoolkit') || err.message?.includes('disabled')) {
+        setError('Email/Password provider is disabled in this Firebase project. Please click "Google Account" below for instant sign-in!');
       } else {
         setError(err.message || 'Failed to sign in. Please try again.');
       }
@@ -133,6 +135,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
         setError('An account with this email already exists.');
+      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('identitytoolkit') || err.message?.includes('disabled')) {
+        setError('Email/Password sign-up is disabled in this Firebase project. Please click "Google Account" below for instant sign-in!');
       } else {
         setError(err.message || 'Failed to create account. Please try again.');
       }
@@ -150,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       handleClose();
     } catch (err: any) {
       console.error(err);
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setError(err.message || 'Google sign-in failed. Please try again.');
       }
     } finally {

@@ -9,12 +9,38 @@
         "fullName": { "type": "string", "maxLength": 100, "description": "User full name" },
         "username": { "type": "string", "maxLength": 30, "pattern": "^[a-zA-Z0-9_]+$", "description": "Unique username" },
         "email": { "type": "string", "format": "email", "description": "User email address" },
+        "plan": { "type": "string", "enum": ["free", "pro"], "description": "User subscription tier" },
         "createdAt": { "type": "string", "description": "Timestamp when account was created" },
         "photoURL": { "type": "string", "description": "Optional avatar URL" },
         "transfersCount": { "type": "integer", "description": "Total files beamed" },
         "bytesTransferred": { "type": "integer", "description": "Total bytes transferred" }
       },
       "required": ["uid", "fullName", "username", "email", "createdAt"]
+    },
+    "DailyUsage": {
+      "title": "DailyUsage",
+      "description": "Daily metrics for user operations and limits tracking",
+      "type": "object",
+      "properties": {
+        "sendOperations": { "type": "integer", "description": "Number of send transfers completed today" },
+        "receiveOperations": { "type": "integer", "description": "Number of receive transfers completed today" },
+        "qrScansCount": { "type": "integer", "description": "Number of QR scans performed today" },
+        "bytesTransferred": { "type": "integer", "description": "Total bytes transferred today" },
+        "lastActivity": { "type": "integer", "description": "Timestamp of last activity" },
+        "date": { "type": "string", "description": "Date string YYYY-MM-DD" }
+      }
+    },
+    "UserSubscription": {
+      "title": "UserSubscription",
+      "description": "User subscription tier and payment status",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "plan": { "type": "string", "enum": ["free", "pro"], "description": "Active subscription tier" },
+        "status": { "type": "string", "enum": ["active", "trial", "canceled", "expired"], "description": "Payment status" },
+        "updatedAt": { "type": "string", "description": "Timestamp of status update" }
+      },
+      "required": ["userId", "plan", "status", "updatedAt"]
     },
     "UsernameIndex": {
       "title": "UsernameIndex",
@@ -56,6 +82,14 @@
     "/users/{userId}/transfers/{transferId}": {
       "schema": "UserTransfer",
       "description": "User beam transfer history records"
+    },
+    "/users/{userId}/daily_usage/{date}": {
+      "schema": "DailyUsage",
+      "description": "Daily metrics for sends, receives, scans, and transferred bytes"
+    },
+    "/subscriptions/{userId}": {
+      "schema": "UserSubscription",
+      "description": "User subscription status and plan entitlement"
     }
   }
 }
