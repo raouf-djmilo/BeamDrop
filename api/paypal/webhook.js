@@ -295,7 +295,8 @@ export default async function handler(req, res) {
     });
   }
 
-  const yearlyPlanId = process.env.VITE_PAYPAL_PLAN_YEARLY || process.env.PAYPAL_PLAN_YEARLY || '';
+  const yearlyPlanId = process.env.VITE_PAYPAL_PLAN_YEARLY || process.env.PAYPAL_PLAN_YEARLY || 'P-9EF72345U30509931NK7NSTI';
+  const monthlyPlanId = process.env.VITE_PAYPAL_PLAN_MONTHLY || process.env.PAYPAL_PLAN_MONTHLY || 'P-9VL26006VM479152TNK7NROA';
 
   try {
     // -------------------------------------------------------------

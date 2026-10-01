@@ -36,8 +36,10 @@ export const PricingModal: React.FC<PricingModalProps> = ({
     import.meta.env.VITE_PAYPAL_CLIENT_ID ||
     'AZaa0Jw_idNMwP82IGj2BbJpBG4CzvZ5hDnKvlGyRqV3Uh8PS9KG88HlcEnEljXev-Rvv2D4t89SWzX0';
 
-  const monthlyPlanId = import.meta.env.VITE_PAYPAL_PLAN_MONTHLY || '';
-  const yearlyPlanId = import.meta.env.VITE_PAYPAL_PLAN_YEARLY || '';
+  const monthlyPlanId =
+    import.meta.env.VITE_PAYPAL_PLAN_MONTHLY || 'P-9VL26006VM479152TNK7NROA';
+  const yearlyPlanId =
+    import.meta.env.VITE_PAYPAL_PLAN_YEARLY || 'P-9EF72345U30509931NK7NSTI';
 
   const price = billingCycle === 'yearly' ? '$4' : '$5';
   const originalPrice = billingCycle === 'yearly' ? '$12' : '$15';
