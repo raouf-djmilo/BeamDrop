@@ -5,8 +5,10 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: The app must use firestoreDatabaseId from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Connect to Firestore (supports standard (default) database or custom named databases)
+export const db = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)')
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const auth = getAuth(app);
 
 export enum OperationType {
@@ -89,20 +91,22 @@ export function diagnoseFirebaseAuthError(error: any): AuthErrorDiagnosis {
   const code = error?.code || '';
   const message = error?.message || String(error);
 
-  // 1. Google Cloud Identity Toolkit API not enabled (project 1081762917738)
+  const currentProjectId = firebaseConfig.projectId || 'a7flow-30981';
+
+  // 1. Google Cloud Identity Toolkit API not enabled
   if (
     code === 'auth/identity-toolkit-api-has-not-been-used' ||
     message.includes('identitytoolkit.googleapis.com') ||
     message.includes('Identity Toolkit API') ||
-    message.includes('1081762917738') ||
+    message.includes(currentProjectId) ||
     (code === 'auth/operation-not-allowed' && message.includes('disabled'))
   ) {
     return {
       title: 'Identity Toolkit API Needs Activation',
       message:
-        'Firebase Authentication is not yet activated on Google Cloud for project 1081762917738. Click below to enable Identity Toolkit API, then retry.',
+        `Firebase Authentication is not yet activated on Google Cloud for project ${currentProjectId}. Click below to enable Identity Toolkit API, then retry.`,
       actionUrl:
-        'https://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=1081762917738',
+        `https://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=${currentProjectId}`,
       actionLabel: 'Enable Identity Toolkit API in Google Cloud',
       isApiDisabled: true
     };
@@ -114,8 +118,8 @@ export function diagnoseFirebaseAuthError(error: any): AuthErrorDiagnosis {
       title: 'Sign-In Provider Disabled',
       message:
         'Email/Password or Google sign-in is not enabled in Firebase Console. Please enable them in Authentication > Sign-in method.',
-      actionUrl: 'https://console.firebase.google.com/?authuser=1',
-      actionLabel: 'Open Firebase Console Auth Settings',
+      actionUrl: `https://console.firebase.google.com/project/${currentProjectId}/authentication/providers`,
+      actionLabel: 'Open Sign-In Methods in Firebase Console',
       isApiDisabled: true
     };
   }
@@ -123,12 +127,11 @@ export function diagnoseFirebaseAuthError(error: any): AuthErrorDiagnosis {
   // 3. Domain not authorized in Firebase OAuth
   if (code === 'auth/unauthorized-domain') {
     const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'beam-drop-mu.vercel.app';
-    const projectId = firebaseConfig.projectId || 'omega-photon-j6rpq';
     return {
       title: 'Unauthorized Domain in Firebase OAuth',
       message:
         `Your domain "${currentDomain}" is not in the Firebase OAuth authorized domains list. Click below to open settings, click "Add domain", and paste "${currentDomain}".`,
-      actionUrl: `https://console.firebase.google.com/project/${projectId}/authentication/settings`,
+      actionUrl: `https://console.firebase.google.com/project/${currentProjectId}/authentication/settings`,
       actionLabel: 'Open Authorized Domains in Firebase',
       copyText: currentDomain
     };

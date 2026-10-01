@@ -1,12 +1,12 @@
 {
-  "projectId": "omega-photon-j6rpq",
-  "appId": "1:300117835322:web:d42fb9b45eb0ef66d53f03",
-  "apiKey": "AIzaSyCLLF-SWibrztNcUkHgSRq5jC_tvmvAPDc",
-  "authDomain": "omega-photon-j6rpq.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-beamdrop-493e4691-b144-4f99-888b-fb07bda3eb10",
-  "storageBucket": "omega-photon-j6rpq.firebasestorage.app",
-  "messagingSenderId": "300117835322",
-  "measurementId": "",
-  "oAuthClientId": "300117835322-j0jh1o6flund5ekv8ufs504e32io9ujo.apps.googleusercontent.com",
+  "projectId": "a7flow-30981",
+  "appId": "1:459732306577:web:b31b00e0edaa51f045cd30",
+  "apiKey": "AIzaSyB0oAPZdDEGJZGMcZuxRaF_MUuheH0kcAk",
+  "authDomain": "a7flow-30981.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "a7flow-30981.firebasestorage.app",
+  "messagingSenderId": "459732306577",
+  "measurementId": "G-DR0FNLV206",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
