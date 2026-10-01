@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { TransferProvider, useTransfer } from './context/TransferContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { NotificationBar } from './components/NotificationBar';
 import { Header } from './components/Header';
@@ -22,6 +22,7 @@ import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
 import { UpgradeModal } from './components/UpgradeModal';
 import { PricingModal } from './components/PricingModal';
+import { LockedFeatureView } from './components/LockedFeatureView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { X, Zap } from 'lucide-react';
 
@@ -73,6 +74,7 @@ function resolveTabFromLocation(): MainTab {
 
 function MainApp() {
   const { transferManager } = useTransfer();
+  const { userTier } = useAuth();
 
   // One-time initial URL inspection for direct downloads or ephemeral portals
   const initialUrlInfo = useMemo(() => {
@@ -368,20 +370,50 @@ function MainApp() {
               )}
 
               {activeTab === 'radar' && (
-                <SpiderRadarView
-                  onDirectBeamTarget={(peer) => {
-                    setTargetedPeer(peer);
-                    handleTabChange('sender');
-                  }}
-                />
+                userTier === 'pro' ? (
+                  <SpiderRadarView
+                    onDirectBeamTarget={(peer) => {
+                      setTargetedPeer(peer);
+                      handleTabChange('sender');
+                    }}
+                  />
+                ) : (
+                  <LockedFeatureView
+                    featureId="radar"
+                    onUpgrade={() => {
+                      setPricingReason('Unlock Autonomous Hotspot Radar & Spatial P2P Discovery.');
+                      setShowPricingModal(true);
+                    }}
+                  />
+                )
               )}
 
               {activeTab === 'workspaces' && (
-                <WorkspacesView />
+                userTier === 'pro' ? (
+                  <WorkspacesView />
+                ) : (
+                  <LockedFeatureView
+                    featureId="workspaces"
+                    onUpgrade={() => {
+                      setPricingReason('Unlock Collaborative Multi-Device Workspaces & Group Rooms.');
+                      setShowPricingModal(true);
+                    }}
+                  />
+                )
               )}
 
               {activeTab === 'notebook' && (
-                <NotebookView />
+                userTier === 'pro' ? (
+                  <NotebookView />
+                ) : (
+                  <LockedFeatureView
+                    featureId="notebook"
+                    onUpgrade={() => {
+                      setPricingReason('Unlock Encrypted Cloud Clipboard, Markdown & Code Sync.');
+                      setShowPricingModal(true);
+                    }}
+                  />
+                )
               )}
 
               {activeTab === 'extension' && (

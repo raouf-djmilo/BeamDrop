@@ -10,9 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Lock
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
+import { useAuth } from '../context/AuthContext';
 
 export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces' | 'notebook' | 'extension';
 
@@ -58,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPricingModal,
   onOpenProfileModal
 }) => {
+  const { userTier } = useAuth();
   const { isConnected, connectedPeers } = useTransfer();
   const peerCount = connectedPeers ? connectedPeers.length : 0;
 
@@ -74,14 +77,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {TABS_CONFIG.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
+          const isProLocked =
+            (tab.id === 'radar' || tab.id === 'workspaces' || tab.id === 'notebook') &&
+            userTier !== 'pro';
 
           return (
             <button
               type="button"
               key={tab.id}
               onClick={() => handleTabClick(tab.id, isMobile)}
-              title={isCollapsed && !isMobile ? tab.label : undefined}
-              className={`w-full flex items-center rounded-xl transition-all duration-150 cursor-pointer min-h-[42px] ${
+              title={
+                isCollapsed && !isMobile
+                  ? `${tab.label}${isProLocked ? ' (PRO Feature)' : ''}`
+                  : undefined
+              }
+              className={`w-full flex items-center rounded-xl transition-all duration-150 cursor-pointer min-h-[42px] relative ${
                 isCollapsed && !isMobile
                   ? 'justify-center p-2.5'
                   : 'px-3 py-2.5 justify-start space-x-3'
@@ -91,14 +101,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-sky-100/70 active:bg-sky-200/60 font-medium'
               }`}
             >
-              <Icon
-                className={`shrink-0 transition-transform ${
-                  isCollapsed && !isMobile ? 'w-5 h-5' : 'w-4 h-4'
-                } ${isActive ? 'text-white' : 'text-slate-500'}`}
-              />
+              <div className="relative shrink-0 flex items-center justify-center">
+                <Icon
+                  className={`transition-transform ${
+                    isCollapsed && !isMobile ? 'w-5 h-5' : 'w-4 h-4'
+                  } ${isActive ? 'text-white' : 'text-slate-500'}`}
+                />
+                {isCollapsed && !isMobile && isProLocked && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+                )}
+              </div>
+
               {(!isCollapsed || isMobile) && (
                 <span className="text-sm truncate leading-none">
                   {tab.label}
+                </span>
+              )}
+
+              {(!isCollapsed || isMobile) && isProLocked && (
+                <span
+                  className={`ml-auto flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-colors ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/60'
+                  }`}
+                >
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>PRO</span>
                 </span>
               )}
             </button>

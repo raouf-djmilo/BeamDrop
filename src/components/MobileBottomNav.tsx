@@ -1,6 +1,7 @@
 import React from 'react';
-import { Zap, QrCode, Radio, Building2, Menu } from 'lucide-react';
+import { Zap, QrCode, Radio, Building2, Menu, Lock } from 'lucide-react';
 import { MainTab } from './Sidebar';
+import { useAuth } from '../context/AuthContext';
 
 interface MobileBottomNavProps {
   activeTab: MainTab;
@@ -13,6 +14,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onSelectTab,
   onOpenMobileMenu
 }) => {
+  const { userTier } = useAuth();
   const quickItems: Array<{
     id: MainTab;
     label: string;
@@ -44,8 +46,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <div className={`p-1 rounded-lg ${isActive ? 'bg-sky-50' : ''}`}>
+            <div className={`p-1 rounded-lg relative ${isActive ? 'bg-sky-50' : ''}`}>
               <Icon className="w-5 h-5 shrink-0" />
+              {(item.id === 'radar' || item.id === 'workspaces') && userTier !== 'pro' && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+              )}
             </div>
             <span className="text-[10px] tracking-tight mt-0.5 leading-none">
               {item.label}
