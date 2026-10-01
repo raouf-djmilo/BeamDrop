@@ -269,7 +269,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex font-sans selection:bg-sky-500 selection:text-white relative overflow-x-hidden">
+    <div className="h-screen max-h-screen overflow-hidden bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex font-sans selection:bg-sky-500 selection:text-white relative">
       {/* Background Soft Ambient Light Spheres (Liquid Glass Backdrop) */}
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-sky-300/30 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="fixed bottom-0 right-1/4 w-[450px] h-[450px] bg-cyan-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -295,7 +295,7 @@ function MainApp() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* PWA Native Install Banner */}
         {showInstallBanner && (
           <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 px-4 py-2.5 text-white flex items-center justify-between text-xs shadow-md">
@@ -350,7 +350,7 @@ function MainApp() {
         />
 
         {/* Main Tab Viewport: Driven Exclusively by Internal State `activeTab` */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 lg:pb-8">
+        <main className="flex-1 min-h-0 overflow-y-auto max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 lg:pb-8">
           <ErrorBoundary fallbackTitle={`Error Loading ${activeTab} View`} onReset={() => handleTabChange('sender')}>
             <React.Suspense
               fallback={
@@ -455,6 +455,11 @@ function MainApp() {
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
         triggerReason={pricingReason}
+        onOpenAuthModal={() => {
+          setAuthModalTab('signup');
+          setShowPricingModal(false);
+          setShowAuthModal(true);
+        }}
       />
     </div>
   );

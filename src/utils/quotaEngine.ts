@@ -1,6 +1,8 @@
 import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 
+declare const chrome: any;
+
 export type OperationTypeQuota = 'send' | 'receive' | 'qr_scan';
 export type UserTier = 'guest' | 'free' | 'pro';
 // Backward compatibility alias
@@ -247,7 +249,7 @@ export async function checkOperationQuota(
     max,
     remaining,
     tier,
-    plan: tier === 'pro' ? 'pro' : 'free',
+    plan: 'free',
     trigger,
     reason
   };

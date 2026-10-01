@@ -193,7 +193,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
       stopCamera();
       setTargetPeerId(peer);
       playChime('connect');
-      trackOp('qr_scan').catch((err) => console.warn('QR scan quota:', err));
+      trackOp('qr_scan').catch((err: any) => console.warn('QR scan quota:', err));
 
       // Vibrate if mobile device
       if (typeof navigator !== 'undefined' && navigator.vibrate) {

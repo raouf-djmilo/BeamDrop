@@ -13,7 +13,9 @@ import {
   HardDrive,
   Crown,
   Zap,
-  Sparkles
+  Sparkles,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatBytes } from '../utils/formatters';
@@ -201,6 +203,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
         </div>
+
+        {/* Manage PayPal Subscription (for PRO members) */}
+        {plan === 'pro' && (
+          <a
+            href="https://www.paypal.com/myaccount/autopay/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs font-semibold text-emerald-900 hover:bg-emerald-100/70 transition-colors my-1"
+          >
+            <div className="flex items-center space-x-2.5">
+              <CreditCard className="w-4 h-4 text-emerald-600" />
+              <span>Manage or Cancel PayPal Subscription</span>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+          </a>
+        )}
 
         {/* Transfers History Section */}
         <div className="flex-1 overflow-hidden flex flex-col min-h-[140px] pt-1">

@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* DESKTOP SIDEBAR: Slim (w-64) when expanded, Ultra-compact (w-16) when collapsed */}
       <aside
-        className={`hidden lg:flex shrink-0 flex-col min-h-screen bg-white/90 backdrop-blur-xl border-r border-sky-200/80 sticky top-0 h-screen z-30 transition-all duration-200 ${
+        className={`hidden lg:flex shrink-0 flex-col bg-white/90 backdrop-blur-xl border-r border-sky-200/80 sticky top-0 h-screen z-30 transition-all duration-200 ${
           isCollapsed ? 'w-16 p-2' : 'w-64 p-3.5'
         }`}
       >

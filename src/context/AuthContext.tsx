@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+
+declare const chrome: any;
 import {
   User,
   onAuthStateChanged,
@@ -70,7 +72,7 @@ interface AuthContextType {
   signOutUser: () => Promise<void>;
   recordTransfer: (fileName: string, fileSize: number, fileType: string, direction: 'sent' | 'received') => Promise<void>;
   trackOp: (type: OperationTypeQuota, bytes?: number) => Promise<QuotaCheckResult>;
-  activateProSubscription: () => Promise<void>;
+  activateProSubscription: (subscriptionId?: string, billingCycle?: 'monthly' | 'yearly') => Promise<void>;
   syncWithExtension: () => void;
 }
 
@@ -209,6 +211,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribeAuth();
   }, []);
+
+  // Listen to User Document in real-time (instant update when PayPal Webhook activates Pro)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubUserDoc = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserProfile((prev) => ({
+            uid: currentUser.uid,
+            fullName: data.fullName || currentUser.displayName || prev?.fullName || 'BeamDrop User',
+            username: data.username || prev?.username || (currentUser.email ? currentUser.email.split('@')[0] : 'user'),
+            email: data.email || currentUser.email || prev?.email || '',
+            plan: data.plan === 'pro' || data.tier === 'pro' ? 'pro' : 'free',
+            createdAt: data.createdAt || prev?.createdAt || Date.now(),
+            photoURL: currentUser.photoURL || data.photoURL || prev?.photoURL,
+            transfersCount: data.transfersCount || 0,
+            bytesTransferred: data.bytesTransferred || 0
+          }));
+        }
+      },
+      (err) => {
+        console.warn('Realtime user profile snapshot warning:', err);
+      }
+    );
+
+    return () => unsubUserDoc();
+  }, [currentUser]);
 
   // Listen to User Transfers subcollection when authenticated
   useEffect(() => {
@@ -437,11 +470,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Instant Pro subscription activation (for PayPal / Card subscription or simulation)
-  const activateProSubscription = async () => {
+  const activateProSubscription = async (subscriptionId?: string, billingCycle: 'monthly' | 'yearly' = 'yearly') => {
     if (!currentUser) return;
     try {
+      const subId = subscriptionId || `sub_instant_${Date.now()}`;
       const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, { plan: 'pro' });
+      await updateDoc(userRef, {
+        plan: 'pro',
+        tier: 'pro',
+        subscriptionId: subId,
+        subscriptionStatus: 'ACTIVE',
+        billingCycle,
+        updatedAt: Date.now()
+      });
+
+      try {
+        const subRef = doc(db, 'subscriptions', currentUser.uid);
+        await setDoc(
+          subRef,
+          {
+            uid: currentUser.uid,
+            subscriptionId: subId,
+            status: 'ACTIVE',
+            billingCycle,
+            plan: 'pro',
+            updatedAt: Date.now()
+          },
+          { merge: true }
+        );
+      } catch (_) {}
+
       setUserProfile((prev) => (prev ? { ...prev, plan: 'pro' } : null));
       syncWithExtension();
     } catch (err) {

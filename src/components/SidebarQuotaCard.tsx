@@ -142,7 +142,7 @@ export const SidebarQuotaCard: React.FC<SidebarQuotaCardProps> = ({
                 ? 'bg-rose-500'
                 : userTier === 'guest'
                 ? 'bg-slate-900 dark:bg-white'
-                : 'bg-gradient-to-r from-fuchsia-500 to-pink-500'
+                : 'bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-500'
             }`}
             style={{ width: `${pctUsed}%` }}
           />
@@ -260,7 +260,7 @@ export const SidebarQuotaCard: React.FC<SidebarQuotaCardProps> = ({
         <button
           type="button"
           onClick={onOpenPricingModal}
-          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 hover:opacity-95 text-white font-bold text-xs tracking-wide shadow-md shadow-pink-500/25 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white font-bold text-xs tracking-wide shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center space-x-1.5"
         >
           <Zap className="w-3.5 h-3.5 fill-white text-white shrink-0" />
           <span>Get BeamDrop+ ($4/mo)</span>

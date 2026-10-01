@@ -122,7 +122,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
       setVaultFiles((prev) => [file, ...prev]);
       playChime('complete');
       recordTransfer(file.name, file.size, file.type, 'received');
-      trackOp('receive', file.size).catch((err) => console.warn('Receive quota:', err));
+      trackOp('receive', file.size).catch((err: any) => console.warn('Receive quota:', err));
       notifySuccess(
         'File Received!',
         `${file.name} saved to local Vault.`,
@@ -182,7 +182,7 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
           setVaultFiles((prev) => [newFile, ...prev]);
           playChime('complete');
           recordTransfer(fileName, blob.size, blob.type || 'application/octet-stream', 'received');
-          trackOp('receive', blob.size).catch((err) => console.warn('Transit receive quota:', err));
+          trackOp('receive', blob.size).catch((err: any) => console.warn('Transit receive quota:', err));
 
           if (autoDownload) {
             const url = URL.createObjectURL(blob);

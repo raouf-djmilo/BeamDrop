@@ -65,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       {/* TOP NAVIGATION BAR (Responsive: Mobile Bar with Hamburger & Desktop Breadcrumbs Bar) */}
       <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-2xl border-b border-sky-200/70 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* LEFT ZONE: Mobile Hamburger Button & Brand + Desktop Breadcrumbs */}
           <div className="flex items-center space-x-3">
