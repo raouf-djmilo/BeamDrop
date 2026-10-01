@@ -11,7 +11,9 @@ import {
   Loader2,
   CheckCircle2,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { diagnoseFirebaseAuthError, AuthErrorDiagnosis } from '../firebase';
@@ -46,6 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<AuthErrorDiagnosis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   if (!isOpen) return null;
 
@@ -263,6 +266,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>{diagnosis.actionLabel || 'Fix in Console'}</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
+
+                {diagnosis.copyText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(diagnosis.copyText!);
+                      setCopiedDomain(true);
+                      setTimeout(() => setCopiedDomain(false), 2500);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-rose-200 font-semibold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                  >
+                    {copiedDomain ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-700">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 text-slate-600" />
+                        <span>Copy "{diagnosis.copyText}"</span>
+                      </>
+                    )}
+                  </button>
+                )}
 
                 {diagnosis.isApiDisabled && (
                   <a

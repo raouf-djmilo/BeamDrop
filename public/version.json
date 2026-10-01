@@ -79,9 +79,9 @@
       ]
     }
   ],
-  "buildHash": "54006f5",
-  "buildTimestamp": 1790884651,
-  "patchNotes": "feat(auth): implement subscription plans and usage tracking",
-  "commitSha": "54006f59419a3841b7a2d5eceaef085bdfdb803a",
-  "shortSha": "54006f5"
+  "buildHash": "4a4009a",
+  "buildTimestamp": 1790885411,
+  "patchNotes": "feat: enhance P2P transfer engine, add 3-tier quota system, and redesign sidebar quota card to luxury SaaS style",
+  "commitSha": "4a4009a6de6d4967841cdfc8dfd3d6a213fdb8d8",
+  "shortSha": "4a4009a"
 }

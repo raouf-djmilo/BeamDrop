@@ -78,6 +78,7 @@ export interface AuthErrorDiagnosis {
   actionUrl?: string;
   actionLabel?: string;
   isApiDisabled?: boolean;
+  copyText?: string;
 }
 
 /**
@@ -121,12 +122,15 @@ export function diagnoseFirebaseAuthError(error: any): AuthErrorDiagnosis {
 
   // 3. Domain not authorized in Firebase OAuth
   if (code === 'auth/unauthorized-domain') {
+    const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'beam-drop-mu.vercel.app';
+    const projectId = firebaseConfig.projectId || 'omega-photon-j6rpq';
     return {
-      title: 'Unauthorized Domain',
+      title: 'Unauthorized Domain in Firebase OAuth',
       message:
-        'This domain is not authorized for OAuth. Add it under Firebase Console > Authentication > Settings > Authorized domains.',
-      actionUrl: 'https://console.firebase.google.com/?authuser=1',
-      actionLabel: 'Open Authorized Domains in Firebase'
+        `Your domain "${currentDomain}" is not in the Firebase OAuth authorized domains list. Click below to open settings, click "Add domain", and paste "${currentDomain}".`,
+      actionUrl: `https://console.firebase.google.com/project/${projectId}/authentication/settings`,
+      actionLabel: 'Open Authorized Domains in Firebase',
+      copyText: currentDomain
     };
   }
 
