@@ -857,6 +857,7 @@ checkPendingShareFromBackground();
 // ==========================================
 // STAGE 2: PORTAL ENGINE (QR & P2P INITIALIZATION)
 // ==========================================
+let currentPortalUrl = '';
 let extensionQrNonce = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
 
 function generateExtensionNonce() {
@@ -1117,7 +1118,8 @@ async function startFilePortalSession(file) {
   if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${formatBytes(file.size)})`;
   if (qrScanInstruction) qrScanInstruction.textContent = 'Scan with your phone to download directly';
 
-  portalUrlText.textContent = targetUrl;
+  currentPortalUrl = targetUrl;
+  if (portalUrlText) portalUrlText.textContent = targetUrl;
 
   try {
     await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
@@ -1207,7 +1209,8 @@ async function startTextPortalSession(text) {
     }
   }
 
-  portalUrlText.textContent = targetUrl;
+  currentPortalUrl = targetUrl;
+  if (portalUrlText) portalUrlText.textContent = targetUrl;
 
   try {
     await QRCode.toCanvas(qrcodeCanvas, targetUrl, {
@@ -1235,10 +1238,11 @@ async function startTextPortalSession(text) {
 
 // Copy link handler
 btnCopyLink.addEventListener('click', () => {
-  if (!portalUrlText.textContent) return;
-  navigator.clipboard.writeText(portalUrlText.textContent).then(() => {
-    copyLinkText.textContent = 'Copied!';
-    setTimeout(() => { copyLinkText.textContent = 'Copy Link'; }, 2000);
+  const urlToCopy = currentPortalUrl || (portalUrlText ? portalUrlText.textContent : '');
+  if (!urlToCopy) return;
+  navigator.clipboard.writeText(urlToCopy).then(() => {
+    if (copyLinkText) copyLinkText.textContent = 'Copied!';
+    setTimeout(() => { if (copyLinkText) copyLinkText.textContent = 'Copy Link'; }, 2000);
   });
 });
 
@@ -1373,7 +1377,7 @@ async function createExtensionWatermarkedQr(targetUrl, name, size) {
 
 if (btnSaveQrWatermark) {
   btnSaveQrWatermark.addEventListener('click', async () => {
-    const targetUrl = portalUrlText.textContent;
+    const targetUrl = currentPortalUrl || (portalUrlText ? portalUrlText.textContent : '');
     if (!targetUrl) return;
     const name = activePreparedFile ? activePreparedFile.name : (stagedTextContent ? 'Beamed-Text' : 'BeamDrop');
     const size = activePreparedFile ? activePreparedFile.size : `${stagedTextContent.length} chars`;
@@ -1400,7 +1404,7 @@ if (btnSaveQrWatermark) {
 
 if (btnCopyQrImage) {
   btnCopyQrImage.addEventListener('click', async () => {
-    const targetUrl = portalUrlText.textContent;
+    const targetUrl = currentPortalUrl || (portalUrlText ? portalUrlText.textContent : '');
     if (!targetUrl) return;
     const name = activePreparedFile ? activePreparedFile.name : (stagedTextContent ? 'Beamed-Text' : 'BeamDrop');
     const size = activePreparedFile ? activePreparedFile.size : `${stagedTextContent.length} chars`;
@@ -1411,12 +1415,12 @@ if (btnCopyQrImage) {
         if (!blob) return;
         if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          copyQrImageText.textContent = 'Copied!';
-          setTimeout(() => { copyQrImageText.textContent = 'Copy QR Code'; }, 2000);
+          if (copyQrImageText) copyQrImageText.textContent = 'Copied!';
+          setTimeout(() => { if (copyQrImageText) copyQrImageText.textContent = 'Copy QR Code'; }, 2000);
         } else {
           navigator.clipboard.writeText(targetUrl);
-          copyQrImageText.textContent = 'Link Copied!';
-          setTimeout(() => { copyQrImageText.textContent = 'Copy QR Code'; }, 2000);
+          if (copyQrImageText) copyQrImageText.textContent = 'Link Copied!';
+          setTimeout(() => { if (copyQrImageText) copyQrImageText.textContent = 'Copy QR Code'; }, 2000);
         }
       }, 'image/png');
     } catch (e) {
