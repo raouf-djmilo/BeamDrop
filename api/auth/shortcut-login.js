@@ -104,9 +104,10 @@ export default async function handler(req, res) {
     let email = loginInput;
     const db = getFirestoreAdmin();
 
-    // 1. Resolve username to email if input does not contain '@'
-    if (!loginInput.includes('@')) {
-      const cleanUsername = loginInput.toLowerCase();
+    // 1. Resolve username to email if input is not a full email (handles @username or username)
+    const isFullEmail = loginInput.includes('@') && loginInput.includes('.');
+    if (!isFullEmail) {
+      const cleanUsername = loginInput.replace(/^@/, '').toLowerCase().trim();
       let resolved = false;
 
       if (db) {
@@ -228,11 +229,14 @@ export default async function handler(req, res) {
     // 4. Return clean, structured session for iOS Shortcut
     return res.status(200).json({
       success: true,
+      Success: true,
+      status: 'success',
       uid: uid,
       email: authData.email || email,
       username: username,
       fullName: fullName,
       tier: isPro ? 'pro' : 'free',
+      Tier: isPro ? 'Pro' : 'Free',
       plan: isPro ? 'pro' : 'free',
       isPro: isPro,
       dailyQuota: isPro ? 9999 : 15,

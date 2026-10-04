@@ -287,8 +287,24 @@ export default defineConfig(() => {
               }
 
               let email = loginInput;
-              if (!loginInput.includes('@')) {
-                email = `${loginInput.toLowerCase()}@gmail.com`;
+              const isFullEmail = loginInput.includes('@') && loginInput.includes('.');
+              if (!isFullEmail) {
+                const cleanUsername = loginInput.replace(/^@/, '').toLowerCase().trim();
+                try {
+                  const restRes = await fetch(
+                    `https://firestore.googleapis.com/v1/projects/a7flow-30981/databases/(default)/documents/usernames/${encodeURIComponent(cleanUsername)}`
+                  );
+                  if (restRes.ok) {
+                    const uData = await restRes.json();
+                    if (uData.fields?.email?.stringValue) {
+                      email = uData.fields.email.stringValue;
+                    }
+                  } else {
+                    email = `${cleanUsername}@gmail.com`;
+                  }
+                } catch (_) {
+                  email = `${cleanUsername}@gmail.com`;
+                }
               }
 
               try {
@@ -324,10 +340,13 @@ export default defineConfig(() => {
                 res.statusCode = 200;
                 res.end(JSON.stringify({
                   success: true,
+                  Success: true,
+                  status: 'success',
                   uid: authData.localId,
                   email: authData.email || email,
                   username: loginInput,
                   tier: 'free',
+                  Tier: 'Free',
                   dailyQuota: 15,
                   message: 'تم الدخول بنجاح! خطتك مجانية (15 عملية نقل يومياً).'
                 }));

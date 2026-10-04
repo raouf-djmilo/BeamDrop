@@ -9,7 +9,8 @@ import {
   signOut,
   signInWithPopup,
   GoogleAuthProvider,
-  updateProfile
+  updateProfile,
+  updatePassword
 } from 'firebase/auth';
 import {
   doc,
@@ -73,6 +74,7 @@ interface AuthContextType {
   recordTransfer: (fileName: string, fileSize: number, fileType: string, direction: 'sent' | 'received') => Promise<void>;
   trackOp: (type: OperationTypeQuota, bytes?: number) => Promise<QuotaCheckResult>;
   activateProSubscription: (subscriptionId?: string, billingCycle?: 'monthly' | 'yearly') => Promise<void>;
+  updateUserPassword: (newPass: string) => Promise<void>;
   syncWithExtension: () => void;
 }
 
@@ -560,6 +562,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Update User Password (for setting or changing password across Web, Extension & Shortcuts)
+  const updateUserPassword = async (newPass: string) => {
+    if (!auth.currentUser) throw new Error('You must be signed in to change password.');
+    if (!newPass || newPass.length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    await updatePassword(auth.currentUser, newPass);
+
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        passwordUpdatedAt: Date.now()
+      });
+    } catch (_) {}
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -578,6 +596,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recordTransfer,
         trackOp,
         activateProSubscription,
+        updateUserPassword,
         syncWithExtension
       }}
     >

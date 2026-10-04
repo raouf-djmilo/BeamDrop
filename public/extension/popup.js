@@ -3225,7 +3225,26 @@ if (formExtSignIn) {
     if (btnExtSubmitSignInText) btnExtSubmitSignInText.textContent = 'Signing in...';
 
     try {
-      let email = loginId;
+      let email = loginId.trim();
+      const isFullEmail = email.includes('@') && email.includes('.');
+      if (!isFullEmail) {
+        const cleanUsername = email.replace(/^@/, '').toLowerCase().trim();
+        try {
+          const uRes = await fetch(
+            `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/usernames/${encodeURIComponent(cleanUsername)}`
+          );
+          if (uRes.ok) {
+            const uData = await uRes.json();
+            if (uData.fields?.email?.stringValue) {
+              email = uData.fields.email.stringValue;
+            }
+          } else {
+            email = `${cleanUsername}@gmail.com`;
+          }
+        } catch (_) {
+          email = `${cleanUsername}@gmail.com`;
+        }
+      }
 
       // Direct Firebase Auth REST Call
       const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
