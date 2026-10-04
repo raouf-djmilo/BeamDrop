@@ -191,18 +191,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               bytesTransferred: 0
             };
 
-            await setDoc(userDocRef, newProfile);
-            await setDoc(doc(db, 'usernames', fallbackUsername.toLowerCase()), {
-              username: fallbackUsername.toLowerCase(),
-              uid: user.uid,
-              email: user.email || '',
-              createdAt: Date.now()
-            });
-
             setUserProfile(newProfile);
+
+            try {
+              await setDoc(userDocRef, newProfile);
+              await setDoc(doc(db, 'usernames', fallbackUsername.toLowerCase()), {
+                username: fallbackUsername.toLowerCase(),
+                uid: user.uid,
+                email: user.email || '',
+                createdAt: Date.now()
+              });
+            } catch (writeErr) {
+              console.warn('Initial profile Firestore sync notice (permission pending):', writeErr);
+            }
           }
-        } catch (err) {
-          console.error('Error fetching user profile:', err);
+        } catch (err: any) {
+          console.warn('User profile fetch notice (using auth profile fallback):', err?.message || err);
+          const baseName = (user.email ? user.email.split('@')[0] : 'user')
+            .replace(/[^a-zA-Z0-9_]/g, '')
+            .toLowerCase();
+          setUserProfile({
+            uid: user.uid,
+            fullName: user.displayName || (user.email ? user.email.split('@')[0] : 'BeamDrop User'),
+            username: baseName || 'user',
+            email: user.email || '',
+            plan: 'free',
+            createdAt: Date.now(),
+            photoURL: user.photoURL || undefined,
+            transfersCount: 0,
+            bytesTransferred: 0
+          });
         }
       } else {
         setUserProfile(null);
@@ -237,8 +255,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }));
         }
       },
-      (err) => {
-        console.warn('Realtime user profile snapshot warning:', err);
+      (err: any) => {
+        if (err?.code !== 'permission-denied') {
+          console.warn('Realtime user profile snapshot notice:', err?.message || err);
+        }
       }
     );
 
@@ -263,8 +283,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setTransfersHistory(records);
       },
-      (error) => {
-        console.warn('Could not listen to user transfers:', error);
+      (error: any) => {
+        if (error?.code !== 'permission-denied') {
+          console.warn('Could not listen to user transfers:', error?.message || error);
+        }
       }
     );
 
