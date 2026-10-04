@@ -7,6 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import util from 'util';
 import {defineConfig} from 'vite';
+import QRCode from 'qrcode';
 
 // execPromise removed
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -233,6 +234,109 @@ export default defineConfig(() => {
                 roomHash
               }));
               return;
+            }
+
+            // Vault QR Generator (/api/vault/qr) for iOS Shortcuts Quick Look
+            if (req.url && (req.url === '/api/vault/qr' || req.url.startsWith('/api/vault/qr?') || req.url.startsWith('/api/vault/qr/'))) {
+              const u = new URL(req.url, 'http://localhost');
+              const user = (u.searchParams.get('user') || u.searchParams.get('uid') || u.searchParams.get('peer') || 'mobile_vault').trim();
+              const format = (u.searchParams.get('format') || 'png').toLowerCase();
+              const targetUrl = `https://beam-drop-mu.vercel.app/?target=${encodeURIComponent(user)}&action=send`;
+              try {
+                const qrBuffer = await QRCode.toBuffer(targetUrl, {
+                  type: 'png',
+                  width: 720,
+                  margin: 2,
+                  errorCorrectionLevel: 'H',
+                  color: { dark: '#0369a1', light: '#ffffff' }
+                });
+                if (format === 'json') {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ success: true, user, targetUrl, dataUrl: `data:image/png;base64,${qrBuffer.toString('base64')}` }));
+                  return;
+                }
+                res.setHeader('Content-Type', 'image/png');
+                res.setHeader('Content-Length', qrBuffer.length.toString());
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+                res.statusCode = 200;
+                res.end(qrBuffer);
+                return;
+              } catch (e: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ success: false, error: e?.message || 'Failed' }));
+                return;
+              }
+            }
+
+            // iOS Shortcut Login (/api/auth/shortcut-login)
+            if (req.url && (req.url === '/api/auth/shortcut-login' || req.url.startsWith('/api/auth/shortcut-login?')) && req.method === 'POST') {
+              res.setHeader('Content-Type', 'application/json');
+              const body = await parseJsonBody(req);
+              const loginInput = (body?.loginInput || body?.username || body?.email || '').trim();
+              const password = (body?.password || '').trim();
+
+              if (!loginInput || !password) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({
+                  success: false,
+                  code: 'MISSING_CREDENTIALS',
+                  message: 'يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور'
+                }));
+                return;
+              }
+
+              let email = loginInput;
+              if (!loginInput.includes('@')) {
+                email = `${loginInput.toLowerCase()}@gmail.com`;
+              }
+
+              try {
+                const authRes = await fetch(
+                  `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyB0oAPZdDEGJZGMcZuxRaF_MUuheH0kcAk`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, returnSecureToken: true })
+                  }
+                );
+                const authData = await authRes.json();
+                if (!authRes.ok) {
+                  const errCode = authData.error?.message || 'AUTH_ERROR';
+                  if (errCode.includes('EMAIL_NOT_FOUND')) {
+                    res.statusCode = 404;
+                    res.end(JSON.stringify({
+                      success: false,
+                      code: 'USER_NOT_FOUND',
+                      message: `الحساب "${loginInput}" غير مسجل! افتح الموقع وسجل حسابك مجاناً.`
+                    }));
+                    return;
+                  }
+                  res.statusCode = 401;
+                  res.end(JSON.stringify({
+                    success: false,
+                    code: 'WRONG_PASSWORD',
+                    message: 'كلمة المرور غير صحيحة، يرجى التأكد من كتابتها بشكل صحيح.'
+                  }));
+                  return;
+                }
+
+                res.statusCode = 200;
+                res.end(JSON.stringify({
+                  success: true,
+                  uid: authData.localId,
+                  email: authData.email || email,
+                  username: loginInput,
+                  tier: 'free',
+                  dailyQuota: 15,
+                  message: 'تم الدخول بنجاح! خطتك مجانية (15 عملية نقل يومياً).'
+                }));
+                return;
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ success: false, message: 'خطأ في الاتصال بالسيرفر' }));
+                return;
+              }
             }
 
             // 1. Mesh Device Announcement & Heartbeat

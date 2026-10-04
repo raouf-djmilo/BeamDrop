@@ -48,7 +48,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           >
             <div className={`p-1 rounded-lg relative ${isActive ? 'bg-sky-50' : ''}`}>
               <Icon className="w-5 h-5 shrink-0" />
-              {(item.id === 'radar' || item.id === 'workspaces') && userTier !== 'pro' && (
+              {item.id === 'workspaces' && userTier !== 'pro' && (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 border border-white" />
               )}
             </div>

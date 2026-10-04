@@ -379,6 +379,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: Date.now()
       });
       setUserProfile(newProfile);
+      try {
+        const known = JSON.parse(localStorage.getItem('beamdrop_known_usernames') || '{}');
+        known[cleanUsername] = cleanEmail;
+        localStorage.setItem('beamdrop_known_usernames', JSON.stringify(known));
+      } catch (_) {}
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
     }
@@ -390,26 +395,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let targetEmail = input;
 
     if (!input.includes('@')) {
-      // Input is a username: look up email from usernames collection
+      // Input is a username: resolve email via cache or Firestore
       const cleanUsername = input.toLowerCase();
+
+      // 1. Check local cache first (instant, works offline, bypasses unauthenticated Firestore restrictions)
+      let resolvedEmail: string | null = null;
       try {
-        const usernameSnap = await getDoc(doc(db, 'usernames', cleanUsername));
-        if (!usernameSnap.exists()) {
-          throw new Error(`No account found with username "@${cleanUsername}". Check spelling or use your email.`);
+        const known = JSON.parse(localStorage.getItem('beamdrop_known_usernames') || '{}');
+        if (known[cleanUsername]) {
+          resolvedEmail = known[cleanUsername];
         }
-        targetEmail = usernameSnap.data()?.email;
-        if (!targetEmail) {
-          throw new Error('Could not find email linked to this username.');
+        const cachedUser = JSON.parse(localStorage.getItem('beamdrop_auth_user') || 'null');
+        if (cachedUser?.username?.toLowerCase() === cleanUsername && cachedUser?.email) {
+          resolvedEmail = cachedUser.email;
         }
-      } catch (err: any) {
-        if (err.message && (err.message.includes('No account found') || err.message.includes('Could not find'))) {
-          throw err;
+      } catch (_) {}
+
+      // 2. If not found in cache, attempt Firestore lookup
+      if (!resolvedEmail) {
+        try {
+          const usernameSnap = await getDoc(doc(db, 'usernames', cleanUsername));
+          if (usernameSnap.exists() && usernameSnap.data()?.email) {
+            resolvedEmail = usernameSnap.data().email;
+            try {
+              const known = JSON.parse(localStorage.getItem('beamdrop_known_usernames') || '{}');
+              known[cleanUsername] = resolvedEmail;
+              localStorage.setItem('beamdrop_known_usernames', JSON.stringify(known));
+            } catch (_) {}
+          }
+        } catch (lookupErr: any) {
+          // If Firestore denies access or rules not deployed, log warning and try graceful fallbacks
+          console.warn(`Firestore username lookup for "${cleanUsername}" unavailable, trying fallback:`, lookupErr.message || lookupErr);
         }
-        handleFirestoreError(err, OperationType.GET, `usernames/${cleanUsername}`);
+      }
+
+      if (resolvedEmail) {
+        targetEmail = resolvedEmail;
+      } else {
+        // 3. Fallback resolution: Try authenticating as cleanUsername@gmail.com
+        // When users type their username without domain (e.g. "a7flowdzd"), this seamlessly verifies their account
+        try {
+          const res = await signInWithEmailAndPassword(auth, `${cleanUsername}@gmail.com`, pass);
+          if (res.user) {
+            try {
+              const known = JSON.parse(localStorage.getItem('beamdrop_known_usernames') || '{}');
+              known[cleanUsername] = `${cleanUsername}@gmail.com`;
+              localStorage.setItem('beamdrop_known_usernames', JSON.stringify(known));
+            } catch (_) {}
+            return;
+          }
+        } catch (tryGmailErr: any) {
+          // If password was incorrect, propagate that specific error
+          if (tryGmailErr.code === 'auth/wrong-password' || tryGmailErr.code === 'auth/invalid-credential') {
+            throw tryGmailErr;
+          }
+          // Otherwise inform user cleanly
+          throw new Error(`Could not find an account for username "@${cleanUsername}". Please sign in with your full email address (e.g. ${cleanUsername}@gmail.com).`);
+        }
       }
     }
 
-    await signInWithEmailAndPassword(auth, targetEmail, pass);
+    const cred = await signInWithEmailAndPassword(auth, targetEmail, pass);
+    if (cred.user && !input.includes('@')) {
+      try {
+        const known = JSON.parse(localStorage.getItem('beamdrop_known_usernames') || '{}');
+        known[input.toLowerCase()] = targetEmail.toLowerCase();
+        localStorage.setItem('beamdrop_known_usernames', JSON.stringify(known));
+      } catch (_) {}
+    }
   };
 
   // Sign In with Google

@@ -90,10 +90,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signInWithEmailOrUsername(loginIdentifier, loginPassword);
       handleClose();
     } catch (err: any) {
-      console.error('Sign-in error:', err);
       const diag = diagnoseFirebaseAuthError(err);
       setDiagnosis(diag);
       setError(diag.message);
+      console.warn('Sign-in notice:', diag.message);
     } finally {
       setLoading(false);
     }
@@ -135,10 +135,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signUpWithEmail(fullName, username, email, signupPassword);
       handleClose();
     } catch (err: any) {
-      console.error('Sign-up error:', err);
       const diag = diagnoseFirebaseAuthError(err);
       setDiagnosis(diag);
       setError(diag.message);
+      console.warn('Sign-up notice:', diag.message);
     } finally {
       setLoading(false);
     }
@@ -153,11 +153,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       await signInWithGoogle();
       handleClose();
     } catch (err: any) {
-      console.error('Google auth error:', err);
       if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         const diag = diagnoseFirebaseAuthError(err);
         setDiagnosis(diag);
         setError(diag.message);
+        console.warn('Google auth notice:', diag.message);
       }
     } finally {
       setLoading(false);

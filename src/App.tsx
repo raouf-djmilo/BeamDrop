@@ -49,9 +49,9 @@ function resolveTabFromLocation(): MainTab {
     if (path.startsWith('/extension') || path.startsWith('/hub')) return 'extension';
     if (path.startsWith('/send')) return 'sender';
 
-    // 2. Query parameter check (?tab=... or ?mode=...)
+    // 2. Query parameter check (?tab=... or ?mode=... or ?action=...)
     const params = new URLSearchParams(window.location.search);
-    const mode = (params.get('mode') || params.get('tab') || '').toLowerCase();
+    const mode = (params.get('mode') || params.get('tab') || params.get('action') || '').toLowerCase();
     if (mode === 'receive' || mode === 'vault') return 'receive';
     if (mode === 'radar') return 'radar';
     if (mode === 'workspaces' || mode === 'rooms') return 'workspaces';
@@ -84,11 +84,28 @@ function MainApp() {
 
     try {
       const searchParams = new URLSearchParams(window.location.search);
-      const peer = searchParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
+      const targetParam = searchParams.get('target') || '';
+      let targetPeer = '';
+      if (targetParam) {
+        if (targetParam.includes('peer=')) {
+          try {
+            const parsed = new URL(targetParam, window.location.origin);
+            targetPeer = parsed.searchParams.get('peer') || '';
+          } catch (_) {
+            const m = targetParam.match(/peer=([^&]+)/);
+            if (m) targetPeer = m[1];
+          }
+        } else if (!targetParam.startsWith('http')) {
+          targetPeer = targetParam;
+        }
+      }
+
+      const action = searchParams.get('action');
+      const mode = searchParams.get('mode');
+      const peer = searchParams.get('peer') || targetPeer || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
       const name = decodeURIComponent(searchParams.get('name') || searchParams.get('file') || '');
       const size = parseInt(searchParams.get('size') || '0', 10);
       const mime = decodeURIComponent(searchParams.get('mime') || '');
-      const mode = searchParams.get('mode');
 
       const path = window.location.pathname;
       const isDlPath = path.startsWith('/download') || path.startsWith('/dl');
@@ -96,7 +113,7 @@ function MainApp() {
       const portalMatch = path.match(/\/portal\/([^\/]+)/);
       const portalId = portalMatch ? portalMatch[1] : '';
 
-      const isDirectDownload = Boolean(peer && mode !== 'app' && mode !== 'full' && mode !== 'scan' && mode !== 'scanner');
+      const isDirectDownload = Boolean(peer && action !== 'send' && mode !== 'app' && mode !== 'full' && mode !== 'scan' && mode !== 'scanner' && mode !== 'send' && mode !== 'receive' && mode !== 'vault');
 
       return {
         isDownload: (isDirectDownload || isDlPath) && Boolean(peer),
@@ -134,7 +151,11 @@ function MainApp() {
   };
 
   // Modals & PWA State
-  const [showMobileScanner, setShowMobileScanner] = useState<boolean>(false);
+  const [showMobileScanner, setShowMobileScanner] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('action') === 'send' || params.get('mode') === 'scan' || params.get('mode') === 'scanner';
+  });
   const [showExtensionModal, setShowExtensionModal] = useState<boolean>(false);
   const [showArchitectureModal, setShowArchitectureModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -370,22 +391,12 @@ function MainApp() {
               )}
 
               {activeTab === 'radar' && (
-                userTier === 'pro' ? (
-                  <SpiderRadarView
-                    onDirectBeamTarget={(peer) => {
-                      setTargetedPeer(peer);
-                      handleTabChange('sender');
-                    }}
-                  />
-                ) : (
-                  <LockedFeatureView
-                    featureId="radar"
-                    onUpgrade={() => {
-                      setPricingReason('Unlock Autonomous Hotspot Radar & Spatial P2P Discovery.');
-                      setShowPricingModal(true);
-                    }}
-                  />
-                )
+                <SpiderRadarView
+                  onDirectBeamTarget={(peer) => {
+                    setTargetedPeer(peer);
+                    handleTabChange('sender');
+                  }}
+                />
               )}
 
               {activeTab === 'workspaces' && (

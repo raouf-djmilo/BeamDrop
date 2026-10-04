@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           const isProLocked =
-            (tab.id === 'radar' || tab.id === 'workspaces' || tab.id === 'notebook') &&
+            (tab.id === 'workspaces' || tab.id === 'notebook') &&
             userTier !== 'pro';
 
           return (
