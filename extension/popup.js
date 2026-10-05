@@ -335,6 +335,7 @@ function openFloatingWindowFallback() {
 // ==========================================
 navTabSend.addEventListener('click', () => {
   currentActiveTab = 'send';
+  if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
   navTabSend.classList.add('active');
   if (navTabReceive) navTabReceive.classList.remove('active');
   if (navTabNearby) navTabNearby.classList.remove('active');
@@ -427,15 +428,20 @@ function initReceiveVault() {
   }
 
   // Poll Transit for incoming files from iOS Shortcuts & direct uploads
-  if (window._receiveTransitTimer) clearInterval(window._receiveTransitTimer);
+  if (window._receiveTransitTimer) {
+    clearInterval(window._receiveTransitTimer);
+    window._receiveTransitTimer = null;
+  }
   const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
     ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
     : "https://beam-drop-mu.vercel.app";
 
   window._receiveTransitTimer = setInterval(async () => {
-    if (!currentPeerId) return;
+    if (currentActiveTab !== 'receive' || !currentPeerId) return;
     try {
       const res = await fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`);
+      // 204 No Content or 404 means queue is currently empty: wait silently
+      if (res.status === 204 || res.status === 404) return;
       if (res.status === 200) {
         const remoteUrlHeader = res.headers.get('X-BeamDrop-Remote-Url');
         let blob;
@@ -459,14 +465,7 @@ function initReceiveVault() {
           blob: blob
         });
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        triggerChromeDownload(blob, fileName);
 
         // Fast drain for multi-file batches
         let pending = parseInt(res.headers.get('X-BeamDrop-Pending') || '0', 10);
@@ -482,19 +481,43 @@ function initReceiveVault() {
             time: new Date().toLocaleTimeString(),
             blob: nextBlob
           });
-          const nextUrl = URL.createObjectURL(nextBlob);
-          const nextA = document.createElement('a');
-          nextA.href = nextUrl;
-          nextA.download = nextName;
-          document.body.appendChild(nextA);
-          nextA.click();
-          document.body.removeChild(nextA);
-          setTimeout(() => URL.revokeObjectURL(nextUrl), 4000);
+          triggerChromeDownload(nextBlob, nextName);
           pending = parseInt(nextRes.headers.get('X-BeamDrop-Pending') || '0', 10);
         }
       }
     } catch (_) {}
   }, 2000);
+}
+
+function triggerChromeDownload(blob, fileName) {
+  try {
+    const url = URL.createObjectURL(blob);
+    if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+      chrome.downloads.download({
+        url: url,
+        filename: fileName,
+        saveAs: false
+      }, () => {
+        if (chrome.runtime.lastError) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      });
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+  } catch (_) {}
 }
 
 if (btnCopyReceiveAddress) {
@@ -539,6 +562,7 @@ function addVaultItem(item) {
 if (navTabNearby) {
   navTabNearby.addEventListener('click', () => {
     currentActiveTab = 'nearby';
+    if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
     navTabNearby.classList.add('active');
     navTabSend.classList.remove('active');
     if (navTabReceive) navTabReceive.classList.remove('active');
@@ -550,6 +574,7 @@ if (navTabNearby) {
 
 navTabUpdates.addEventListener('click', () => {
   currentActiveTab = 'updates';
+  if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
   if (navTabReceive) navTabReceive.classList.remove('active');
@@ -2606,6 +2631,7 @@ async function scanSpiderNetwork(isManual = false) {
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.success && Array.isArray(json.devices)) {
+          scanResult = json;
           json.devices.forEach(dev => {
             if (dev.id !== myDiscoveryPeerId) {
               registerDiscoveredPeer(dev);

@@ -716,8 +716,8 @@ export default defineConfig(() => {
                 }
 
                 if (!item || !item.buffer) {
-                  res.statusCode = 404;
-                  res.end(JSON.stringify({ error: 'not_found', peer }));
+                  res.statusCode = 204;
+                  res.end();
                   return;
                 }
 

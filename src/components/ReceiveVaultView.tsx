@@ -67,8 +67,10 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   const cryptoAddress = `BD-${shortPeer.slice(0, 4)}-${shortPeer.slice(4, 8) || 'ADDR'}-${shortPeer.slice(8, 12) || 'VAULT'}`;
 
   // Direct Mobile Scan & Transit Endpoint (Auto-detects Browser vs Shortcut)
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://beam-drop-mu.vercel.app';
-  const directMobileUrl = `${currentOrigin}/api/transit?peer=${peerId}`;
+  const canonicalTransitBase = (typeof window !== 'undefined' && !window.location.origin.includes('.run.app') && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1'))
+    ? window.location.origin
+    : 'https://beam-drop-mu.vercel.app';
+  const directMobileUrl = `${canonicalTransitBase}/api/transit?peer=${peerId}`;
 
   // Render high-res QR Code
   useEffect(() => {
@@ -150,8 +152,10 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
     const pollTransit = async () => {
       if (!isPolling) return;
       try {
-        const res = await fetch(`/api/transit?peer=${encodeURIComponent(peerId)}`);
-        if (res.status === 200) {
+        const res = await fetch(`${canonicalTransitBase}/api/transit?peer=${encodeURIComponent(peerId)}`);
+        if (res.status === 204 || res.status === 404) {
+          // Empty queue, continue polling silently
+        } else if (res.status === 200) {
           const remoteUrlHeader = res.headers.get('X-BeamDrop-Remote-Url');
           let blob: Blob;
           let fileName = '';

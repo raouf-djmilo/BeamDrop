@@ -83,8 +83,9 @@ export default async function handler(req, res) {
       return res.end();
     }
 
+    // Return 204 No Content for empty queue polling so browser DevTools logs zero 404 errors
     if (queue.length === 0) {
-      return res.status(404).json({ error: 'transit_not_found', peer });
+      return res.status(204).end();
     }
 
     // Pop the next queued item (FIFO)
@@ -121,13 +122,7 @@ export default async function handler(req, res) {
 
   // 2. PUSH / UPLOAD (iOS Shortcut Direct HTTP Upload or Multi-File Loop)
   if (req.method === 'POST') {
-    const chunks = [];
-    req.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-
-    req.on('end', () => {
-      let rawBuffer = Buffer.concat(chunks);
+    const processBuffer = (rawBuffer) => {
       const contentType = req.headers['content-type'] || '';
 
       // High-Capacity 1GB Remote Relay Dispatch (Bypasses Vercel 4.5MB payload limit)
@@ -225,6 +220,24 @@ export default async function handler(req, res) {
         queuePosition: queue.length,
         message: 'Object staged in RAM transit'
       });
+    };
+
+    // If body is already parsed by serverless runtime
+    if (req.body && (Buffer.isBuffer(req.body) || typeof req.body === 'string' || typeof req.body === 'object')) {
+      let b;
+      if (Buffer.isBuffer(req.body)) b = req.body;
+      else if (typeof req.body === 'string') b = Buffer.from(req.body, 'utf-8');
+      else b = Buffer.from(JSON.stringify(req.body), 'utf-8');
+      return processBuffer(b);
+    }
+
+    const chunks = [];
+    req.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      processBuffer(Buffer.concat(chunks));
     });
     return;
   }
