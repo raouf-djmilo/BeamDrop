@@ -58,9 +58,34 @@ async function packExtension() {
     "};\n";
   fs.writeFileSync(buildInfoPath, buildInfoJs, "utf8");
 
-  // Also copy to public/buildInfo.js
+  // Also copy key files to public/
   const publicBuildInfoPath = path.resolve(__dirname, "../public/buildInfo.js");
   fs.writeFileSync(publicBuildInfoPath, buildInfoJs, "utf8");
+
+  // Mirror extension folder into public/extension
+  const publicExtDir = path.resolve(__dirname, "../public/extension");
+  function copyDirRecursive(src, dest) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    for (const item of fs.readdirSync(src)) {
+      const srcPath = path.join(src, item);
+      const destPath = path.join(dest, item);
+      if (fs.statSync(srcPath).isDirectory()) {
+        copyDirRecursive(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+  copyDirRecursive(path.resolve(__dirname, "../extension"), publicExtDir);
+
+  // Copy updater pages directly to public root for web updater access
+  const updaterFiles = ["updater.html", "updater.js", "folderStore.js", "style.css", "manifest.json"];
+  for (const uf of updaterFiles) {
+    const srcF = path.resolve(__dirname, "../extension", uf);
+    if (fs.existsSync(srcF)) {
+      fs.copyFileSync(srcF, path.resolve(__dirname, "../public", uf));
+    }
+  }
 
   // 2. Sync to public/version.json
   const versionJsonPath = path.resolve(__dirname, "../public/version.json");

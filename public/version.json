@@ -79,9 +79,9 @@
       ]
     }
   ],
-  "buildHash": "4a4009a",
-  "buildTimestamp": 1790892938,
-  "patchNotes": "feat: enhance P2P transfer engine, add 3-tier quota system, and redesign sidebar quota card to luxury SaaS style",
-  "commitSha": "4a4009a6de6d4967841cdfc8dfd3d6a213fdb8d8",
-  "shortSha": "4a4009a"
+  "buildHash": "f295ee5",
+  "buildTimestamp": 1791207090,
+  "patchNotes": "Update .env.example",
+  "commitSha": "f295ee514bfd95d2c13408b64a873765679c36b5",
+  "shortSha": "f295ee5"
 }

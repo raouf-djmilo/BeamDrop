@@ -3023,6 +3023,90 @@ function renderNearbyDevices() {
 }
 
 // Bluetooth completely purged - 100% Local Wi-Fi Mesh
+let extTargetedPeer = null;
+
+const extTargetedPeerBanner = document.getElementById('extTargetedPeerBanner');
+const extTargetedPeerName = document.getElementById('extTargetedPeerName');
+const extTargetedPeerMeta = document.getElementById('extTargetedPeerMeta');
+const btnExtClearTargetedPeer = document.getElementById('btnExtClearTargetedPeer');
+
+if (btnExtClearTargetedPeer) {
+  btnExtClearTargetedPeer.addEventListener('click', () => {
+    extTargetedPeer = null;
+    if (extTargetedPeerBanner) extTargetedPeerBanner.style.display = 'none';
+  });
+}
+
+function initiateDirectBeam(peer) {
+  if (!peer) return;
+  playRadarBlipSound();
+
+  extTargetedPeer = peer;
+  if (extTargetedPeerBanner && extTargetedPeerName && extTargetedPeerMeta) {
+    extTargetedPeerName.textContent = `Targeting ${peer.name}`;
+    extTargetedPeerMeta.textContent = `${peer.ip || 'LAN Node'} • ${peer.latency ? peer.latency + 'ms' : '< 5ms'} • Mesh Link`;
+    extTargetedPeerBanner.style.display = 'flex';
+  }
+
+  // Switch to Beam tab
+  if (navTabSend) {
+    navTabSend.click();
+  }
+
+  // If already have staged content, establish connection directly
+  if (activePreparedFile || stagedTextContent) {
+    if (peer.id && myDiscoveryPeer && !myDiscoveryPeer.destroyed) {
+      try {
+        updateStatus('connecting', `Connecting to ${peer.name}...`);
+        const conn = myDiscoveryPeer.connect(peer.id, { reliable: true });
+        conn.on('open', () => {
+          conn.send({
+            type: 'TRANSFER_INVITE',
+            senderName: myDeviceName,
+            payloadType: activePreparedFile ? 'file' : 'text',
+            fileName: activePreparedFile ? activePreparedFile.name : 'Beamed Note',
+            fileSize: activePreparedFile ? activePreparedFile.size : (stagedTextContent ? stagedTextContent.length : 0)
+          });
+          setupConnectionHandlers(conn, activePreparedFile ? 'file' : 'text');
+        });
+        conn.on('error', (err) => {
+          console.debug('[BeamDrop Radar] Direct connect notice:', err);
+          updateStatus('idle', 'Ready');
+        });
+      } catch (err) {
+        console.debug('[BeamDrop Radar] Connection error:', err);
+      }
+    }
+  } else {
+    // If no file staged yet, prompt file selection
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+}
+
+function handleIncomingTransferInvite(conn, data) {
+  console.log('[BeamDrop Radar] Incoming transfer invite from:', data?.senderName || 'Peer', data);
+  try {
+    conn.send({ type: 'TRANSFER_ACCEPTED', receiverName: myDeviceName });
+  } catch (_) {}
+  setupConnectionHandlers(conn, data?.payloadType || 'file');
+}
+
+function handleRemoteTransferAccepted(conn) {
+  console.log('[BeamDrop Radar] Remote peer accepted transfer');
+  if (activePreparedFile) {
+    startBackpressureStream(conn, activePreparedFile);
+  } else if (stagedTextContent) {
+    streamTextPayload(conn);
+  }
+}
+
+function handleRemoteTransferDeclined(conn, data) {
+  console.log('[BeamDrop Radar] Remote peer declined transfer:', data);
+  updateStatus('idle', 'Transfer declined by remote device');
+}
 
 // ==========================================
 // Web-to-Extension User Profile & Quota Bridge

@@ -73,12 +73,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if auto-sync was requested via URL ?action=sync
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('action') === 'sync' || urlParams.get('action') === 'update') {
-    setTimeout(() => {
-      if (btnMasterSync) {
-        log('⚡ Auto-triggered Sync requested via URL parameter...');
-        btnMasterSync.click();
+    setTimeout(async () => {
+      let isAlreadyGranted = false;
+      if (currentDirHandle && typeof currentDirHandle.queryPermission === 'function') {
+        try {
+          const q = await currentDirHandle.queryPermission({ mode: 'readwrite' });
+          if (q === 'granted') isAlreadyGranted = true;
+        } catch (_) {}
       }
-    }, 600);
+
+      if (isAlreadyGranted) {
+        log('⚡ Write permission verified. Starting direct update...');
+        if (btnMasterSync) btnMasterSync.click();
+      } else {
+        log('👉 Click the glowing "1-Click Full Sync" button below to authorize folder write and update your extension.');
+        if (btnMasterSync) {
+          btnMasterSync.classList.add('pulse-highlight');
+          btnMasterSync.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }, 400);
   }
 });
 
@@ -308,6 +322,37 @@ if (btnStep1Select) {
   });
 }
 
+async function ensureFolderWritePermission(handle) {
+  if (!handle) return false;
+  // 1. Non-prompting query
+  try {
+    if (typeof handle.queryPermission === 'function') {
+      const q = await handle.queryPermission({ mode: 'readwrite' });
+      if (q === 'granted') return true;
+    }
+  } catch (_) {}
+
+  // 2. Direct gesture request
+  try {
+    if (typeof handle.requestPermission === 'function') {
+      const r = await handle.requestPermission({ mode: 'readwrite' });
+      if (r === 'granted') return true;
+    }
+  } catch (err) {
+    console.warn('requestPermission notice:', err);
+  }
+
+  // 3. FolderStore fallback
+  try {
+    if (window.BeamDropFolderStore && typeof window.BeamDropFolderStore.requestPermission === 'function') {
+      const r2 = await window.BeamDropFolderStore.requestPermission(handle, true);
+      if (r2 === 'granted') return true;
+    }
+  } catch (_) {}
+
+  return false;
+}
+
 // ─────────────────────────────────────────────────────────────
 // BUTTON 2: CLEAN FOLDER (THOROUGH & VERIFIED REMOVAL)
 // ─────────────────────────────────────────────────────────────
@@ -325,79 +370,49 @@ if (btnStep2Clean) {
 async function executeCleanFolder(dirHandle) {
   showLogStream();
   showProgress('🧹 Cleaning old files from folder...', 10);
-  log('⚡ Requesting write permissions for directory...');
+  log('⚡ Verifying write permissions for directory...');
 
   try {
-    if (dirHandle.requestPermission) {
-      try {
-        const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') {
-          throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
-        }
-      } catch (pErr) {
-        if (window.BeamDropFolderStore) {
-          const perm2 = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
-          if (perm2 !== 'granted') throw pErr;
-        }
-      }
-    } else if (window.BeamDropFolderStore) {
-      const perm = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
-      if (perm !== 'granted') {
-        throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
-      }
+    const hasPerm = await ensureFolderWritePermission(dirHandle);
+    if (!hasPerm) {
+      log('⚠️ Write permission not granted yet. Please click Allow in Chrome prompt.');
+      return false;
     }
 
-    log('🧹 Scanning directory contents to wipe all old data...');
+    log('🧹 Scanning directory contents to remove obsolete files...');
     let totalRemoved = 0;
 
-    // Up to 5 passes to prevent iterator mutation skip bug in browser
-    for (let pass = 1; pass <= 5; pass++) {
-      const itemsToDelete = [];
-      for await (const [name, handle] of dirHandle.entries()) {
-        if (name === '.git') continue; // preserve git repo if cloned
-        itemsToDelete.push({ name, kind: handle.kind });
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (name === '.git') continue;
+      // CRITICAL: Preserve running extension pages and core files to prevent Windows/Chrome file-lock DOMException!
+      if (
+        name === 'updater.html' ||
+        name === 'updater.js' ||
+        name === 'folderStore.js' ||
+        name === 'buildInfo.js' ||
+        name === 'manifest.json' ||
+        name === 'background.js' ||
+        name === 'popup.html' ||
+        name === 'popup.js'
+      ) {
+        continue;
       }
-
-      if (itemsToDelete.length === 0) {
-        break; // Completely empty
-      }
-
-      for (const item of itemsToDelete) {
-        try {
-          await dirHandle.removeEntry(item.name, { recursive: true });
-          totalRemoved++;
-          log(`🗑️ Removed ${item.kind === 'directory' ? 'folder' : 'file'}: ${item.name}`);
-        } catch (rmErr) {
-          console.warn(`Could not remove ${item.name}:`, rmErr);
-        }
-      }
-    }
-
-    // Strict Verification Pass
-    let remaining = 0;
-    const remainingNames = [];
-    for await (const [name] of dirHandle.entries()) {
-      if (name !== '.git') {
-        remaining++;
-        remainingNames.push(name);
+      try {
+        await dirHandle.removeEntry(name, { recursive: handle.kind === 'directory' });
+        totalRemoved++;
+        log(`🗑️ Cleaned: ${name}`);
+      } catch (rmErr) {
+        console.warn(`Could not remove ${name}:`, rmErr);
       }
     }
 
-    if (remaining > 0) {
-      log(`⚠️ Notice: ${remaining} items locked by system: ${remainingNames.join(', ')}`);
-      showProgress(`⚠️ Cleaned ${totalRemoved} items (${remaining} locked)`, 85);
-    } else {
-      log(`✨ Verification: Directory 100% empty and clean (0 files remaining). All old data wiped.`);
-      showProgress(`✓ Cleaned ${totalRemoved} items! Directory is completely clean.`, 100);
-      showToast(`✓ Cleaned ${totalRemoved} files! Ready to Inject.`);
-    }
-
-    log(`✅ SUCCESS: Clean complete! Folder is now pristine and ready for Step 3 (Inject).`);
+    log(`✨ Clean pass complete (${totalRemoved} files cleaned). Ready to inject.`);
+    showProgress(`✓ Clean complete! (${totalRemoved} files cleaned)`, 100);
+    showToast(`✓ Clean complete! Ready to inject.`);
     return true;
   } catch (err) {
-    console.error('Clean failed:', err);
-    log(`❌ Clean Error: ${err.message}`);
-    showProgress('Cleaning failed: ' + err.message, 0);
+    console.warn('Clean notice:', err);
+    log(`⚠️ Clean notice: ${err?.message || err}`);
     return false;
   }
 }
@@ -466,16 +481,20 @@ async function discoverExtensionFiles() {
 }
 
 async function fetchFileContent(fname) {
+  const isHttpHost = typeof window !== 'undefined' && window.location.protocol.startsWith('http');
   const sources = [
     // Priority 1: GitHub Raw (Directly from repository main branch)
     `${GITHUB_RAW_BASE}/${fname}?_t=${Date.now()}`,
-    // Priority 2: Current Host (Local development or Web App static files)
-    `${window.location.origin}/extension/${fname}?_t=${Date.now()}`,
-    // Priority 3: Current Host API proxy (/api/extension-file)
-    `${window.location.origin}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`,
-    // Priority 4: Vercel Production
-    `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`
+    // Priority 2: Vercel Production
+    `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`,
+    // Priority 3: Vercel Proxy
+    `${VERCEL_HOST}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`
   ];
+
+  if (isHttpHost) {
+    sources.splice(1, 0, `${window.location.origin}/extension/${fname}?_t=${Date.now()}`);
+    sources.splice(2, 0, `${window.location.origin}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`);
+  }
 
   let lastErr = null;
   for (const src of sources) {
@@ -496,9 +515,25 @@ async function executeInjectFiles(dirHandle) {
   showProgress('⚡ Starting GitHub & Cloud Stream Injection...', 5);
 
   try {
-    if (window.BeamDropFolderStore) {
-      const perm = await window.BeamDropFolderStore.requestPermission(dirHandle, true);
-      if (perm !== 'granted') {
+    let activeHandle = dirHandle;
+    let hasPerm = await ensureFolderWritePermission(activeHandle);
+
+    if (!hasPerm) {
+      log('📁 Please confirm or select your extension folder to grant write permission...');
+      if (typeof window.showDirectoryPicker === 'function') {
+        const freshHandle = await window.showDirectoryPicker({
+          id: 'beamdrop-extension-dir',
+          mode: 'readwrite'
+        });
+        if (!freshHandle) throw new Error('Folder selection was cancelled.');
+        activeHandle = freshHandle;
+        currentDirHandle = freshHandle;
+        currentFolderName = freshHandle.name || 'EXTN';
+        if (window.BeamDropFolderStore) {
+          await window.BeamDropFolderStore.saveFolderHandle(freshHandle);
+        }
+        showFolderLinked(currentFolderName);
+      } else {
         throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
       }
     }
@@ -522,7 +557,7 @@ async function executeInjectFiles(dirHandle) {
 
         // Handle subdirectories (icons/, libs/)
         const pathParts = fname.split(/[/\\]/);
-        let targetDir = dirHandle;
+        let targetDir = activeHandle;
 
         for (let p = 0; p < pathParts.length - 1; p++) {
           const subDirName = pathParts[p];
@@ -562,7 +597,7 @@ async function executeInjectFiles(dirHandle) {
       `};\n`;
 
     try {
-      const bHandle = await dirHandle.getFileHandle('buildInfo.js', { create: true });
+      const bHandle = await activeHandle.getFileHandle('buildInfo.js', { create: true });
       const bWritable = await bHandle.createWritable();
       await bWritable.write(new TextEncoder().encode(finalBuildInfo));
       await bWritable.close();
@@ -620,19 +655,23 @@ async function executeInjectFiles(dirHandle) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MASTER 1-CLICK SYNC: SELECT + CLEAN + INJECT
+// MASTER 1-CLICK SYNC: SELECT + INJECT DIRECT OVERWRITE
 // ─────────────────────────────────────────────────────────────
 if (btnMasterSync) {
   btnMasterSync.addEventListener('click', async () => {
     try {
-      if (!currentDirHandle) {
+      showLogStream();
+      log('⚡ [Master Sync] Initializing 1-Click Update...');
+
+      let targetHandle = currentDirHandle;
+
+      if (!targetHandle) {
+        log('📁 Step 1: Please select your extension folder on disk...');
         if (typeof window.showDirectoryPicker !== 'function') {
-          alert('File System Access API is not supported in this browser window.');
+          alert('File System Access API is not supported in this browser window. Please use the extension.zip download below.');
           return;
         }
 
-        showLogStream();
-        log('📁 [Master Sync] Step 1: Requesting folder...');
         const handle = await window.showDirectoryPicker({
           id: 'beamdrop-extension-dir',
           mode: 'readwrite'
@@ -640,6 +679,7 @@ if (btnMasterSync) {
 
         if (!handle) return;
         currentDirHandle = handle;
+        targetHandle = handle;
         currentFolderName = handle.name || 'EXTN';
         if (window.BeamDropFolderStore) {
           await window.BeamDropFolderStore.saveFolderHandle(handle);
@@ -647,19 +687,35 @@ if (btnMasterSync) {
         showFolderLinked(currentFolderName);
       }
 
-      // Step 2: Execute Clean
-      const cleaned = await executeCleanFolder(currentDirHandle);
-      if (!cleaned) {
-        log('⚠️ Clean phase encountered an issue, proceeding with overwrite injection...');
+      // Check / request write permission safely
+      let hasPerm = await ensureFolderWritePermission(targetHandle);
+      if (!hasPerm) {
+        log('📁 Requesting folder access authorization...');
+        if (typeof window.showDirectoryPicker === 'function') {
+          const freshHandle = await window.showDirectoryPicker({
+            id: 'beamdrop-extension-dir',
+            mode: 'readwrite'
+          });
+          if (freshHandle) {
+            currentDirHandle = freshHandle;
+            targetHandle = freshHandle;
+            currentFolderName = freshHandle.name || 'EXTN';
+            if (window.BeamDropFolderStore) {
+              await window.BeamDropFolderStore.saveFolderHandle(freshHandle);
+            }
+            showFolderLinked(currentFolderName);
+          }
+        }
       }
 
-      // Step 3: Execute Inject
-      await executeInjectFiles(currentDirHandle);
+      log('🚀 Injecting latest extension files from GitHub & Cloud mirror...');
+      await executeInjectFiles(targetHandle);
 
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Master sync failed:', err);
-        log(`❌ Master Sync Error: ${err.message}`);
+        log(`❌ Sync Error: ${err.message}`);
+        showProgress('Update failed: ' + err.message, 0);
       }
     }
   });

@@ -366,6 +366,87 @@
       text-align: center;
       box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
     }
+
+    /* Pulse Highlight Animation for Action Button */
+    @keyframes pulseMaster {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.7);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 0 10px rgba(2, 132, 199, 0);
+        transform: scale(1.02);
+      }
+    }
+    .pulse-highlight {
+      animation: pulseMaster 1.5s infinite ease-in-out !important;
+      border-color: #0284c7 !important;
+    }
+
+    /* Direct Download Alternatives Card */
+    .direct-download-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(186, 230, 253, 0.7);
+      border-radius: 18px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .download-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .download-icon {
+      font-size: 20px;
+    }
+    .download-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .download-sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .download-button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn-download-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-decoration: none;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .btn-download-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+      color: #ffffff;
+    }
+    .btn-download-pill.secondary {
+      background: rgba(240, 249, 255, 0.9);
+      color: #0369a1;
+      border: 1px solid rgba(186, 230, 253, 0.9);
+      box-shadow: none;
+    }
+    .btn-download-pill.secondary:hover {
+      background: #e0f2fe;
+      border-color: #38bdf8;
+      color: #0284c7;
+    }
   </style>
 </head>
 <body>
@@ -434,9 +515,31 @@
 
       <!-- MASTER 1-CLICK SYNC BUTTON -->
       <button id="btnMasterSync" class="btn-action btn-master">
-        <span>⚡ <strong>1-Click Full Sync (Select + Clean + Inject)</strong></span>
+        <span>⚡ <strong>1-Click Full Sync (Inject Latest Files)</strong></span>
         <span class="btn-meta-tag">Automated</span>
       </button>
+    </div>
+
+    <!-- Direct Package Download Fallback Box -->
+    <div class="direct-download-card">
+      <div class="download-card-header">
+        <span class="download-icon">📦</span>
+        <div>
+          <div class="download-title">Manual / 1-Click Update Alternatives</div>
+          <div class="download-sub">Guaranteed direct package downloads if browser folder permissions are restricted:</div>
+        </div>
+      </div>
+      <div class="download-button-row">
+        <a href="https://beam-drop-mu.vercel.app/extension.zip" download="extension.zip" class="btn-download-pill">
+          <span>⬇️ Download extension.zip</span>
+        </a>
+        <a href="https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/update.bat" download="update.bat" class="btn-download-pill secondary">
+          <span>💻 update.bat (Windows)</span>
+        </a>
+        <a href="https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/update.sh" download="update.sh" class="btn-download-pill secondary">
+          <span>🍎 update.sh (Mac/Linux)</span>
+        </a>
+      </div>
     </div>
 
     <!-- Live Progress Section -->
