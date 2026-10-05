@@ -241,6 +241,54 @@ export default defineConfig(() => {
               const u = new URL(req.url, 'http://localhost');
               const user = (u.searchParams.get('user') || u.searchParams.get('uid') || u.searchParams.get('peer') || 'mobile_vault').trim();
               const format = (u.searchParams.get('format') || 'png').toLowerCase();
+
+              const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim().replace('::ffff:', '');
+              const ua = (req.headers['user-agent'] || 'generic').toString().slice(0, 60);
+              let hash = 0;
+              const str = rawIp + '|' + ua;
+              for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+              }
+              const ipHash = 'ip_' + Math.abs(hash).toString(36);
+              const today = new Date().toISOString().split('T')[0];
+
+              if (!(global as any).__BEAMDROP_DEV_QUOTAS__) {
+                (global as any).__BEAMDROP_DEV_QUOTAS__ = new Map();
+              }
+              const devQuotas = (global as any).__BEAMDROP_DEV_QUOTAS__;
+              const isAuthenticated = user && user !== 'mobile_vault' && !user.startsWith('mobile_');
+              const cacheKey = isAuthenticated ? `user_${user}_${today}` : `guest_${ipHash}_${today}`;
+              const limits = isAuthenticated ? { maxScans: 15 } : { maxScans: 5 };
+              const currentUsage = devQuotas.get(cacheKey) || { qrScansCount: 0 };
+
+              if (currentUsage.qrScansCount >= limits.maxScans) {
+                if (format === 'json') {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = 403;
+                  res.end(JSON.stringify({
+                    success: false,
+                    code: 'QUOTA_EXCEEDED',
+                    message: isAuthenticated ? 'لقد استهلكت كوتا الاختصار اليومية (15/15)!' : 'لقد استهلكت كوتا الاختصار اليومية للزوار (5/5)!'
+                  }));
+                  return;
+                }
+                const warnBuffer = await QRCode.toBuffer(`https://beam-drop-mu.vercel.app/?upgrade=true&reason=quota_exceeded`, {
+                  type: 'png',
+                  width: 720,
+                  margin: 2,
+                  errorCorrectionLevel: 'H',
+                  color: { dark: '#e11d48', light: '#ffffff' }
+                });
+                res.setHeader('Content-Type', 'image/png');
+                res.statusCode = 200;
+                res.end(warnBuffer);
+                return;
+              }
+
+              currentUsage.qrScansCount = (currentUsage.qrScansCount || 0) + 1;
+              devQuotas.set(cacheKey, currentUsage);
+
               const targetUrl = `https://beam-drop-mu.vercel.app/?target=${encodeURIComponent(user)}&action=send`;
               try {
                 const qrBuffer = await QRCode.toBuffer(targetUrl, {
@@ -267,6 +315,134 @@ export default defineConfig(() => {
                 res.end(JSON.stringify({ success: false, error: e?.message || 'Failed' }));
                 return;
               }
+            }
+
+            // Unified Quota & Anti-Abuse Engine (/api/quota)
+            if (req.url && (req.url === '/api/quota' || req.url.startsWith('/api/quota?') || req.url.startsWith('/api/quota/'))) {
+              res.setHeader('Content-Type', 'application/json');
+              const u = new URL(req.url, 'http://localhost');
+              let body: any = {};
+              if (req.method === 'POST') {
+                body = await parseJsonBody(req);
+              }
+              const action = (u.searchParams.get('action') || body?.action || 'check').toLowerCase();
+              const uid = (body?.uid || u.searchParams.get('uid') || '').trim();
+              const guestId = (body?.guestId || u.searchParams.get('guestId') || '').trim();
+              const type = (body?.type || u.searchParams.get('type') || (action.includes('send') ? 'send' : action.includes('receive') ? 'receive' : 'send')).toLowerCase();
+              const bytes = Number(body?.bytes || u.searchParams.get('bytes') || 0);
+
+              const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim().replace('::ffff:', '');
+              const ua = (req.headers['user-agent'] || 'generic').toString().slice(0, 60);
+              let hash = 0;
+              const str = rawIp + '|' + ua;
+              for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+              }
+              const ipHash = 'ip_' + Math.abs(hash).toString(36);
+              const today = new Date().toISOString().split('T')[0];
+
+              if (!(global as any).__BEAMDROP_DEV_QUOTAS__) {
+                (global as any).__BEAMDROP_DEV_QUOTAS__ = new Map();
+              }
+              const devQuotas = (global as any).__BEAMDROP_DEV_QUOTAS__;
+              const cacheKey = uid ? `user_${uid}_${today}` : `guest_${ipHash}_${today}`;
+
+              const limits = uid ? { maxSends: 15, maxReceives: 15, maxScans: 15 } : { maxSends: 5, maxReceives: 5, maxScans: 5 };
+              const tier = uid ? 'free' : 'guest';
+
+              let currentUsage = devQuotas.get(cacheKey) || {
+                sendOperations: 0,
+                receiveOperations: 0,
+                qrScansCount: 0,
+                bytesTransferred: 0,
+                date: today
+              };
+
+              if (action === 'check') {
+                const remainingSends = Math.max(0, limits.maxSends - currentUsage.sendOperations);
+                const remainingReceives = Math.max(0, limits.maxReceives - currentUsage.receiveOperations);
+                const isAllowed = type === 'send' ? remainingSends > 0 : remainingReceives > 0;
+                res.statusCode = 200;
+                res.end(JSON.stringify({
+                  success: true,
+                  allowed: isAllowed,
+                  tier,
+                  usage: currentUsage,
+                  limits,
+                  remaining: { sends: remainingSends, receives: remainingReceives }
+                }));
+                return;
+              }
+
+              if (action === 'consume_send' || (action === 'consume' && type === 'send')) {
+                if (currentUsage.sendOperations >= limits.maxSends) {
+                  res.statusCode = 403;
+                  res.end(JSON.stringify({
+                    success: false,
+                    allowed: false,
+                    code: 'QUOTA_EXCEEDED',
+                    tier,
+                    trigger: tier === 'guest' ? 'auth_modal' : 'pricing_modal',
+                    message: tier === 'guest'
+                      ? 'لقد استهلكت كوتا الإرسال اليومية للزوار (5/5)! سجّل حسابك مجاناً للاستفادة من 15 عملية إرسال يومياً.'
+                      : 'لقد استهلكت كوتا الإرسال اليومية (15/15)! قم بالترقية إلى باقة PRO للحصول على إرسال غير محدود.'
+                  }));
+                  return;
+                }
+                currentUsage.sendOperations += 1;
+                currentUsage.qrScansCount += 1;
+                currentUsage.bytesTransferred += Math.max(0, bytes);
+                devQuotas.set(cacheKey, currentUsage);
+                res.statusCode = 200;
+                res.end(JSON.stringify({
+                  success: true,
+                  allowed: true,
+                  tier,
+                  action: 'send_engine_activated',
+                  remaining: {
+                    sends: Math.max(0, limits.maxSends - currentUsage.sendOperations),
+                    receives: Math.max(0, limits.maxReceives - currentUsage.receiveOperations)
+                  }
+                }));
+                return;
+              }
+
+              if (action === 'confirm_receive' || (action === 'consume' && type === 'receive')) {
+                if (currentUsage.receiveOperations >= limits.maxReceives) {
+                  res.statusCode = 403;
+                  res.end(JSON.stringify({
+                    success: false,
+                    allowed: false,
+                    code: 'QUOTA_EXCEEDED',
+                    tier,
+                    trigger: tier === 'guest' ? 'auth_modal' : 'pricing_modal',
+                    message: tier === 'guest'
+                      ? 'لقد استهلكت كوتا الاستلام اليومية للزوار (5/5)! سجّل حسابك مجاناً للاستمرار.'
+                      : 'لقد استهلكت كوتا الاستلام اليومية (15/15)! قم بالترقية إلى باقة PRO للاستلام غير المحدود.'
+                  }));
+                  return;
+                }
+                currentUsage.receiveOperations += 1;
+                currentUsage.bytesTransferred += Math.max(0, bytes);
+                devQuotas.set(cacheKey, currentUsage);
+                res.statusCode = 200;
+                res.end(JSON.stringify({
+                  success: true,
+                  allowed: true,
+                  tier,
+                  action: 'receive_delivery_confirmed',
+                  remaining: {
+                    sends: Math.max(0, limits.maxSends - currentUsage.sendOperations),
+                    receives: Math.max(0, limits.maxReceives - currentUsage.receiveOperations)
+                  }
+                }));
+                return;
+              }
+
+              res.statusCode = 400;
+              res.end(JSON.stringify({ success: false, message: 'Invalid action' }));
+              return;
             }
 
             // iOS Shortcut Login (/api/auth/shortcut-login)
