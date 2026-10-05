@@ -19,6 +19,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/mesh/announce", "destination": "/api/mesh" },
+    { "source": "/api/mesh/devices", "destination": "/api/mesh" },
     { "source": "/download", "destination": "/download.html" },
     { "source": "/dl", "destination": "/download.html" },
     { "source": "/notebook", "destination": "/notebook.html" },

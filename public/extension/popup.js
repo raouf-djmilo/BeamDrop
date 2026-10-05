@@ -2591,8 +2591,13 @@ async function scanSpiderNetwork(isManual = false) {
 
   let scanResult = null;
   const pinParam = currentRadarRoomPin ? ("&pin=" + encodeURIComponent(currentRadarRoomPin)) : "";
+  const subnetParam = (detectedMyLanIp && detectedMyLanIp !== 'Detecting...' && detectedMyLanIp.includes('.'))
+    ? ("&subnet=" + encodeURIComponent(detectedMyLanIp.split('.').slice(0, 3).join('.')))
+    : "";
+
   const cloudEndpoints = [
-    VERCEL_RECEIVER_URL + "/api/mesh/devices?_t=" + Date.now() + pinParam
+    VERCEL_RECEIVER_URL + "/api/mesh/devices?_t=" + Date.now() + pinParam + subnetParam,
+    VERCEL_RECEIVER_URL + "/api/mesh?_t=" + Date.now() + pinParam + subnetParam
   ];
 
   for (const ep of cloudEndpoints) {
@@ -2747,6 +2752,10 @@ function registerDiscoveredPeer(peerData) {
 
 function broadcastPresenceBeacon() {
   if (!myDiscoveryPeerId) return;
+  const subnet = (detectedMyLanIp && detectedMyLanIp !== 'Detecting...' && detectedMyLanIp.includes('.'))
+    ? detectedMyLanIp.split('.').slice(0, 3).join('.')
+    : undefined;
+
   const payload = {
     type: 'RADAR_BEACON',
     id: myDiscoveryPeerId,
@@ -2755,6 +2764,7 @@ function broadcastPresenceBeacon() {
     icon: myDeviceIcon,
     protocol: 'wifi',
     ip: detectedMyLanIp !== 'Detecting...' ? detectedMyLanIp : undefined,
+    subnet,
     pin: currentRadarRoomPin || undefined,
     timestamp: Date.now()
   };
@@ -2765,6 +2775,7 @@ function broadcastPresenceBeacon() {
   // Announce to Cloud & Local Signaling (PairDrop Same-Wi-Fi Discovery)
   const announceEndpoints = [
     `${VERCEL_RECEIVER_URL}/api/mesh/announce`,
+    `${VERCEL_RECEIVER_URL}/api/mesh`
   ];
 
   announceEndpoints.forEach(url => {
@@ -2772,7 +2783,18 @@ function broadcastPresenceBeacon() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).catch(() => {});
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json && Array.isArray(json.devices)) {
+          json.devices.forEach(dev => {
+            if (dev.id && dev.id !== myDiscoveryPeerId) {
+              registerDiscoveredPeer(dev);
+            }
+          });
+        }
+      })
+      .catch(() => {});
   });
 }
 

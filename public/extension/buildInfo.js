@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  commitSha: "f295ee514bfd95d2c13408b64a873765679c36b5",
-  shortSha: "f295ee5",
-  buildHash: "f295ee5",
-  buildTimestamp: 1791207090,
-  patchNotes: "Update .env.example"
+  commitSha: "0819341eca555f4a81e9bf2b5debcb9fc123192f",
+  shortSha: "0819341",
+  buildHash: "0819341",
+  buildTimestamp: 1791210878,
+  patchNotes: "feat: add targeted peer UI and sync flow improvements"
 };

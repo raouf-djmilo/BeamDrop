@@ -14,7 +14,13 @@ export const meshOrders = global.__BEAMDROP_MESH_ORDERS__;
 
 export function getClientNetworkHash(req, optionalPin = '') {
   const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
-  const cleanIp = rawIp.replace('::ffff:', '');
+  let cleanIp = rawIp.replace('::ffff:', '');
+
+  // Normalize IPv6 to /64 subnet prefix so all devices on same home router / hotspot match (PairDrop open-source standard)
+  if (cleanIp.includes(':')) {
+    const parts = cleanIp.split(':');
+    cleanIp = parts.slice(0, 4).join(':'); // First 64 bits (/64)
+  }
 
   let hash = 0;
   for (let i = 0; i < cleanIp.length; i++) {

@@ -44,5 +44,10 @@ service cloud.firestore {
       allow create, update: if isSignedIn();
       allow delete: if false;
     }
+
+    // Public / Mesh Radar Peer Presence (ephemeral real-time peer discovery)
+    match /mesh_radar/{peerId} {
+      allow read, write: if true;
+    }
   }
 }

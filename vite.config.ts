@@ -535,45 +535,54 @@ export default defineConfig(() => {
             }
 
             // 1. Mesh Device Announcement & Heartbeat
-            if (req.url?.startsWith('/api/mesh/announce') && req.method === 'POST') {
+            if ((req.url?.startsWith('/api/mesh/announce') || req.url === '/api/mesh' || req.url?.startsWith('/api/mesh?')) && req.method === 'POST') {
               res.setHeader('Content-Type', 'application/json');
               const data = await parseJsonBody(req);
               const u = new URL(req.url, 'http://localhost');
               const pin = (data?.pin || u.searchParams.get('pin') || '').toString().trim();
+              const subnet = data?.subnet || (data?.ip ? data.ip.split('.').slice(0, 3).join('.') : '');
+              const remoteIp = (req.socket?.remoteAddress || '127.0.0.1').replace('::ffff:', '');
+
               if (data && data.id) {
-                const remoteIp = (req.socket?.remoteAddress || '127.0.0.1').replace('::ffff:', '');
                 meshPeers.set(data.id, {
                   ...data,
                   pin,
+                  subnet,
                   ip: data.ip || (remoteIp === '127.0.0.1' ? '127.0.0.1' : remoteIp),
                   lastSeen: Date.now()
                 });
               }
               const now = Date.now();
+              const filtered = [];
               for (const [id, peer] of meshPeers.entries()) {
-                if (now - peer.lastSeen > 35000) meshPeers.delete(id);
+                if (now - peer.lastSeen > 35000) {
+                  meshPeers.delete(id);
+                } else if (!pin || (peer.pin && peer.pin === pin) || (subnet && peer.subnet === subnet)) {
+                  filtered.push(peer);
+                }
               }
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, count: meshPeers.size }));
+              res.end(JSON.stringify({ success: true, count: filtered.length, devices: filtered }));
               return;
             }
 
             // 2. Mesh Active Devices List
-            if (req.url?.startsWith('/api/mesh/devices')) {
+            if (req.url?.startsWith('/api/mesh/devices') || ((req.url === '/api/mesh' || req.url?.startsWith('/api/mesh?')) && req.method === 'GET')) {
               res.setHeader('Content-Type', 'application/json');
               const u = new URL(req.url, 'http://localhost');
               const pin = (u.searchParams.get('pin') || '').toString().trim();
+              const subnet = (u.searchParams.get('subnet') || '').toString().trim();
               const now = Date.now();
               const filtered = [];
               for (const [id, peer] of meshPeers.entries()) {
                 if (now - peer.lastSeen > 35000) {
                   meshPeers.delete(id);
-                } else if (!pin || (peer.pin && peer.pin === pin)) {
+                } else if (!pin || (peer.pin && peer.pin === pin) || (subnet && peer.subnet === subnet)) {
                   filtered.push(peer);
                 }
               }
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, devices: filtered }));
+              res.end(JSON.stringify({ success: true, count: filtered.length, devices: filtered }));
               return;
             }
 

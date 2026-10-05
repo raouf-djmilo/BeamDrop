@@ -12,9 +12,15 @@ export default function handler(req, res) {
   const rawIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
   const cleanIp = rawIp.replace('::ffff:', '');
 
+  let normalizedSubnetIp = cleanIp;
+  if (normalizedSubnetIp.includes(':')) {
+    const parts = normalizedSubnetIp.split(':');
+    normalizedSubnetIp = parts.slice(0, 4).join(':'); // First 64 bits (/64) for IPv6 router prefix
+  }
+
   let hash = 0;
-  for (let i = 0; i < cleanIp.length; i++) {
-    hash = (hash << 5) - hash + cleanIp.charCodeAt(i);
+  for (let i = 0; i < normalizedSubnetIp.length; i++) {
+    hash = (hash << 5) - hash + normalizedSubnetIp.charCodeAt(i);
     hash |= 0;
   }
   const roomHash = 'room-' + Math.abs(hash).toString(36).slice(0, 8);
