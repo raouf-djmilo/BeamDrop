@@ -237,7 +237,9 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
 
     // B. Fetch Public IP and room hash from /api/ip
     const fetchPublicRoomHash = async () => {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const endpoints = [
+        origin ? `${origin}/api/ip` : '/api/ip',
         '/api/ip',
         'https://beam-drop-mu.vercel.app/api/ip'
       ];
@@ -297,7 +299,9 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
   // 2. Fetch live active devices from Mesh Signaling (PairDrop / Snapdrop Same-Wi-Fi Architecture)
   const queryLocalMeshBackend = async (): Promise<boolean> => {
     const pinParam = roomPin ? ('&pin=' + encodeURIComponent(roomPin)) : '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const endpoints = [
+      origin ? `${origin}/api/mesh/devices?_t=${Date.now()}${pinParam}` : `/api/mesh/devices?_t=${Date.now()}${pinParam}`,
       '/api/mesh/devices?_t=' + Date.now() + pinParam,
       'https://beam-drop-mu.vercel.app/api/mesh/devices?_t=' + Date.now() + pinParam,
       '/api/scan-lan?_t=' + Date.now()
@@ -397,7 +401,9 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
     }
 
     const announceSelf = () => {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const endpoints = [
+        origin ? `${origin}/api/mesh/announce` : '/api/mesh/announce',
         '/api/mesh/announce',
         'https://beam-drop-mu.vercel.app/api/mesh/announce'
       ];
@@ -599,7 +605,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
           <div className="flex items-center space-x-2 text-slate-600 text-[11px]">
             <Smartphone className="w-4 h-4 text-sky-600 shrink-0" />
             <span>
-              Open <strong className="text-sky-700 font-mono font-bold">https://beam-drop-mu.vercel.app</strong> on your phone (same Wi-Fi) to appear instantly on radar!
+              Open <strong className="text-sky-700 font-mono font-bold">{typeof window !== 'undefined' ? window.location.origin : 'https://beam-drop-mu.vercel.app'}</strong> on your phone (same Wi-Fi) to appear instantly on radar!
             </span>
           </div>
 
@@ -680,6 +686,7 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
                 <div
                   key={peer.id}
                   onClick={() => setSelectedPeer(peer)}
+                  onDoubleClick={() => onDirectBeamTarget && onDirectBeamTarget(peer)}
                   style={{ left: `${peer.x}%`, top: `${peer.y}%` }}
                   className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20"
                 >
@@ -702,6 +709,26 @@ export const SpiderRadarView: React.FC<SpiderRadarViewProps> = ({ onDirectBeamTa
               );
             })}
           </div>
+
+          {/* Quick Action Selected Peer Bar */}
+          {selectedPeer && (
+            <div className="w-full mt-4 p-3 rounded-2xl bg-sky-50/95 border border-sky-300 flex items-center justify-between shadow-xs transition-all">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <span className="text-xl">{selectedPeer.icon}</span>
+                <div className="truncate">
+                  <p className="text-xs font-bold text-slate-900 truncate">{selectedPeer.name}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">{selectedPeer.ip} • {selectedPeer.latency}ms • Direct Mesh Link Ready</p>
+                </div>
+              </div>
+              <button
+                onClick={() => onDirectBeamTarget && onDirectBeamTarget(selectedPeer)}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-sky-600/20 cursor-pointer shrink-0 ml-2"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Beam Directly</span>
+              </button>
+            </div>
+          )}
 
           {/* Radar Legend Footer */}
           <div className="w-full mt-6 pt-4 border-t border-sky-100 flex items-center justify-around text-xs text-slate-500">

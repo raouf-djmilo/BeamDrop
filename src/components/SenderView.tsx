@@ -69,6 +69,27 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [remotePhoneStatus, setRemotePhoneStatus] = useState<PhoneStatusPayload | null>(null);
   const [active10MinPortal, setActive10MinPortal] = useState<EphemeralPortalSession | null>(null);
   const [copiedPortalLink, setCopiedPortalLink] = useState(false);
+  const [currentTargetPeer, setCurrentTargetPeer] = useState<any>(targetedPeer || null);
+  const [isConnectingTarget, setIsConnectingTarget] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (targetedPeer) {
+      setCurrentTargetPeer(targetedPeer);
+    }
+  }, [targetedPeer]);
+
+  const handleConnectTargetPeer = async () => {
+    if (!currentTargetPeer?.id) return;
+    setIsConnectingTarget(true);
+    try {
+      await transferManager.connect(currentTargetPeer.id);
+      notifySuccess('Mesh Bridge Connected', `Direct connection established with ${currentTargetPeer.name}`);
+    } catch (err: any) {
+      notifyError('Connection Failed', err?.message || 'Could not connect directly over LAN');
+    } finally {
+      setIsConnectingTarget(false);
+    }
+  };
 
   // Guards against re-entrant loops
   const lastRebuildTimeRef = useRef<number>(0);
@@ -484,7 +505,7 @@ export const SenderView: React.FC<SenderViewProps> = ({
       {/* Left Column: File Staging & Transfer Controls */}
       <div className="lg:col-span-7 space-y-5">
         {/* Targeted Peer Banner from Spider Radar */}
-        {targetedPeer && (
+        {currentTargetPeer && (
           <div className="bg-sky-50/90 backdrop-blur-xl rounded-2xl p-3 border border-sky-300 flex items-center justify-between shadow-sm">
             <div className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 border border-sky-300 flex items-center justify-center text-sm font-bold shadow-xs">
@@ -492,17 +513,45 @@ export const SenderView: React.FC<SenderViewProps> = ({
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Targeting {targetedPeer.name}</span>
-                  <span className="text-[10px] font-mono text-sky-700 font-semibold">({targetedPeer.ip})</span>
+                  <span>Targeting {currentTargetPeer.name}</span>
+                  <span className="text-[10px] font-mono text-sky-700 font-semibold">({currentTargetPeer.ip})</span>
                 </p>
                 <p className="text-[10px] text-slate-500 font-mono">
-                  Radar Ping: <span className="text-emerald-700 font-bold">{targetedPeer.latency || 4}ms</span> • RAM-to-RAM Bridge Ready
+                  Radar Ping: <span className="text-emerald-700 font-bold">{currentTargetPeer.latency || 4}ms</span> •{' '}
+                  {transferManager.isConnected ? (
+                    <span className="text-emerald-600 font-bold">Mesh Bridge Active</span>
+                  ) : (
+                    'RAM-to-RAM Bridge Ready'
+                  )}
                 </p>
               </div>
             </div>
-            <span className="text-[10px] font-mono font-bold bg-sky-100 text-sky-800 border border-sky-300 px-2 py-0.5 rounded-full">
-              Spider Link
-            </span>
+            <div className="flex items-center space-x-2">
+              {!transferManager.isConnected ? (
+                <button
+                  type="button"
+                  onClick={handleConnectTargetPeer}
+                  disabled={isConnectingTarget}
+                  className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[11px] shadow-xs transition-all cursor-pointer flex items-center space-x-1"
+                >
+                  <Zap className="w-3 h-3 fill-current" />
+                  <span>{isConnectingTarget ? 'Connecting...' : 'Connect Bridge'}</span>
+                </button>
+              ) : (
+                <span className="text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Bridge Linked</span>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setCurrentTargetPeer(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg text-xs"
+                title="Detach target"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 

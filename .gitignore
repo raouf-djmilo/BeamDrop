@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 public/extension.zip
+*.hm
+.*.hm
+

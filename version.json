@@ -1,7 +1,7 @@
 {
   "name": "BeamDrop",
-  "version": "1.5.2",
-  "latestVersion": "1.5.2",
+  "version": "1.6.2",
+  "latestVersion": "1.6.2",
   "releaseDate": "2026-09-29",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
