@@ -25,6 +25,10 @@ import { PricingModal } from './components/PricingModal';
 import { LockedFeatureView } from './components/LockedFeatureView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ActivityAuditDrawer } from './components/ActivityAuditDrawer';
+import { SecurityVulnerabilityScanner } from './components/SecurityVulnerabilityScanner';
+import { PacketTelemetryDashboard } from './components/PacketTelemetryDashboard';
+import { TrustedDevicesModal } from './components/TrustedDevicesModal';
+import { ClipboardSyncToast } from './components/ClipboardSyncToast';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { X, Zap } from 'lucide-react';
 
@@ -186,6 +190,9 @@ function MainApp() {
   const [pricingReason, setPricingReason] = useState<string>('');
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [showAuditDrawer, setShowAuditDrawer] = useState<boolean>(false);
+  const [showScannerModal, setShowScannerModal] = useState<boolean>(false);
+  const [showTelemetryModal, setShowTelemetryModal] = useState<boolean>(false);
+  const [showTrustedDevicesModal, setShowTrustedDevicesModal] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
 
@@ -337,6 +344,9 @@ function MainApp() {
         }}
         onOpenProfileModal={() => setShowProfileModal(true)}
         onOpenAuditDrawer={() => setShowAuditDrawer(true)}
+        onOpenScannerModal={() => setShowScannerModal(true)}
+        onOpenTelemetryModal={() => setShowTelemetryModal(true)}
+        onOpenTrustedDevicesModal={() => setShowTrustedDevicesModal(true)}
       />
 
       {/* Main Content Area */}
@@ -389,6 +399,9 @@ function MainApp() {
             setShowPricingModal(true);
           }}
           onOpenAuditDrawer={() => setShowAuditDrawer(true)}
+          onOpenScannerModal={() => setShowScannerModal(true)}
+          onOpenTelemetryModal={() => setShowTelemetryModal(true)}
+          onOpenTrustedDevicesModal={() => setShowTrustedDevicesModal(true)}
           showArchitectureModal={showArchitectureModal}
           setShowArchitectureModal={setShowArchitectureModal}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -410,6 +423,7 @@ function MainApp() {
                 <ReceiveVaultView
                   transferManager={transferManager}
                   onOpenMobileScanner={() => setShowMobileScanner(true)}
+                  onOpenTrustedDevicesModal={() => setShowTrustedDevicesModal(true)}
                 />
               )}
 
@@ -459,6 +473,7 @@ function MainApp() {
                   transferManager={transferManager}
                   receiverBaseUrl={receiverBaseUrl}
                   targetedPeer={targetedPeer}
+                  onOpenTrustedDevicesModal={() => setShowTrustedDevicesModal(true)}
                 />
               )}
             </React.Suspense>
@@ -533,6 +548,28 @@ function MainApp() {
         isOpen={showAuditDrawer}
         onClose={() => setShowAuditDrawer(false)}
       />
+
+      {/* In-App Vulnerability Scanner & Security Health Audit */}
+      <SecurityVulnerabilityScanner
+        isOpen={showScannerModal}
+        onClose={() => setShowScannerModal(false)}
+        transferManager={transferManager}
+      />
+
+      {/* Live Real-Time Packet & Network Telemetry Dashboard */}
+      <PacketTelemetryDashboard
+        isOpen={showTelemetryModal}
+        onClose={() => setShowTelemetryModal(false)}
+      />
+
+      {/* Trusted Devices Whitelist (AirDrop Style Zero-Click Auto-Accept) Modal */}
+      <TrustedDevicesModal
+        isOpen={showTrustedDevicesModal}
+        onClose={() => setShowTrustedDevicesModal(false)}
+      />
+
+      {/* Universal Continuous Bidirectional Clipboard Sync Toast */}
+      <ClipboardSyncToast />
 
       {/* PWA Universal Install Banner with iOS instructions */}
       <PWAInstallBanner />

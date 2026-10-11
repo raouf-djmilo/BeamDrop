@@ -26,18 +26,22 @@ import {
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { playChime } from '../utils/audio';
+import { saveTrustedDevice, isDeviceTrusted, detectPlatformFromUserAgent } from '../utils/engine/trustedDevices';
 
 interface ReceiverViewProps {
   transferManager: P2PTransferManager;
   initialTargetPeerId?: string;
+  onOpenTrustedDevicesModal?: () => void;
 }
 
 export const ReceiverView: React.FC<ReceiverViewProps> = ({
   transferManager,
-  initialTargetPeerId
+  initialTargetPeerId,
+  onOpenTrustedDevicesModal
 }) => {
   const [targetId, setTargetId] = useState<string>(initialTargetPeerId || '');
   const [receivedFiles, setReceivedFiles] = useState<TransferFile[]>([]);
+  const [isSenderTrusted, setIsSenderTrusted] = useState<boolean>(false);
   const [receivedTexts, setReceivedTexts] = useState<TextPayload[]>([]);
   const [currentIncomingFile, setCurrentIncomingFile] = useState<TransferFile | null>(null);
   const [autoDownload, setAutoDownload] = useState<boolean>(true);
@@ -157,8 +161,8 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
       releaseWakeLock();
       setReceivedFiles((prev) => [completedFile, ...prev]);
 
-      // Auto trigger download if enabled
-      if (autoDownload && completedFile.downloadUrl) {
+      // Auto trigger download if enabled or if file was auto-accepted from a trusted device
+      if ((autoDownload || completedFile.autoAccepted) && completedFile.downloadUrl) {
         triggerDownload(completedFile);
       }
     };
@@ -170,8 +174,25 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
 
     transferManager.onConnected = () => {
       playChime('connect');
+      if (transferManager.targetPeerId) {
+        isDeviceTrusted(transferManager.targetPeerId).then(setIsSenderTrusted).catch(() => {});
+      }
     };
   }, [transferManager, autoDownload]);
+
+  const handleTrustSender = async () => {
+    if (!transferManager.targetPeerId) return;
+    await saveTrustedDevice({
+      id: transferManager.targetPeerId,
+      name: transferManager.targetDeviceName || 'Connected Device',
+      platform: detectPlatformFromUserAgent(),
+      autoAcceptFiles: true,
+      allowClipboardSync: true,
+      trustedAt: Date.now(),
+      lastSeen: Date.now()
+    });
+    setIsSenderTrusted(true);
+  };
 
   const handleManualConnect = (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +210,37 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleShareFile = async (file: TransferFile) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        if (file.blob) {
+          const shareFile = new File([file.blob], file.name, {
+            type: file.type || 'application/octet-stream'
+          });
+          if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+            await navigator.share({
+              files: [shareFile],
+              title: file.name,
+              text: 'Delivered via BeamDrop P2P'
+            });
+            return;
+          }
+        }
+        await navigator.share({
+          title: file.name,
+          text: `Delivered via BeamDrop P2P: ${file.name}`,
+          url: file.downloadUrl || window.location.href
+        });
+      } else if (file.downloadUrl) {
+        triggerDownload(file);
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.warn('Native share notice:', e);
+      }
+    }
   };
 
   const copyTextToClipboard = (text: string, id: string) => {
@@ -485,6 +537,15 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                             </span>
                           </>
                         )}
+                        {file.autoAccepted && (
+                          <>
+                            <span>•</span>
+                            <span className="text-amber-700 font-semibold flex items-center space-x-1" title="Zero-click auto-accepted from whitelisted trusted device">
+                              <Zap className="w-3 h-3 text-amber-600 fill-amber-500" />
+                              <span>AirDrop Auto-Saved</span>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -500,6 +561,14 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                         <Eye className="w-4 h-4" />
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleShareFile(file)}
+                      className="p-2 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-sky-200 hover:border-emerald-300 rounded-xl text-xs transition-colors shadow-xs cursor-pointer"
+                      title="Share to Apps (WhatsApp, Telegram, Photos, etc.)"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => triggerDownload(file)}
                       className="px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white rounded-xl text-xs font-semibold shadow-md shadow-sky-500/20 flex items-center space-x-1.5 transition-all cursor-pointer"

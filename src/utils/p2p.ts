@@ -17,6 +17,9 @@ import {
   formatSafetyFingerprint
 } from './engine/crypto';
 import { recordAuditEntry } from './engine/auditLedger';
+import { meshBroadcastHub } from './engine/meshBroadcast';
+import { shouldAutoAccept, isDeviceTrusted, updateDeviceSettings } from './engine/trustedDevices';
+import { handleIncomingClipboardSync, registerOutgoingClipboardSync } from './engine/clipboardSync';
 
 export interface TransferFile {
   id: string;
@@ -38,6 +41,8 @@ export interface TransferFile {
   checksumVerified?: boolean;
   transitProtocol?: string;
   keyFingerprint?: string;
+  autoAccepted?: boolean;
+  senderTrusted?: boolean;
 }
 
 export interface DiskStreamSink {
@@ -70,7 +75,7 @@ export interface PhoneStatusPayload {
 }
 
 export interface PeerMessage {
-  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA' | 'PHONE_STATUS';
+  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA' | 'PHONE_STATUS' | 'CLIPBOARD_SYNC';
   fileId?: string;
   fileName?: string;
   fileSize?: number;
@@ -81,6 +86,7 @@ export interface PeerMessage {
   data?: ArrayBuffer | string;
   text?: string;
   device?: string;
+  senderName?: string;
   pingTime?: number;
   encrypted?: boolean;
   nextExpectedChunk?: number;
@@ -89,6 +95,7 @@ export interface PeerMessage {
   speed?: number;
   error?: string;
   checksum?: string;
+  timestamp?: number;
 }
 
 export const P2P_ICE_SERVERS: RTCIceServer[] = [
@@ -127,6 +134,9 @@ export class P2PTransferManager {
   public onPeersChange?: (peers: string[]) => void;
   public myPeerId: string = '';
   public connectedPeerId: string = '';
+  public targetPeerId: string = '';
+  public targetDeviceName: string = '';
+  public myDeviceName: string = typeof navigator !== 'undefined' && navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop / PC';
   public isConnected: boolean = false;
   public isConnecting: boolean = false;
 
@@ -363,6 +373,9 @@ export class P2PTransferManager {
     this.isConnected = true;
     this.isConnecting = false;
 
+    // Register in Multi-Peer Mesh Broadcast Manager
+    meshBroadcastHub.registerPeer(conn.peer);
+
     const devCount = this.activeConnections.size;
     this.onStatusChange?.(`Connected with peer (${devCount} device${devCount > 1 ? 's' : ''})`);
     this.onConnected?.(conn.peer);
@@ -386,6 +399,7 @@ export class P2PTransferManager {
     conn.on('close', () => {
       this.activeConnections.delete(conn.peer);
       this.connectedPeersList = Array.from(this.activeConnections.keys());
+      meshBroadcastHub.removePeer(conn.peer);
 
       if (this.activeConnections.size > 0) {
         this.connection = this.activeConnections.values().next().value || null;
@@ -620,6 +634,25 @@ export class P2PTransferManager {
             type: isUrl ? 'link' : isCode ? 'code' : 'text'
           };
           this.onTextReceive?.(payload);
+
+          // Auto-mirror to system clipboard via Universal Clipboard Sync
+          handleIncomingClipboardSync({
+            text: msg.text,
+            senderPeerId: this.targetPeerId || 'peer',
+            senderName: this.targetDeviceName || 'Paired Device',
+            timestamp: Date.now()
+          }).catch(() => {});
+        }
+        break;
+
+      case 'CLIPBOARD_SYNC':
+        if (msg.text) {
+          handleIncomingClipboardSync({
+            text: msg.text,
+            senderPeerId: this.targetPeerId || 'peer',
+            senderName: msg.senderName || this.targetDeviceName || 'Paired Device',
+            timestamp: Date.now()
+          }).catch(() => {});
         }
         break;
 
@@ -642,6 +675,7 @@ export class P2PTransferManager {
       case 'FILE_START':
         if (msg.fileId && msg.fileName && msg.fileSize !== undefined) {
           const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
+          const senderId = this.targetPeerId || '';
           const newFile: TransferFile = {
             id: msg.fileId,
             name: msg.fileName,
@@ -656,6 +690,16 @@ export class P2PTransferManager {
             keyFingerprint: keyFp,
             transitProtocol: 'WebRTC Direct P2P'
           };
+
+          // AirDrop-style zero-click auto-accept for whitelisted trusted devices
+          if (senderId) {
+            shouldAutoAccept(senderId).then((isAuto) => {
+              if (isAuto) {
+                newFile.autoAccepted = true;
+                newFile.senderTrusted = true;
+              }
+            }).catch(() => {});
+          }
           this.incomingFiles.set(msg.fileId, {
             metadata: newFile,
             chunks: new Map(),
@@ -826,6 +870,21 @@ export class P2PTransferManager {
     return this.sendMessage({
       type: 'TEXT_MSG',
       text
+    });
+  }
+
+  /**
+   * Universal Continuous Clipboard Sync
+   * Broadcasts copied text or code snippet to paired peers with deduplication hash
+   */
+  public async syncClipboard(text: string): Promise<boolean> {
+    if (!text || (!this.isConnected && this.activeConnections.size === 0)) return false;
+    await registerOutgoingClipboardSync(text);
+    return this.sendMessage({
+      type: 'CLIPBOARD_SYNC',
+      text,
+      senderName: this.myDeviceName,
+      timestamp: Date.now()
     });
   }
 
@@ -1031,6 +1090,21 @@ export class P2PTransferManager {
           lastTime = now;
           lastSent = sentBytes;
           onProgress?.(progress, speed);
+
+          // Update real-time packet telemetry & Multi-Peer mesh progress
+          meshBroadcastHub.recordTelemetrySample({
+            speedBytesPerSec: speed,
+            rttMs: this.currentRtt || 12,
+            bufferedAmountBytes: dc ? dc.bufferedAmount : 0
+          });
+          this.activeConnections.forEach((conn) => {
+            meshBroadcastHub.updatePeerProgress(
+              conn.peer,
+              progress,
+              speed,
+              progress >= 100 ? 'completed' : 'streaming'
+            );
+          });
         }
 
         // Yield event loop every 8 chunks to keep UI responsive

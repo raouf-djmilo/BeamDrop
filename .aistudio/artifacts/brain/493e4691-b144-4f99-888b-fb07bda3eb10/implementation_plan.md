@@ -1,88 +1,127 @@
-# Implementation Plan: Next-Gen Zero-Knowledge E2EE, Cryptographic Audit Ledger & Unified PWA Engine
+# Implementation Plan: AirDrop-Style Trusted Device Whitelist, Zero-Click Auto-Accept & Universal Continuous Clipboard Sync
 
-Upgrade the BeamDrop device-to-device transfer platform into an enterprise-grade, privacy-first transfer powerhouse featuring zero-knowledge AES-256-GCM chunk encryption, a persistent cryptographic transfer activity ledger with SHA-256 checksum audits, and a unified PWA-ready modular architecture.
-
----
-
-## 1. Technical Architecture & Protocols
-
-### A. Zero-Knowledge AES-256-GCM Pipeline
-- **Entropy & Key Derivation**: When generating QR codes and transfer links, generate a cryptographically secure 256-bit symmetric key (`crypto.getRandomValues`) placed exclusively in the URL fragment (`#key=...`). URL fragments are never transmitted over HTTP requests to signaling servers or cloud proxies.
-- **Chunk-by-Chunk Authenticated Encryption**:
-  - Each binary transfer chunk will be framed with a unique 12-byte initialization vector (IV) and a 16-byte GCM authentication tag: `[ 12-byte IV ] + [ Encrypted Payload ] + [ 16-byte Tag ]`.
-  - Automatic tamper detection: Decryption failure triggers immediate stream abort and tamper warning.
-- **Visual Cryptographic Fingerprint**: Display short SHA-256 key fingerprints (safety numbers) on both sender and receiver interfaces so users can verify peer identity with 100% confidence.
-
-### B. Persistent Activity Ledger & SHA-256 Integrity Audits
-- **Dual SHA-256 Streaming Hasher**: Calculate real-time SHA-256 digests on both sender and receiver using `crypto.subtle.digest` or incremental block hashing.
-- **Cryptographic Audit Ledger**:
-  - Persisted in browser `IndexedDB` with fallback to `localStorage`.
-  - Records: file name, byte size, MIME type, direction (Sent/Received), peer ID, transit protocol (WebRTC Direct P2P vs Fast Server Relay), transfer duration, average throughput (MB/s), sender SHA-256 checksum, receiver SHA-256 checksum, and audit status (`MATCH` / `MISMATCH`).
-- **Interactive Audit Modal & Export**:
-  - Verification badge on completed items with one-click checksum inspector.
-  - JSON & CSV export for compliance and auditing.
-  - Search, filter by status, and clear history actions.
-
-### C. Unified Modular Engine & Installable PWA
-- **Dedicated Web App Manifest**: Provide `/site.webmanifest` separate from the Chrome extension's `manifest.json`, declaring standalone display, theme colors, and icons.
-- **PWA Service Worker & Install Flow**:
-  - Clean `sw.js` cache management for offline app shell loading.
-  - In-app install banner with deferred prompt (`beforeinstallprompt`) supporting Android Chrome, Desktop Edge/Chrome, and iOS Safari instructions.
-- **Unified Transfer Engine Core**: Modular export structure linking WebRTC P2P (`p2p.ts`), stream-to-disk sink (`streamDiskSink.ts`), E2EE crypto (`crypto.ts`), and activity ledger (`auditLedger.ts`).
+This plan introduces industry-defining capabilities inspired by Apple AirDrop Continuity, Apple Universal Clipboard, and LocalSend/Snapdrop, engineered natively into BeamDrop's zero-cloud P2P architecture.
 
 ---
 
-## 2. Proposed Changes
+## 1. System Architecture & High-Level Flow
 
-### Core Engine & Cryptography
-#### `src/utils/engine/auditLedger.ts`
-- Implement robust `AuditLedger` service using `IndexedDB`:
-  - Methods: `recordTransfer()`, `getTransferHistory()`, `verifyFileChecksum()`, `exportLedgerAsJson()`, `clearLedger()`.
-  - Incremental SHA-256 calculation utilities for files and streaming chunks.
-
-#### `src/utils/engine/crypto.ts` & `src/utils/p2p.ts`
-- Connect `generateQrEntropyKey` and `importKeyFromHex` directly into `P2PTransferManager`.
-- Embed E2EE chunk encryption into `sendFile` and decryption into `receiveFile` / `StreamDiskSink`.
-- Append calculated SHA-256 checksum to `FILE_END` control frame so the receiver can verify bit-exact delivery.
-
-### User Interface & Experience
-#### `src/components/ActivityAuditDrawer.tsx` (New)
-- Dedicated sliding panel or tab view showcasing the full transfer history:
-  - Cryptographic badge indicator (`Tamper-Free SHA-256 Verified`).
-  - Speed, duration, and transit protocol indicators.
-  - One-click copy for checksums and file re-verification tool.
-
-#### `src/components/SenderView.tsx` & `src/components/ReceiverView.tsx`
-- Display active E2EE lock status indicator with key fingerprint preview.
-- Seamlessly pass the generated `#key=...` hash when creating QR codes and share links.
-- On transfer completion, immediately log to `AuditLedger` and display the SHA-256 verification status.
-
-#### `src/components/DirectDownloadPortal.tsx` & `src/components/MobileScannerPortal.tsx`
-- Parse `#key=...` from URL hash upon scan/open and decrypt binary frames automatically.
-- Display verified zero-knowledge lock badge in mobile header.
-
-#### `src/components/PWAInstallBanner.tsx` & `public/site.webmanifest`
-- Create `/public/site.webmanifest` configured for installable PWA compliance.
-- Update `index.html` to reference `/site.webmanifest`.
-- Implement responsive install prompt toast with dismiss and install triggers.
+```
++--------------------------------------------------------------------------------------------------+
+|                               BEAMDROP CONTINUITY & TRUST ENGINE                                  |
++--------------------------------------------------------------------------------------------------+
+                                                 │
+          ┌──────────────────────────────────────┴──────────────────────────────────────┐
+          ▼                                                                             ▼
++----------------------------------------+                    +----------------------------------------+
+| 1. TRUSTED DEVICE WHITELIST            |                    | 2. UNIVERSAL CLIPBOARD SYNC             |
+| - Whitelist storage (IndexedDB/Storage)|                    | - Bidirectional live text/code/link     |
+| - Cryptographic peer fingerprinting    |                    | - Real-time DataChannel relay           |
+| - AirDrop-style Zero-Click Auto-Accept |                    | - Anti-loop hash deduplication          |
+| - Per-device permissions (Auto-Save,   |                    | - Subtle floating toast notification    |
+|   Clipboard Sync, Revoke)              |                    | - 1-Click Copy with auto-paste support  |
++----------------------------------------+                    +----------------------------------------+
+          │                                                                             │
+          └──────────────────────────────────────┬──────────────────────────────────────┘
+                                                 ▼
++--------------------------------------------------------------------------------------------------+
+| ZERO-CLICK AUTO-ACCEPT PIPELINE:                                                                 |
+| 1. Sender beams file / clipboard item                                                            |
+| 2. Receiver validates sender peer ID & fingerprint against Trusted Device Whitelist              |
+| 3. IF TRUSTED: Automatically streams and saves to downloads (Zero UI Interruption)               |
+| 4. IF UNTRUSTED: Displays standard Accept/Decline approval card                                  |
++--------------------------------------------------------------------------------------------------+
+```
 
 ---
 
-## 3. Verification Plan
+## 2. Core Modules & Enhancements to Build
 
-### Automated Build & Syntax Checks
-- Run `npm run lint` (`tsc --noEmit`) to verify strict type correctness across all modified and new files.
-- Run `compile_applet` to confirm Vite production bundle builds without errors.
+### A. Trusted Devices Manager Engine (`src/utils/engine/trustedDevices.ts`)
+- **Persistent Storage**:
+  - IndexedDB table `beamdrop_trusted_devices` with localStorage fallback.
+  - Device Model:
+    ```ts
+    interface TrustedDevice {
+      id: string; // Peer ID or persistent device UUID
+      name: string; // e.g. "Raouf's iPhone 15 Pro", "MacBook Pro M3"
+      platform: 'ios' | 'android' | 'macos' | 'windows' | 'linux' | 'other';
+      fingerprint: string; // SHA-256 safety fingerprint or public key
+      autoAcceptFiles: boolean; // Skip approval dialog and save automatically
+      allowClipboardSync: boolean; // Participate in bidirectional clipboard mirroring
+      trustedAt: number;
+      lastSeen: number;
+    }
+    ```
+- **Verification Engine**:
+  - `isDeviceTrusted(peerId: string): boolean`
+  - `shouldAutoAccept(peerId: string): boolean`
+  - `trustDevice(device: TrustedDevice): Promise<void>`
+  - `revokeDevice(deviceId: string): Promise<void>`
+  - `updateDeviceSettings(deviceId: string, settings: Partial<TrustedDevice>): Promise<void>`
+
+### B. Universal Continuous Clipboard Sync Engine (`src/utils/engine/clipboardSync.ts`)
+- **Bidirectional Mirroring**:
+  - Listens for local clipboard / selection changes or user triggers.
+  - Dispatches `CLIPBOARD_SYNC` messages over active WebRTC DataChannel and background Fast Transit.
+- **Anti-Looping Cryptographic Deduplication**:
+  - Stores SHA-256 hash of last synced clipboard payload to prevent infinite echo loops between paired devices.
+- **Background & Foreground Handling**:
+  - When browser is focused and permission granted, auto-updates system clipboard.
+  - When focus is restricted, renders an instant interactive floating pill: `📋 Received Clipboard from [Device Name] (1-Tap Copy)`.
+
+### C. Transfer Pipeline Integration (`src/utils/p2p.ts` & `ReceiverView.tsx` & `DirectDownloadPortal.tsx`)
+- **Zero-Click Auto-Accept Trigger**:
+  - Upon receiving `FILE_START`, check `shouldAutoAccept(peerId)`.
+  - If trusted: immediately accepts transfer order without opening manual confirmation prompts, streams directly to memory/disk sink, and triggers completion chime.
+- **1-Click "Trust This Device" Action**:
+  - Added to connected peer status bars, receiver file cards, and scanner views so users can whitelist their own personal devices in 1 tap.
+
+### D. Trusted Devices Management Modal (`src/components/TrustedDevicesModal.tsx`)
+- **AirDrop-Style Device Whitelist UI**:
+  - View all remembered devices with device platform icons (Apple, Android, Windows, Linux).
+  - Live online/offline status indicators.
+  - Toggle switches:
+    - `⚡ Auto-Accept Transfers (Zero Confirmation Needed)`
+    - `📋 Universal Clipboard Sharing`
+  - "Revoke Trust" and "Rename Device" actions.
+  - Clean floating launcher in Header and Sidebar with active trusted devices count badge.
+
+### E. Universal Clipboard Toolbar & Quick Widget
+- Added to `Header.tsx`, `Sidebar.tsx`, and `SenderView.tsx`:
+  - Quick toggle for "Live Clipboard Sync".
+  - Shows current synced clipboard snippet preview and connection status.
+
+---
+
+## 3. Step-by-Step Implementation Order
+
+1. **Step 1: Build `trustedDevices.ts` & `clipboardSync.ts` Engines**:
+   - Create storage, verification, and hash-deduplicated clipboard synchronization algorithms.
+2. **Step 2: Update P2P Transfer Pipeline (`p2p.ts` & `ReceiverView.tsx`)**:
+   - Integrate auto-accept check on incoming file transfers.
+   - Add "Trust This Device" quick actions upon pairing.
+3. **Step 3: Create `TrustedDevicesModal.tsx` & Clipboard Sync Widget**:
+   - Design high-fidelity liquid-glass modal with device cards, toggles, and security fingerprints.
+4. **Step 4: Integrate into Navigation & Top Bar (`Header.tsx`, `Sidebar.tsx`, `App.tsx`)**:
+   - Add Trusted Devices & Clipboard Sync buttons, badges, and notification toasts.
+5. **Step 5: Verification & Quality Assurance**:
+   - Run `lint_applet` (`tsc --noEmit`) and `compile_applet`.
+   - Verify zero-click auto-accept and clipboard mirroring without race conditions.
+
+---
+
+## 4. Verification Plan
+
+### Automated Verification
+- Verify TypeScript compiles cleanly with zero type errors (`npm run lint`).
+- Verify production build finishes cleanly (`compile_applet`).
 
 ### Manual Verification Scenarios
-1. **End-to-End Encryption Validation**:
-   - Send file with E2EE key generated in QR code `#key=...`.
-   - Verify network packet payloads are ciphertext (non-plaintext) with valid 12-byte IV and 16-byte GCM tags.
-   - Verify receiver successfully decrypts and writes file to disk.
-2. **SHA-256 Integrity Audit**:
-   - Transfer sample image/file.
-   - Confirm sender and receiver calculate identical SHA-256 hashes.
-   - Check that the transfer appears in the Activity Audit Ledger marked as `VERIFIED`.
-3. **PWA Compliance**:
-   - Inspect manifest link in `index.html` and verify standalone PWA metadata.
-   - Verify install prompt trigger behaves properly on mobile and desktop viewports.
+1. **AirDrop-Style Auto-Accept**:
+   - Add a device to the Trusted Devices whitelist with Auto-Accept enabled.
+   - Send a file from that device; verify the receiver automatically downloads/saves it with zero confirmation prompts.
+2. **Universal Clipboard Sync**:
+   - Enable Clipboard Sync and send text from one device; verify the second device receives it with instant toast and clipboard update.
+3. **Device Whitelist Management**:
+   - Open Trusted Devices Modal; verify toggle switches update permissions and revoking trust restores manual confirmation prompts.

@@ -17,12 +17,18 @@ import {
   Cpu,
   HelpCircle,
   Settings,
-  Chrome,
-  AlertCircle,
   RefreshCw,
-  X
+  X,
+  MousePointerClick,
+  Share2,
+  Code,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  AlertCircle
 } from 'lucide-react';
 import { getExtensionFiles, fetchExtensionFiles, generateExtensionZipBlob, ExtensionFile } from '../extension-source/extensionFiles';
+import { useTransfer } from '../context/TransferContext';
+import { useNotification } from '../context/NotificationContext';
 
 interface ExtensionHubProps {
   receiverBaseUrl: string;
@@ -39,6 +45,75 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
   const [folderErrorMessage, setFolderErrorMessage] = useState<string>('');
   const [copiedChromeUrl, setCopiedChromeUrl] = useState<boolean>(false);
   const [files, setFiles] = useState<ExtensionFile[]>(() => getExtensionFiles(receiverBaseUrl));
+  const { transferManager, isConnected } = useTransfer();
+  const { notifySuccess, notifyInfo } = useNotification();
+  const [syncedExtension, setSyncedExtension] = useState<boolean>(false);
+  const [testingBeam, setTestingBeam] = useState<string | null>(null);
+  const [isExtensionDetected, setIsExtensionDetected] = useState<boolean>(false);
+  const [extensionVersion, setExtensionVersion] = useState<string>('');
+
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'BEAMDROP_EXT_PRESENT' || e.data?.type === 'BEAMDROP_EXT_INSTALLED_ACK') {
+        setIsExtensionDetected(true);
+        if (e.data.version) setExtensionVersion(e.data.version);
+      }
+      if (e.data?.type === 'BEAMDROP_EXT_SYNC_ACK') {
+        setSyncedExtension(true);
+        setIsExtensionDetected(true);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    window.postMessage({ type: 'BEAMDROP_CHECK_EXT_INSTALLED' }, '*');
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleSyncToExtension = () => {
+    const payload = {
+      action: 'sync_beamdrop_session',
+      peerId: transferManager.myPeerId,
+      token: transferManager.activeSessionToken,
+      receiverBaseUrl: customUrl || receiverBaseUrl,
+      keyHex: transferManager.sessionRawKeyHex || ''
+    };
+
+    if (typeof window !== 'undefined') {
+      window.postMessage({ type: 'BEAMDROP_EXT_SYNC', ...payload }, '*');
+      try {
+        if ((window as any).chrome?.runtime?.sendMessage) {
+          (window as any).chrome.runtime.sendMessage(payload, () => {});
+        }
+      } catch (_) {}
+    }
+
+    setSyncedExtension(true);
+    notifySuccess('Extension Synced!', 'Paired with browser extension. Right-click any webpage element to beam to phone!');
+    setTimeout(() => setSyncedExtension(false), 3000);
+  };
+
+  const handleTestBeamElement = async (type: 'image' | 'text' | 'link') => {
+    setTestingBeam(type);
+    try {
+      if (type === 'image') {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs><rect width="600" height="400" fill="url(#g)"/><text x="50%" y="45%" font-family="sans-serif" font-size="28" font-weight="bold" fill="#ffffff" text-anchor="middle">⚡ Beamed via BeamDrop</text><text x="50%" y="60%" font-family="sans-serif" font-size="16" fill="#e0f2fe" text-anchor="middle">Universal Web Beam Engine</text></svg>`;
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const file = new File([blob], 'beamed_sample_graphic.svg', { type: 'image/svg+xml' });
+        await transferManager.sendFile(file);
+        notifySuccess('Image Beamed!', 'Sample graphic delivered directly to your device.');
+      } else if (type === 'text') {
+        const sampleSnippet = `const beamdrop = new BeamDropClient({\n  zeroKnowledge: true,\n  cipher: "AES-256-GCM"\n});`;
+        transferManager.sendText(sampleSnippet);
+        notifySuccess('Text Beamed!', 'Code snippet beamed to mobile clipboard.');
+      } else if (type === 'link') {
+        transferManager.sendText('https://beam-drop-mu.vercel.app');
+        notifySuccess('Link Beamed!', 'Web link sent to mobile browser.');
+      }
+    } catch (_) {
+      notifyInfo('Staged for Mobile', 'Pair your phone via QR to receive items in real time.');
+    } finally {
+      setTimeout(() => setTestingBeam(null), 1000);
+    }
+  };
   const [gitStatus, setGitStatus] = useState<{
     sha: string;
     shortSha: string;
@@ -373,6 +448,117 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
           </button>
         </div>
       )}
+
+      {/* KILLER FEATURE SPOTLIGHT: Universal Right-Click Web Beam & Interactive Sandbox */}
+      <div className="bg-gradient-to-br from-slate-900 via-sky-950/60 to-slate-900 border border-sky-500/40 rounded-3xl p-6 shadow-2xl relative overflow-hidden space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/25 shrink-0">
+              <MousePointerClick className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Universal Right-Click Web Beam (Zero Clicks on PC)
+                </h3>
+                <span className="text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30 px-2 py-0.5 rounded-full">
+                  KILLER FEATURE
+                </span>
+                {isExtensionDetected && (
+                  <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Extension Active (v{extensionVersion || '1.6.2'})</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                Right-click any image, highlighted text, or link on any website on your PC &rarr; delivered directly to your phone in background RAM without saving to PC disk first.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSyncToExtension}
+            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 flex items-center justify-center space-x-2 transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            {syncedExtension ? <Check className="w-4 h-4 text-emerald-300" /> : <RefreshCw className="w-4 h-4" />}
+            <span>{syncedExtension ? 'Extension Synced!' : '1-Click Sync to Extension'}</span>
+          </button>
+        </div>
+
+        {/* Live Interactive Sandbox: Test Beaming Right Now */}
+        <div className="border border-sky-500/20 bg-slate-950/60 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-mono font-bold text-sky-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <span>Interactive Test Sandbox (Click to Test-Beam to Phone):</span>
+            </span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {isConnected ? 'Phone Connected & Ready' : 'Pair Phone via QR to receive'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Test Image Beam */}
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-sky-500/20 flex flex-col justify-between space-y-2.5">
+              <div className="flex items-center space-x-2.5 text-xs text-white font-semibold">
+                <ImageIcon className="w-4 h-4 text-sky-400" />
+                <span>High-Res Graphic</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Streams sample SVG/PNG directly into mobile downloads gallery.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleTestBeamElement('image')}
+                disabled={testingBeam !== null}
+                className="w-full py-2 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+              >
+                <span>{testingBeam === 'image' ? 'Beaming...' : '⚡ Test Beam Image'}</span>
+              </button>
+            </div>
+
+            {/* Test Code / Text Beam */}
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-sky-500/20 flex flex-col justify-between space-y-2.5">
+              <div className="flex items-center space-x-2.5 text-xs text-white font-semibold">
+                <Code className="w-4 h-4 text-emerald-400" />
+                <span>Code / Text Snippet</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Beams selected code or text directly to phone clipboard.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleTestBeamElement('text')}
+                disabled={testingBeam !== null}
+                className="w-full py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+              >
+                <span>{testingBeam === 'text' ? 'Beaming...' : '⚡ Test Beam Text'}</span>
+              </button>
+            </div>
+
+            {/* Test Link Beam */}
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-sky-500/20 flex flex-col justify-between space-y-2.5">
+              <div className="flex items-center space-x-2.5 text-xs text-white font-semibold">
+                <LinkIcon className="w-4 h-4 text-purple-400" />
+                <span>Web URL / Link</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                Opens the exact web page directly inside your mobile browser.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleTestBeamElement('link')}
+                disabled={testingBeam !== null}
+                className="w-full py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+              >
+                <span>{testingBeam === 'link' ? 'Beaming...' : '⚡ Test Beam Link'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 3-Way Download & Setup Options Hub */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

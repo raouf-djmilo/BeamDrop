@@ -12,7 +12,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  Activity
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +50,9 @@ interface SidebarProps {
   onOpenPricingModal?: () => void;
   onOpenProfileModal?: () => void;
   onOpenAuditDrawer?: () => void;
+  onOpenScannerModal?: () => void;
+  onOpenTelemetryModal?: () => void;
+  onOpenTrustedDevicesModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -61,7 +66,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAuthModal,
   onOpenPricingModal,
   onOpenProfileModal,
-  onOpenAuditDrawer
+  onOpenAuditDrawer,
+  onOpenScannerModal,
+  onOpenTelemetryModal,
+  onOpenTrustedDevicesModal
 }) => {
   const { userTier } = useAuth();
   const { isConnected, connectedPeers } = useTransfer();
@@ -153,6 +161,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
             {(!isCollapsed || isMobile) && <span>Audit Ledger</span>}
+          </button>
+        )}
+
+        {onOpenScannerModal && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isMobile) onCloseMobile();
+              onOpenScannerModal();
+            }}
+            className={`w-full flex items-center rounded-2xl transition-all duration-150 cursor-pointer font-medium text-xs text-slate-700 hover:text-emerald-800 hover:bg-emerald-50 mt-1 border border-transparent hover:border-emerald-200 ${
+              isCollapsed && !isMobile
+                ? 'justify-center p-2.5'
+                : 'space-x-3 px-3 py-2.5'
+            }`}
+            title="In-App Vulnerability Diagnostic & Security Health Score"
+          >
+            <ShieldAlert className="w-4 h-4 text-emerald-600 shrink-0" />
+            {(!isCollapsed || isMobile) && <span>Security Health</span>}
+          </button>
+        )}
+
+        {onOpenTelemetryModal && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isMobile) onCloseMobile();
+              onOpenTelemetryModal();
+            }}
+            className={`w-full flex items-center rounded-2xl transition-all duration-150 cursor-pointer font-medium text-xs text-slate-700 hover:text-indigo-800 hover:bg-indigo-50 mt-1 border border-transparent hover:border-indigo-200 ${
+              isCollapsed && !isMobile
+                ? 'justify-center p-2.5'
+                : 'space-x-3 px-3 py-2.5'
+            }`}
+            title="Live Network & Packet Telemetry HUD"
+          >
+            <Activity className="w-4 h-4 text-indigo-600 shrink-0" />
+            {(!isCollapsed || isMobile) && <span>Telemetry HUD</span>}
+          </button>
+        )}
+
+        {onOpenTrustedDevicesModal && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isMobile) onCloseMobile();
+              onOpenTrustedDevicesModal();
+            }}
+            className={`w-full flex items-center rounded-2xl transition-all duration-150 cursor-pointer font-medium text-xs text-slate-700 hover:text-sky-800 hover:bg-sky-50 mt-1 border border-transparent hover:border-sky-200 ${
+              isCollapsed && !isMobile
+                ? 'justify-center p-2.5'
+                : 'space-x-3 px-3 py-2.5'
+            }`}
+            title="Trusted Devices Whitelist (AirDrop Style Auto-Accept)"
+          >
+            <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+            {(!isCollapsed || isMobile) && <span>Trusted Devices</span>}
           </button>
         )}
       </nav>

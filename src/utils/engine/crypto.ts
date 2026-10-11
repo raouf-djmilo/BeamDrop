@@ -137,8 +137,10 @@ export async function decryptChunkPayload(
 /**
  * 5. Cryptographic SHA-256 Digest for Bit-Exact Integrity Verification
  */
-export async function computeSha256Digest(data: ArrayBuffer | Blob): Promise<string> {
-  const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+export async function computeSha256Digest(data: ArrayBuffer | Blob | string): Promise<string> {
+  const buffer = typeof data === 'string'
+    ? new TextEncoder().encode(data).buffer
+    : (data instanceof Blob ? await data.arrayBuffer() : data);
   const hash = await crypto.subtle.digest('SHA-256', buffer);
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))

@@ -13,7 +13,8 @@ import {
   Eye,
   AlertCircle,
   FileSpreadsheet,
-  Presentation
+  Presentation,
+  Share2
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile } from '../utils/p2p';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
@@ -280,6 +281,38 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     }
   };
 
+  const handleNativeShare = async () => {
+    if (!downloadedFile) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        if (downloadedFile.blob) {
+          const shareFile = new File([downloadedFile.blob], downloadedFile.name, {
+            type: downloadedFile.type || 'application/octet-stream'
+          });
+          if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+            await navigator.share({
+              files: [shareFile],
+              title: downloadedFile.name,
+              text: 'Delivered via BeamDrop P2P'
+            });
+            return;
+          }
+        }
+        await navigator.share({
+          title: downloadedFile.name,
+          text: `Delivered via BeamDrop P2P: ${downloadedFile.name}`,
+          url: downloadedFile.downloadUrl || window.location.href
+        });
+      } else {
+        navigator.clipboard?.writeText(window.location.href);
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.warn('Native share notice:', e);
+      }
+    }
+  };
+
   const getFileCategoryIcon = (mime: string, name: string) => {
     const cat = getFileCategory(mime, name);
     switch (cat) {
@@ -482,6 +515,18 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
                 : `Download File (${formatBytes(displaySize)})`}
             </span>
           </button>
+
+          {/* 1-Tap Native Mobile Share Sheet Button */}
+          {downloadedFile && (
+            <button
+              type="button"
+              onClick={handleNativeShare}
+              className="w-full py-3.5 px-6 bg-white hover:bg-emerald-50 border-2 border-emerald-400 text-emerald-800 rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/10 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 text-emerald-600" />
+              <span>Share to Apps (WhatsApp, Telegram, Photos...)</span>
+            </button>
+          )}
 
           {/* Instant Media Preview if photo or video */}
           {downloadedFile && isImage && downloadedFile.previewUrl && (

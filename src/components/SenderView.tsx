@@ -30,24 +30,27 @@ import { P2PTransferManager, PhoneStatusPayload } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
 import { ephemeralPortalEngine, EphemeralPortalSession } from '../utils/engine/portal';
 import { formatSafetyFingerprint } from '../utils/engine/crypto';
-import { Clock, Globe, Shield, Lock } from 'lucide-react';
+import { Clock, Globe, Shield, Lock, Clipboard } from 'lucide-react';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { playChime } from '../utils/audio';
+import { readFromSystemClipboard } from '../utils/engine/clipboardSync';
 
 interface SenderViewProps {
   transferManager: P2PTransferManager;
   receiverBaseUrl: string;
   targetedPeer?: any;
   initialTextPayload?: string;
+  onOpenTrustedDevicesModal?: () => void;
 }
 
 export const SenderView: React.FC<SenderViewProps> = ({
   transferManager,
   receiverBaseUrl,
   targetedPeer,
-  initialTextPayload
+  initialTextPayload,
+  onOpenTrustedDevicesModal
 }) => {
   const { recordTransfer, trackOp } = useAuth();
   const { notifyPending, notifySuccess, notifyError, notifyInfo, updateNotification } = useNotification();
@@ -995,6 +998,44 @@ export const SenderView: React.FC<SenderViewProps> = ({
               {formatSafetyFingerprint(e2eeKeyHex)}
             </span>
           </div>
+
+          {/* Universal Continuous Clipboard Sync Quick Bar */}
+          <div className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-sky-50/80 border border-sky-200/90 text-[11px]">
+            <div className="flex items-center space-x-1.5 text-sky-900 font-semibold">
+              <Clipboard className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span>Universal Clipboard Sync</span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const text = await readFromSystemClipboard();
+                if (text && transferManager.isConnected) {
+                  await transferManager.syncClipboard(text);
+                  notifySuccess('Clipboard Synced!', 'Beamed clipboard to connected peer.');
+                } else if (onOpenTrustedDevicesModal) {
+                  onOpenTrustedDevicesModal();
+                } else {
+                  notifyInfo('Ready to Sync', 'Connect device via QR to enable live clipboard mirroring.');
+                }
+              }}
+              className="text-[10px] font-bold text-sky-800 hover:text-sky-950 bg-white hover:bg-sky-100 border border-sky-300 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+            >
+              {transferManager.isConnected ? '⚡ Sync Now' : 'Whitelist'}
+            </button>
+          </div>
+
+          {/* Multi-Peer Mesh Broadcast Status Indicator */}
+          {transferManager.getConnectedDevicesCount() > 1 && (
+            <div className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-900 animate-fade-in">
+              <div className="flex items-center space-x-1.5 font-semibold">
+                <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse shrink-0" />
+                <span>Multi-Peer Mesh Broadcast</span>
+              </div>
+              <span className="font-mono font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md border border-indigo-300">
+                {transferManager.getConnectedDevicesCount()} Devices Linked
+              </span>
+            </div>
+          )}
 
           {/* Real-Time Remote Phone Detection & Verification Status */}
           {remotePhoneStatus ? (

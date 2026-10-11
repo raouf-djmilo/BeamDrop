@@ -1225,12 +1225,45 @@ btnGenerateTextQr.addEventListener('click', () => {
 function checkPendingShareFromBackground() {
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage({ action: 'get_pending_share' }, (res) => {
-      if (res && res.payload && res.payload.content) {
-        switchBridgeMode('text');
-        textPayloadInput.value = res.payload.content;
-        textPayloadInput.dispatchEvent(new Event('input'));
-        // Automatically launch portal for immediate scanning
-        startTextPortalSession(res.payload.content);
+      if (res && res.payload) {
+        if (res.payload.type === 'image' && res.payload.content) {
+          // If image URL staged from context menu, fetch into blob in RAM
+          fetch(res.payload.content)
+            .then(r => r.blob())
+            .then(blob => {
+              const file = new File([blob], res.payload.fileName || 'beamed_photo.jpg', {
+                type: blob.type || res.payload.mime || 'image/jpeg'
+              });
+              stagedFiles = [file];
+              activePreparedFile = file;
+              renderStagedFiles();
+              showStage('portal');
+              startFilePortalSession(file);
+            })
+            .catch(() => {
+              switchBridgeMode('text');
+              if (textPayloadInput) {
+                textPayloadInput.value = res.payload.content;
+                textPayloadInput.dispatchEvent(new Event('input'));
+              }
+              startTextPortalSession(res.payload.content);
+            });
+        } else if (res.payload.content) {
+          switchBridgeMode('text');
+          if (textPayloadInput) {
+            textPayloadInput.value = res.payload.content;
+            textPayloadInput.dispatchEvent(new Event('input'));
+          }
+          startTextPortalSession(res.payload.content);
+        }
+      }
+    });
+
+    // Check paired phone status
+    chrome.runtime.sendMessage({ action: 'get_paired_session' }, (res) => {
+      if (res && res.paired && res.pairedPhone && statusText) {
+        const phone = res.pairedPhone;
+        updateStatus('ready', `⚡ Linked to ${phone.phoneName || 'Phone'}`);
       }
     });
   }

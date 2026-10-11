@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  commitSha: "0001c5e6d7ae587bf67a9c214c09f2a8ee091245",
-  shortSha: "0001c5e",
-  buildHash: "0001c5e",
-  buildTimestamp: 1791212391,
-  patchNotes: "feat: improve peer discovery and network syncing"
+  commitSha: "f7ae46c5634e746b521a9f8b1fed4583aac165db",
+  shortSha: "f7ae46c",
+  buildHash: "f7ae46c",
+  buildTimestamp: 1791735853,
+  patchNotes: "feat(extension): implement OPFS and folder support"
 };

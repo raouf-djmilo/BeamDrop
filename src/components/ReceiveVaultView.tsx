@@ -39,11 +39,13 @@ import { useAuth } from '../context/AuthContext';
 interface ReceiveVaultViewProps {
   transferManager: P2PTransferManager;
   onOpenMobileScanner?: () => void;
+  onOpenTrustedDevicesModal?: () => void;
 }
 
 export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   transferManager,
-  onOpenMobileScanner
+  onOpenMobileScanner,
+  onOpenTrustedDevicesModal
 }) => {
   const { recordTransfer, trackOp } = useAuth();
   const { notifyPending, notifySuccess, updateNotification } = useNotification();
@@ -444,6 +446,17 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
                 <span>{copiedLink ? 'Link Copied!' : 'Copy Direct Link'}</span>
               </button>
+
+              {onOpenTrustedDevicesModal && (
+                <button
+                  type="button"
+                  onClick={onOpenTrustedDevicesModal}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 text-sky-900 border border-sky-300 text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Trusted Devices</span>
+                </button>
+              )}
             </div>
           </div>
 
