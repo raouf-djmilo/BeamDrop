@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 
     // If requested by a human browser scanning via native camera app (not polling for file download):
     if (accept.includes('text/html') && queue.length === 0) {
-      res.writeHead(302, { Location: `/?mode=scan&peer=${encodeURIComponent(peer)}` });
+      res.writeHead(302, { Location: `/?mode=send&target=${encodeURIComponent(peer)}` });
       return res.end();
     }
 

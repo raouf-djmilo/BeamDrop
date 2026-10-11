@@ -11,7 +11,8 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
-  Lock
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,7 @@ interface SidebarProps {
   onOpenAuthModal?: () => void;
   onOpenPricingModal?: () => void;
   onOpenProfileModal?: () => void;
+  onOpenAuditDrawer?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -58,7 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
   onOpenAuthModal,
   onOpenPricingModal,
-  onOpenProfileModal
+  onOpenProfileModal,
+  onOpenAuditDrawer
 }) => {
   const { userTier } = useAuth();
   const { isConnected, connectedPeers } = useTransfer();
@@ -133,6 +136,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+
+        {onOpenAuditDrawer && (
+          <button
+            type="button"
+            onClick={() => {
+              if (isMobile) onCloseMobile();
+              onOpenAuditDrawer();
+            }}
+            className={`w-full flex items-center rounded-2xl transition-all duration-150 cursor-pointer font-medium text-xs text-slate-700 hover:text-sky-800 hover:bg-sky-50 mt-1 border border-transparent hover:border-sky-200 ${
+              isCollapsed && !isMobile
+                ? 'justify-center p-2.5'
+                : 'space-x-3 px-3 py-2.5'
+            }`}
+            title="Cryptographic Transfer Activity & Audit Ledger"
+          >
+            <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+            {(!isCollapsed || isMobile) && <span>Audit Ledger</span>}
+          </button>
+        )}
       </nav>
     );
   };

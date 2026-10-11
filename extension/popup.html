@@ -147,6 +147,7 @@
       <!-- Drag & Drop Zone -->
       <div id="dropZone" class="drop-zone">
         <input type="file" id="fileInput" multiple style="display: none;">
+        <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
         <div class="drop-icon-wrapper">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -154,8 +155,41 @@
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
         </div>
-        <p class="drop-primary">Choose files or drop here</p>
-        <p class="drop-secondary">Fast &amp; Direct Device-to-Device Transfer</p>
+        <p class="drop-primary">Choose files, folder, or drop here</p>
+        <p class="drop-secondary">Direct Disk-to-Device RAM Streaming</p>
+      </div>
+
+      <!-- Action Buttons for Native File System & Folders -->
+      <div class="fs-action-row">
+        <button id="btnPickFiles" class="btn-pick-action" type="button" title="Select one or multiple files">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>Pick Files</span>
+        </button>
+        <button id="btnPickFolder" class="btn-pick-action" type="button" title="Select entire folder from PC">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          <span>Pick Folder</span>
+        </button>
+        <button id="btnNativeFsPicker" class="btn-pick-action native-fs" type="button" title="Use High-Speed Native File System Access API">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Native Disk I/O</span>
+        </button>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: -2px 0;">
+        <div class="fs-status-pill">
+          <span class="fs-status-dot"></span>
+          <span>Native File System Ready</span>
+        </div>
+        <span id="stagedSummaryPill" style="display: none; font-size: 10px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 7px; border-radius: 999px;">0 files</span>
+      </div>
+
+      <!-- Multi-File Staged List (Scrollable) -->
+      <div id="stagedFilesContainer" style="display: none; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 10.5px; font-weight: 700; color: #334155;">Staged Files (<span id="stagedCountText">0</span>)</span>
+          <button id="btnClearStagedFiles" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #e11d48; cursor: pointer; padding: 1px 4px;">Clear All</button>
+        </div>
+        <div id="stagedFilesList" class="staged-files-list"></div>
       </div>
 
       <!-- Staged File Card -->
@@ -192,6 +226,12 @@
       <button id="btnGenerateQr" class="btn-cta-generate" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         <span>Generate Direct Download QR</span>
+      </button>
+
+      <!-- Direct Beam to Targeted Peer Button (if peer is targeted) -->
+      <button id="btnDirectBeamTargeted" class="btn-cta-generate" type="button" style="display: none; background: linear-gradient(135deg, #059669 0%, #0284c7 100%);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+        <span id="btnDirectBeamTargetedText">Beam Directly to Target Device</span>
       </button>
     </div>
 
@@ -588,15 +628,39 @@
   </main>
 
   <!-- STAGE: RECEIVE VAULT (QR ADDRESS) -->
-  <main id="stageReceive" class="stage-container" style="display: none; flex-direction: column; gap: 10px;">
+  <main id="stageReceive" class="stage-container" style="display: none; flex-direction: column; gap: 8px;">
+    <!-- Direct Disk Auto-Save Permission & Destination Banner -->
+    <div class="receive-disk-banner">
+      <div class="receive-disk-left">
+        <div class="receive-disk-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </div>
+        <div>
+          <div class="receive-disk-title">Auto-Save Directly to PC Disk</div>
+          <div id="receiveDiskStatusText" class="receive-disk-sub">Zero confirmation prompts • Native Chrome Downloads</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button id="btnSetSaveDirectory" type="button" style="padding: 3px 6px; border-radius: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-size: 9.5px; font-weight: 700; cursor: pointer;" title="Choose specific disk destination folder via File System Access">Custom Folder</button>
+        <label class="toggle-switch" title="Auto-save incoming beams directly to disk">
+          <input type="checkbox" id="chkAutoDownloadExt" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <!-- Crypto-Style Address Card -->
-    <div class="qr-card-container" style="padding: 14px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">PC Receive Vault</span>
-        <span style="font-size: 10px; font-weight: 700; background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 999px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
-          <span class="status-dot-green"></span>
-          Ready to Receive
-        </span>
+    <div class="qr-card-container" style="padding: 12px 14px;">
+      <!-- QR Mode Selector: Camera Scan (Direct WebRTC) vs iOS Shortcut (API Transit) -->
+      <div class="qr-mode-switch">
+        <button id="qrModeCameraBtn" class="qr-mode-btn active" type="button" title="Point iPhone or Android camera to beam directly over WebRTC">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span>Camera (P2P Web)</span>
+        </button>
+        <button id="qrModeShortcutBtn" class="qr-mode-btn" type="button" title="Direct Share Sheet upload via Apple Shortcuts">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.4c.58-.72.98-1.72.87-2.73-.85.04-1.92.59-2.53 1.3-.54.62-.99 1.62-.87 2.6.96.07 1.96-.46 2.53-1.17z"></path></svg>
+          <span>iOS Shortcut</span>
+        </button>
       </div>
 
       <div style="background: #ffffff; padding: 10px; border-radius: 16px; border: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2,132,199,0.1); margin-bottom: 8px;">
@@ -610,7 +674,7 @@
         <button id="btnCopyReceiveAddress" type="button" style="padding: 3px 8px; border-radius: 6px; background: #ffffff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10px; font-weight: 700; cursor: pointer;">Copy</button>
       </div>
 
-      <p style="font-size: 10.5px; color: #64748b; margin: 0 0 10px 0; text-align: center; line-height: 1.35;">
+      <p id="receiveInstructionText" style="font-size: 10.5px; color: #64748b; margin: 0 0 10px 0; text-align: center; line-height: 1.35;">
         Point iPhone or Android camera to beam photos, videos &amp; files directly into this PC.
       </p>
 
@@ -629,9 +693,12 @@
 
     <!-- Live Receiving Stream Box -->
     <div id="receiveLiveStreamCard" style="display: none; background: #ffffff; border: 1.5px solid #38bdf8; border-radius: 14px; padding: 10px; box-shadow: 0 4px 14px rgba(2,132,199,0.1);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-        <span id="receiveIncomingFilename" style="font-size: 11px; font-weight: 700; color: #0f172a; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Receiving...</span>
-        <span id="receiveIncomingPercent" style="font-size: 11px; font-weight: 800; color: #0284c7;">0%</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span id="receiveIncomingFilename" style="font-size: 11px; font-weight: 700; color: #0f172a; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Receiving...</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span id="receiveIncomingSpeed" style="font-size: 10px; font-family: ui-monospace, monospace; color: #0369a1; font-weight: 700;">0 MB/s</span>
+          <span id="receiveIncomingPercent" style="font-size: 11px; font-weight: 800; color: #0284c7;">0%</span>
+        </div>
       </div>
       <div style="width: 100%; height: 6px; background: #e0f2fe; border-radius: 6px; overflow: hidden;">
         <div id="receiveIncomingProgressFill" style="width: 0%; height: 100%; background: #0284c7; border-radius: 6px; transition: width 0.15s ease;"></div>

@@ -186,6 +186,14 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
         const clean = peer.replace(/^BD-/, '').replace(/-/g, '').toLowerCase();
         peer = 'beam-' + clean;
       }
+
+      // Parse Zero-Knowledge E2EE Key from QR fragment or parameter
+      if (qrData.includes('key=')) {
+        const keyMatch = qrData.match(/key=([0-9a-fA-F]{64})/i);
+        if (keyMatch && keyMatch[1]) {
+          transferManager.setE2EEKeyFromHex(keyMatch[1]);
+        }
+      }
     } catch (_) {}
 
     if (peer) {

@@ -710,7 +710,7 @@ export default defineConfig(() => {
                 const item = transitStore.get(peer) || (token ? transitStore.get(`${peer}_${token}`) : null);
 
                 if (typeof accept === 'string' && accept.includes('text/html') && (!item || !item.buffer)) {
-                  res.writeHead(302, { Location: `/?mode=scan&peer=${encodeURIComponent(peer)}` });
+                  res.writeHead(302, { Location: `/?mode=send&target=${encodeURIComponent(peer)}` });
                   res.end();
                   return;
                 }
@@ -760,6 +760,8 @@ export default defineConfig(() => {
                   return;
                 }
 
+                transitStore.delete(peer);
+                if (token) transitStore.delete(`${peer}_${token}`);
                 res.setHeader('Content-Length', totalSize);
                 res.statusCode = 200;
                 res.end(item.buffer);

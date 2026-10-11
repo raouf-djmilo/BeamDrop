@@ -133,3 +133,26 @@ export async function decryptChunkPayload(
     ciphertext
   );
 }
+
+/**
+ * 5. Cryptographic SHA-256 Digest for Bit-Exact Integrity Verification
+ */
+export async function computeSha256Digest(data: ArrayBuffer | Blob): Promise<string> {
+  const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+  const hash = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Formats a 64-char hex key into human-auditable 4-segment Safety Number
+ * e.g. "E2EE-84F1-A3C9-9021"
+ */
+export function formatSafetyFingerprint(hexKey: string): string {
+  if (!hexKey) return 'E2EE-N/A';
+  const clean = hexKey.replace(/^#key=/, '').replace(/^key=/, '').trim().toUpperCase();
+  const sample = clean.slice(0, 16);
+  if (sample.length < 16) return `E2EE-${sample || 'AUTH'}`;
+  return `E2EE-${sample.slice(0, 4)}-${sample.slice(4, 8)}-${sample.slice(8, 12)}-${sample.slice(12, 16)}`;
+}

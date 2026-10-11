@@ -1063,7 +1063,7 @@
             console.log('[BeamDrop] WebRTC P2P negotiating slowly or blocked by carrier NAT, engaging RAM Transit...');
             attemptTransitFallback();
           }
-        }, 5000);
+        }, 1200);
 
         peer.on('disconnected', function() {
           if (peer && !peer.destroyed) {

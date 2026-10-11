@@ -92,6 +92,13 @@ const receiveIncomingPercent = document.getElementById('receiveIncomingPercent')
 const receiveIncomingProgressFill = document.getElementById('receiveIncomingProgressFill');
 const vaultItemsCount = document.getElementById('vaultItemsCount');
 const vaultItemsList = document.getElementById('vaultItemsList');
+const qrModeCameraBtn = document.getElementById('qrModeCameraBtn');
+const qrModeShortcutBtn = document.getElementById('qrModeShortcutBtn');
+const chkAutoDownloadExt = document.getElementById('chkAutoDownloadExt');
+const btnSetSaveDirectory = document.getElementById('btnSetSaveDirectory');
+const receiveDiskStatusText = document.getElementById('receiveDiskStatusText');
+const receiveInstructionText = document.getElementById('receiveInstructionText');
+const receiveIncomingSpeed = document.getElementById('receiveIncomingSpeed');
 
 // Nearby Radar Elements
 const myDeviceNameInput = document.getElementById('myDeviceNameInput');
@@ -164,6 +171,17 @@ const viewTextMode = document.getElementById('viewTextMode');
 // Files View Elements
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
+const btnPickFiles = document.getElementById('btnPickFiles');
+const btnPickFolder = document.getElementById('btnPickFolder');
+const btnNativeFsPicker = document.getElementById('btnNativeFsPicker');
+const stagedFilesContainer = document.getElementById('stagedFilesContainer');
+const stagedFilesList = document.getElementById('stagedFilesList');
+const stagedCountText = document.getElementById('stagedCountText');
+const stagedSummaryPill = document.getElementById('stagedSummaryPill');
+const btnClearStagedFiles = document.getElementById('btnClearStagedFiles');
+const btnDirectBeamTargeted = document.getElementById('btnDirectBeamTargeted');
+const btnDirectBeamTargetedText = document.getElementById('btnDirectBeamTargetedText');
 const stagedCard = document.getElementById('stagedCard');
 const thumbImg = document.getElementById('thumbImg');
 const thumbIcon = document.getElementById('thumbIcon');
@@ -362,6 +380,127 @@ if (navTabReceive) {
   });
 }
 
+function playExtChime(type = 'connect') {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    if (type === 'connect') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(now + 0.16);
+    } else if (type === 'complete') {
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.05);
+        gain.gain.setValueAtTime(0.07, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.22);
+      });
+    }
+  } catch (_) {}
+}
+
+let currentReceiveQrMode = 'camera'; // 'camera' | 'shortcut'
+let localReceiveDirHandle = null;
+let currentExtStreamController = null;
+let currentExtWritableStream = null;
+let currentExtPipePromise = null;
+
+function renderReceiveVaultQr() {
+  if (!currentPeerId) return;
+  const safeBaseTransitUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : "https://beam-drop-mu.vercel.app";
+
+  // Universal QR Address: Works for Safari/Chrome camera redirection AND iOS Shortcut direct POST
+  const targetLink = `${safeBaseTransitUrl}/api/transit?peer=${currentPeerId}&target=${currentPeerId}`;
+
+  const qrCanvas = document.getElementById('receiveVaultQrCanvas');
+  if (qrCanvas && typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+    QRCode.toCanvas(qrCanvas, targetLink, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#0369a1', light: '#ffffff' }
+    }).catch(err => {
+      console.warn('QR render error:', err);
+    });
+  } else if (receiveVaultQrBox && typeof QRCode !== 'undefined') {
+    let canvas = receiveVaultQrBox.querySelector('canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      receiveVaultQrBox.innerHTML = '';
+      receiveVaultQrBox.appendChild(canvas);
+    }
+    QRCode.toCanvas(canvas, targetLink, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#0369a1', light: '#ffffff' }
+    }).catch(err => {
+      console.warn('QR render error:', err);
+    });
+  }
+}
+
+if (qrModeCameraBtn) {
+  qrModeCameraBtn.addEventListener('click', () => {
+    currentReceiveQrMode = 'camera';
+    qrModeCameraBtn.classList.add('active');
+    if (qrModeShortcutBtn) qrModeShortcutBtn.classList.remove('active');
+    if (receiveInstructionText) {
+      receiveInstructionText.textContent = 'Point iPhone or Android camera to beam photos, videos & files directly into this PC.';
+    }
+    renderReceiveVaultQr();
+  });
+}
+
+if (qrModeShortcutBtn) {
+  qrModeShortcutBtn.addEventListener('click', () => {
+    currentReceiveQrMode = 'shortcut';
+    qrModeShortcutBtn.classList.add('active');
+    if (qrModeCameraBtn) qrModeCameraBtn.classList.remove('active');
+    if (receiveInstructionText) {
+      receiveInstructionText.textContent = 'Scan with Apple iOS Shortcut to POST files into PC Vault directly without opening browser.';
+    }
+    renderReceiveVaultQr();
+  });
+}
+
+if (btnSetSaveDirectory) {
+  btnSetSaveDirectory.addEventListener('click', async () => {
+    if (typeof window.showDirectoryPicker === 'function') {
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        if (dirHandle) {
+          localReceiveDirHandle = dirHandle;
+          if (window.BeamDropFolderStore) {
+            window.BeamDropFolderStore.saveFolderHandle(dirHandle).catch(() => {});
+          }
+          if (receiveDiskStatusText) receiveDiskStatusText.textContent = `Direct Disk Stream: ${dirHandle.name} (0 RAM Bloat)`;
+          btnSetSaveDirectory.textContent = 'Folder Linked';
+          btnSetSaveDirectory.style.background = '#d1fae5';
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') console.warn('Directory select notice:', err);
+      }
+    } else {
+      if (receiveDiskStatusText) receiveDiskStatusText.textContent = 'Saving directly to PC Downloads (Standard)';
+    }
+  });
+}
+
 function initReceiveVault() {
   if (!currentPeerId) {
     try {
@@ -378,6 +517,20 @@ function initReceiveVault() {
     }
   }
 
+  // Restore stored directory handle from IndexedDB if available
+  if (window.BeamDropFolderStore) {
+    window.BeamDropFolderStore.getFolderData().then((data) => {
+      if (data && data.handle) {
+        localReceiveDirHandle = data.handle;
+        if (receiveDiskStatusText) receiveDiskStatusText.textContent = `Direct Disk Stream: ${data.folderName || data.handle.name} (0 RAM Bloat)`;
+        if (btnSetSaveDirectory) {
+          btnSetSaveDirectory.textContent = 'Folder Linked';
+          btnSetSaveDirectory.style.background = '#d1fae5';
+        }
+      }
+    }).catch(() => {});
+  }
+
   // Ensure PeerJS listener is active for incoming connections
   if (!peer || peer.destroyed || peer.disconnected) {
     initPeerJsSession('receive');
@@ -389,43 +542,7 @@ function initReceiveVault() {
     receiveVaultAddressText.textContent = cryptoAddress;
   }
 
-  // Render QR Code in receiveVaultQrBox using node-qrcode (QRCode.toCanvas)
-  const safeBaseTransitUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
-    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
-    : "https://beam-drop-mu.vercel.app";
-  const mobileLink = `${safeBaseTransitUrl}/api/transit?peer=${currentPeerId}`;
-  const qrCanvas = document.getElementById('receiveVaultQrCanvas');
-  if (qrCanvas && typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-    try {
-      QRCode.toCanvas(qrCanvas, mobileLink, {
-        width: 160,
-        margin: 1,
-        color: { dark: '#0369a1', light: '#ffffff' }
-      }).catch(err => {
-        console.warn('QR canvas render error:', err);
-      });
-    } catch (e) {
-      console.warn('QR render error:', e);
-    }
-  } else if (receiveVaultQrBox && typeof QRCode !== 'undefined') {
-    try {
-      let canvas = receiveVaultQrBox.querySelector('canvas');
-      if (!canvas) {
-        canvas = document.createElement('canvas');
-        receiveVaultQrBox.innerHTML = '';
-        receiveVaultQrBox.appendChild(canvas);
-      }
-      QRCode.toCanvas(canvas, mobileLink, {
-        width: 160,
-        margin: 1,
-        color: { dark: '#0369a1', light: '#ffffff' }
-      }).catch(err => {
-        console.warn('QR render fallback error:', err);
-      });
-    } catch (e) {
-      console.warn('QR render error:', e);
-    }
-  }
+  renderReceiveVaultQr();
 
   // Poll Transit for incoming files from iOS Shortcuts & direct uploads
   if (window._receiveTransitTimer) {
@@ -458,6 +575,21 @@ function initReceiveVault() {
           fileName = rawName ? decodeURIComponent(rawName) : `beamed_${Date.now()}.jpg`;
         }
 
+        // Acknowledge and clear transit queue on server so it is never re-downloaded
+        fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`, { method: 'DELETE' }).catch(() => {});
+
+        let streamedToDisk = false;
+        if (localReceiveDirHandle) {
+          try {
+            const handle = await localReceiveDirHandle.getFileHandle(fileName, { create: true });
+            const writable = await handle.createWritable();
+            await blob.stream().pipeTo(writable);
+            streamedToDisk = true;
+          } catch (e) {
+            console.warn('[Transit Disk Save] Notice:', e);
+          }
+        }
+
         addVaultItem({
           name: fileName,
           size: blob.size,
@@ -465,7 +597,10 @@ function initReceiveVault() {
           blob: blob
         });
 
-        triggerChromeDownload(blob, fileName);
+        playExtChime('complete');
+        if (!streamedToDisk) {
+          triggerChromeDownload(blob, fileName);
+        }
 
         // Fast drain for multi-file batches
         let pending = parseInt(res.headers.get('X-BeamDrop-Pending') || '0', 10);
@@ -475,13 +610,25 @@ function initReceiveVault() {
           const nextBlob = await nextRes.blob();
           const nextRaw = nextRes.headers.get('X-BeamDrop-Name');
           const nextName = nextRaw ? decodeURIComponent(nextRaw) : `beamed_${Date.now()}.jpg`;
+          
+          fetch(`${safeBaseUrl}/api/transit?peer=${encodeURIComponent(currentPeerId)}`, { method: 'DELETE' }).catch(() => {});
+
+          if (localReceiveDirHandle) {
+            try {
+              const handle = await localReceiveDirHandle.getFileHandle(nextName, { create: true });
+              const writable = await handle.createWritable();
+              await nextBlob.stream().pipeTo(writable);
+            } catch (_) {}
+          } else {
+            triggerChromeDownload(nextBlob, nextName);
+          }
+
           addVaultItem({
             name: nextName,
             size: nextBlob.size,
             time: new Date().toLocaleTimeString(),
             blob: nextBlob
           });
-          triggerChromeDownload(nextBlob, nextName);
           pending = parseInt(nextRes.headers.get('X-BeamDrop-Pending') || '0', 10);
         }
       }
@@ -491,6 +638,10 @@ function initReceiveVault() {
 
 function triggerChromeDownload(blob, fileName) {
   try {
+    if (chkAutoDownloadExt && !chkAutoDownloadExt.checked) {
+      console.log('[BeamDrop] Auto-download disabled, item held in Vault.');
+      return;
+    }
     const url = URL.createObjectURL(blob);
     if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
       chrome.downloads.download({
@@ -630,11 +781,50 @@ dropZone.addEventListener('dragleave', () => {
   dropZone.classList.remove('dragover');
 });
 
-dropZone.addEventListener('drop', (e) => {
+async function getAllFilesFromDataTransfer(dataTransfer) {
+  if (dataTransfer.items && dataTransfer.items.length > 0) {
+    const queue = [];
+    for (let i = 0; i < dataTransfer.items.length; i++) {
+      const item = dataTransfer.items[i];
+      if (item.webkitGetAsEntry) {
+        const entry = item.webkitGetAsEntry();
+        if (entry) queue.push(entry);
+      }
+    }
+    if (queue.length > 0) {
+      const readEntry = async (entry) => {
+        if (entry.isFile) {
+          return new Promise((resolve) => entry.file(f => resolve(f), () => resolve(null)));
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const readEntries = () => new Promise((resolve) => {
+            reader.readEntries(res => resolve(res), () => resolve([]));
+          });
+          let allEntries = [];
+          let batch = await readEntries();
+          while (batch.length > 0) {
+            allEntries = allEntries.concat(batch);
+            batch = await readEntries();
+          }
+          const nested = await Promise.all(allEntries.map(readEntry));
+          return nested.flat(Infinity).filter(Boolean);
+        }
+        return null;
+      };
+      const nestedFiles = await Promise.all(queue.map(readEntry));
+      const flattened = nestedFiles.flat(Infinity).filter(Boolean);
+      if (flattened.length > 0) return flattened;
+    }
+  }
+  return Array.from(dataTransfer.files || []);
+}
+
+dropZone.addEventListener('drop', async (e) => {
   e.preventDefault();
   dropZone.classList.remove('dragover');
-  if (e.dataTransfer.files && e.dataTransfer.files.length) {
-    stageSelectedFiles(Array.from(e.dataTransfer.files));
+  const files = await getAllFilesFromDataTransfer(e.dataTransfer);
+  if (files && files.length) {
+    stageSelectedFiles(files);
   }
 });
 
@@ -644,13 +834,77 @@ fileInput.addEventListener('change', (e) => {
   }
 });
 
+if (folderInput) {
+  folderInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length) {
+      stageSelectedFiles(Array.from(e.target.files));
+    }
+  });
+}
+
+if (btnPickFiles) {
+  btnPickFiles.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+}
+
+if (btnPickFolder) {
+  btnPickFolder.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (folderInput) folderInput.click();
+  });
+}
+
+if (btnNativeFsPicker) {
+  btnNativeFsPicker.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (typeof window.showOpenFilePicker === 'function') {
+      try {
+        const handles = await window.showOpenFilePicker({ multiple: true });
+        const files = await Promise.all(handles.map(h => h.getFile()));
+        if (files && files.length) {
+          stageSelectedFiles(files);
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') {
+          fileInput.click();
+        }
+      }
+    } else {
+      fileInput.click();
+    }
+  });
+}
+
+if (btnClearStagedFiles) {
+  btnClearStagedFiles.addEventListener('click', (e) => {
+    e.stopPropagation();
+    stagedFiles = [];
+    activePreparedFile = null;
+    if (stagedFilesContainer) stagedFilesContainer.style.display = 'none';
+    if (stagedFilesList) stagedFilesList.innerHTML = '';
+    if (stagedSummaryPill) stagedSummaryPill.style.display = 'none';
+    stagedCard.style.display = 'none';
+    fileInput.value = '';
+    if (folderInput) folderInput.value = '';
+    btnGenerateQr.disabled = true;
+    if (btnDirectBeamTargeted) btnDirectBeamTargeted.style.display = 'none';
+    updateStatus('idle', 'Ready');
+  });
+}
+
 btnRemoveFile.addEventListener('click', (e) => {
   e.stopPropagation();
   stagedFiles = [];
   activePreparedFile = null;
   stagedCard.style.display = 'none';
+  if (stagedFilesContainer) stagedFilesContainer.style.display = 'none';
+  if (stagedSummaryPill) stagedSummaryPill.style.display = 'none';
   fileInput.value = '';
+  if (folderInput) folderInput.value = '';
   btnGenerateQr.disabled = true;
+  if (btnDirectBeamTargeted) btnDirectBeamTargeted.style.display = 'none';
   updateStatus('idle', 'Ready');
 });
 
@@ -700,26 +954,59 @@ function getExtensionFileTypeInfo(name, mime = '') {
 }
 
 function stageSelectedFiles(files) {
-  stagedFiles = files;
-  const first = files[0];
-  if (!first) return;
+  // Merge new files avoiding exact duplicates
+  const existingKeys = new Set(stagedFiles.map(f => `${f.name}_${f.size}`));
+  const toAdd = files.filter(f => !existingKeys.has(`${f.name}_${f.size}`));
+  stagedFiles = [...stagedFiles, ...toAdd];
+  if (stagedFiles.length === 0) return;
 
-  stagedCard.style.display = 'flex';
-  const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+  const totalSize = stagedFiles.reduce((acc, f) => acc + f.size, 0);
 
-  if (files.length > 1) {
+  if (stagedSummaryPill) {
+    stagedSummaryPill.textContent = `${stagedFiles.length} item${stagedFiles.length > 1 ? 's' : ''} • ${formatBytes(totalSize)}`;
+    stagedSummaryPill.style.display = 'inline-block';
+  }
+
+  if (stagedFiles.length > 1) {
     currentObjectType = 'bundle';
-    stagedFileName.textContent = `${first.name} (+${files.length - 1} more)`;
-    if (multiFileSummary) multiFileSummary.style.display = 'flex';
-    if (stagedTypeTag) {
-      stagedTypeTag.textContent = 'ZIP BUNDLE';
-      stagedTypeTag.className = 'staged-type-tag tag-zip';
+    stagedCard.style.display = 'none';
+    if (stagedFilesContainer) stagedFilesContainer.style.display = 'flex';
+    if (stagedCountText) stagedCountText.textContent = String(stagedFiles.length);
+
+    if (stagedFilesList) {
+      stagedFilesList.innerHTML = '';
+      stagedFiles.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'staged-file-item';
+        const info = getExtensionFileTypeInfo(file.name, file.type);
+        item.innerHTML = `
+          <div class="staged-file-item-left">
+            <span style="font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px; background: #e0f2fe; color: #0369a1;">${info.tag}</span>
+            <span class="staged-file-item-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+            <span class="staged-file-item-size">${formatBytes(file.size)}</span>
+          </div>
+          <button type="button" class="btn-item-delete" title="Remove file" data-index="${idx}">✕</button>
+        `;
+        const delBtn = item.querySelector('.btn-item-delete');
+        if (delBtn) {
+          delBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            stagedFiles.splice(idx, 1);
+            if (stagedFiles.length === 0) {
+              if (btnClearStagedFiles) btnClearStagedFiles.click();
+            } else {
+              stageSelectedFiles([]); // re-render list
+            }
+          });
+        }
+        stagedFilesList.appendChild(item);
+      });
     }
-    thumbImg.style.display = 'none';
-    thumbIcon.innerHTML = EXT_SVG_ICONS.zip;
-    thumbIcon.style.display = 'block';
   } else {
     currentObjectType = 'file';
+    if (stagedFilesContainer) stagedFilesContainer.style.display = 'none';
+    stagedCard.style.display = 'flex';
+    const first = stagedFiles[0];
     stagedFileName.textContent = first.name;
     if (multiFileSummary) multiFileSummary.style.display = 'none';
     const fileInfo = getExtensionFileTypeInfo(first.name, first.type);
@@ -736,11 +1023,65 @@ function stageSelectedFiles(files) {
       thumbIcon.innerHTML = fileInfo.svgHtml || EXT_SVG_ICONS.file;
       thumbIcon.style.display = 'block';
     }
+    stagedFileSize.textContent = formatBytes(first.size);
   }
 
-  stagedFileSize.textContent = formatBytes(totalSize);
   btnGenerateQr.disabled = false;
-  updateStatus('ready', 'Object Staged');
+  if (extTargetedPeer && btnDirectBeamTargeted) {
+    btnDirectBeamTargeted.style.display = 'flex';
+    if (btnDirectBeamTargetedText) {
+      btnDirectBeamTargetedText.textContent = `Beam Directly to ${extTargetedPeer.name}`;
+    }
+  } else if (btnDirectBeamTargeted) {
+    btnDirectBeamTargeted.style.display = 'none';
+  }
+
+  updateStatus('ready', `${stagedFiles.length} Staged (${formatBytes(totalSize)})`);
+  playExtChime('connect');
+}
+
+if (btnDirectBeamTargeted) {
+  btnDirectBeamTargeted.addEventListener('click', async () => {
+    if (stagedFiles.length === 0 || !extTargetedPeer) return;
+    btnDirectBeamTargeted.disabled = true;
+    btnDirectBeamTargeted.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Connecting Direct Bridge...</span>';
+    try {
+      if (stagedFiles.length > 1 && typeof JSZip !== 'undefined') {
+        const zip = new JSZip();
+        for (const f of stagedFiles) {
+          zip.file(f.name, f);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        activePreparedFile = new File([zipBlob], `beamdrop-bundle-${stagedFiles.length}-files.zip`, {
+          type: 'application/zip'
+        });
+      } else {
+        activePreparedFile = stagedFiles[0];
+      }
+
+      if (!peer || peer.destroyed) {
+        initPeerJsSession('file');
+      }
+
+      showStage('transfer');
+      updateStatus('connected', `Streaming to ${extTargetedPeer.name}...`);
+      if (transferDeviceName) {
+        transferDeviceName.innerHTML = `${EXT_SVG_ICONS.phone}<span>${escapeHtml(extTargetedPeer.name)}</span>`;
+      }
+
+      const conn = peer.connect(extTargetedPeer.id, { reliable: true });
+      activeConnection = conn;
+      setupConnectionHandlers(conn, 'file');
+    } catch (err) {
+      console.warn('Direct targeted beam fallback notice:', err);
+      btnGenerateQr.click();
+    } finally {
+      btnDirectBeamTargeted.disabled = false;
+      if (btnDirectBeamTargetedText) {
+        btnDirectBeamTargetedText.textContent = `Beam Directly to ${extTargetedPeer ? extTargetedPeer.name : 'Target'}`;
+      }
+    }
+  });
 }
 
 btnGenerateQr.addEventListener('click', async () => {
@@ -1591,18 +1932,37 @@ function setupConnectionHandlers(conn, type) {
   let incomingChunks = [];
   let incomingMeta = null;
   let incomingTotalBytes = 0;
+  let incomingStartTime = 0;
 
   conn.on('data', (data) => {
     // Binary chunk (ArrayBuffer) received from Phone / Sender
     if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
       const buffer = data instanceof ArrayBuffer ? data : data.buffer;
-      incomingChunks.push(buffer);
-      incomingTotalBytes += buffer.byteLength;
+      let chunkPayload = buffer;
+      if (buffer.byteLength >= 32) {
+        try {
+          const view = new DataView(buffer);
+          const payloadLen = view.getUint32(24, false);
+          if (payloadLen > 0 && 32 + payloadLen <= buffer.byteLength) {
+            chunkPayload = buffer.slice(32, 32 + payloadLen);
+          }
+        } catch (_) {}
+      }
+
+      if (currentExtStreamController) {
+        currentExtStreamController.enqueue(new Uint8Array(chunkPayload));
+      } else {
+        incomingChunks.push(chunkPayload);
+      }
+      incomingTotalBytes += chunkPayload.byteLength;
 
       if (incomingMeta && incomingMeta.fileSize) {
         const pct = Math.min(99, Math.round((incomingTotalBytes / incomingMeta.fileSize) * 100));
         if (receiveIncomingPercent) receiveIncomingPercent.textContent = `${pct}%`;
         if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = `${pct}%`;
+        const elapsed = Math.max(0.05, (Date.now() - (incomingStartTime || Date.now())) / 1000);
+        const speedMb = (incomingTotalBytes / (1024 * 1024)) / elapsed;
+        if (receiveIncomingSpeed) receiveIncomingSpeed.textContent = speedMb.toFixed(1) + ' MB/s';
       }
       return;
     }
@@ -1617,40 +1977,97 @@ function setupConnectionHandlers(conn, type) {
       incomingMeta = msg;
       incomingChunks = [];
       incomingTotalBytes = 0;
+      incomingStartTime = Date.now();
+      playExtChime('connect');
       if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'block';
       if (receiveIncomingFilename) receiveIncomingFilename.textContent = msg.fileName || 'Incoming media...';
       if (receiveIncomingPercent) receiveIncomingPercent.textContent = '0%';
       if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '0%';
+      if (receiveIncomingSpeed) receiveIncomingSpeed.textContent = '0 MB/s';
+
+      if (localReceiveDirHandle) {
+        try {
+          localReceiveDirHandle.getFileHandle(msg.fileName || `beamed_${Date.now()}`, { create: true }).then((fh) => {
+            return fh.createWritable();
+          }).then((ws) => {
+            currentExtWritableStream = ws;
+            const readable = new ReadableStream({
+              start(c) {
+                currentExtStreamController = c;
+              }
+            });
+            currentExtPipePromise = readable.pipeTo(currentExtWritableStream).catch((pipeErr) => {
+              console.warn('[Direct Disk Stream] Pipe error:', pipeErr);
+            });
+          }).catch((fsErr) => {
+            console.warn('[Direct Disk Stream] Init error:', fsErr);
+            currentExtStreamController = null;
+            currentExtWritableStream = null;
+          });
+        } catch (_) {}
+      } else if (navigator.storage && navigator.storage.getDirectory) {
+        // Universal OPFS direct-to-disk streaming
+        navigator.storage.getDirectory().then((root) => {
+          return root.getFileHandle(`bdrop_popup_${Date.now()}_${msg.fileName || 'file'}`, { create: true });
+        }).then((fh) => {
+          return fh.createWritable();
+        }).then((ws) => {
+          currentExtWritableStream = ws;
+          const readable = new ReadableStream({
+            start(c) { currentExtStreamController = c; }
+          });
+          currentExtPipePromise = readable.pipeTo(currentExtWritableStream).catch(() => {});
+        }).catch((opfsErr) => {
+          console.warn('[Direct Disk Stream] OPFS fallback notice:', opfsErr);
+        });
+      }
+
       conn.send({ type: 'RECEIVER_READY', fileId: msg.fileId });
       return;
     }
 
     if (msg.type === 'FILE_END') {
+      if (currentExtStreamController) {
+        try { currentExtStreamController.close(); } catch (_) {}
+        if (currentExtPipePromise) {
+          currentExtPipePromise.catch(() => {}).finally(() => {
+            currentExtWritableStream = null;
+            currentExtStreamController = null;
+            currentExtPipePromise = null;
+          });
+        }
+        const fileName = (incomingMeta && incomingMeta.fileName) || 'beamed-file';
+        playExtChime('complete');
+        addVaultItem({
+          name: fileName,
+          size: incomingTotalBytes,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: (incomingMeta && incomingMeta.fileMime) || 'file',
+          url: ''
+        });
+
+        if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';
+        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '100%';
+        setTimeout(() => {
+          if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'none';
+        }, 2500);
+
+        conn.send({ type: 'TRANSFER_COMPLETE_ACK', device: 'PC Extension' });
+        return;
+      }
+
       if (incomingMeta && incomingChunks.length > 0) {
         const fileBlob = new Blob(incomingChunks, { type: incomingMeta.fileMime || 'application/octet-stream' });
         const fileName = incomingMeta.fileName || 'beamed-file';
-        const blobUrl = URL.createObjectURL(fileBlob);
-
-        if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
-          chrome.downloads.download({ url: blobUrl, filename: fileName, saveAs: false }).catch(() => {
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = fileName;
-            a.click();
-          });
-        } else {
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = fileName;
-          a.click();
-        }
+        playExtChime('complete');
+        triggerChromeDownload(fileBlob, fileName);
 
         addVaultItem({
           name: fileName,
           size: incomingTotalBytes,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           type: incomingMeta.fileMime || 'file',
-          url: blobUrl
+          url: ''
         });
 
         if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';

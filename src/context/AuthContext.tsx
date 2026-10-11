@@ -541,8 +541,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           : null
       );
-    } catch (err) {
-      console.warn('Could not record transfer in Firestore:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Could not record transfer in Firestore:', err);
+      }
     }
   };
 

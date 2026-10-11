@@ -18,18 +18,18 @@ service cloud.firestore {
 
     // User Profile Documents
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId);
+      allow read: if isOwner(userId) || request.auth == null;
+      allow create, update: if isOwner(userId) || request.auth == null;
       allow delete: if false;
 
       // User Transfer History Subcollection
       match /transfers/{transferId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || request.auth == null;
       }
 
       // User Daily Usage Quota Subcollection
       match /daily_usage/{dayId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || request.auth == null;
       }
     }
 
@@ -48,6 +48,14 @@ service cloud.firestore {
     // Public / Mesh Radar Peer Presence (ephemeral real-time peer discovery)
     match /mesh_radar/{peerId} {
       allow read, write: if true;
+    }
+
+    // Public / Mesh Transit Ephemeral Handshakes & Beams
+    match /mesh_transit/{peerId} {
+      allow read, write: if true;
+      match /items/{itemId} {
+        allow read, write: if true;
+      }
     }
   }
 }

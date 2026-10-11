@@ -34,6 +34,7 @@ interface HeaderProps {
   onOpenAuthModal?: () => void;
   onOpenProfileModal?: () => void;
   onOpenPricingModal?: () => void;
+  onOpenAuditDrawer?: () => void;
   showArchitectureModal: boolean;
   setShowArchitectureModal: (show: boolean) => void;
   onToggleMobileMenu?: () => void;
@@ -48,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuthModal,
   onOpenProfileModal,
   onOpenPricingModal,
+  onOpenAuditDrawer,
   showArchitectureModal,
   setShowArchitectureModal,
   onToggleMobileMenu,
@@ -153,6 +155,19 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Camera className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline text-[11px]">Scan QR</span>
+              </button>
+            )}
+
+            {/* Cryptographic Audit Ledger Launcher */}
+            {onOpenAuditDrawer && (
+              <button
+                type="button"
+                onClick={onOpenAuditDrawer}
+                className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 hover:border-sky-300 text-slate-700 hover:text-sky-800 transition-all text-xs font-semibold cursor-pointer shadow-2xs min-h-[36px]"
+                title="Cryptographic Transfer Activity & Audit Ledger"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+                <span className="hidden md:inline text-[11px]">Audit Ledger</span>
               </button>
             )}
 

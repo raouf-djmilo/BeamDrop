@@ -361,3 +361,162 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     }
   }
 });
+
+// Background High-Efficiency ReadableStream Buffer & Direct Disk Pipeline (OPFS)
+const activeBackgroundStreams = new Map();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.action === 'init_background_stream') {
+    const { streamId, fileName, mime, size } = message;
+    const safeName = (fileName || `beam_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    (async () => {
+      let controller = null;
+      let writableStream = null;
+      let fileHandle = null;
+      let pipePromise = null;
+      let isOpfs = false;
+
+      try {
+        if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.getDirectory === 'function') {
+          const root = await navigator.storage.getDirectory();
+          fileHandle = await root.getFileHandle(`bdrop_bg_${streamId}_${safeName}`, { create: true });
+          writableStream = await fileHandle.createWritable();
+          isOpfs = true;
+        }
+      } catch (opfsErr) {
+        console.warn('[BeamDrop Background] OPFS init notice, using memory fallback:', opfsErr);
+      }
+
+      const queueStrategy = new ByteLengthQueuingStrategy({ highWaterMark: 1024 * 1024 });
+      const readableStream = new ReadableStream({
+        start(c) {
+          controller = c;
+        },
+        cancel(reason) {
+          console.warn('[BeamDrop Background] Stream cancelled:', reason);
+        }
+      }, queueStrategy);
+
+      if (writableStream) {
+        pipePromise = readableStream.pipeTo(writableStream).catch((err) => {
+          console.error('[BeamDrop Background] Disk pipe error:', err);
+        });
+      }
+
+      activeBackgroundStreams.set(streamId, {
+        readableStream,
+        controller,
+        fileHandle,
+        writableStream,
+        pipePromise,
+        isOpfs,
+        fileName: safeName,
+        mime: mime || 'application/octet-stream',
+        size: size || 0,
+        receivedBytes: 0,
+        chunksCount: 0
+      });
+
+      sendResponse({ success: true, streamId, isOpfs });
+    })();
+    return true;
+  }
+
+  if (message?.action === 'push_stream_chunk') {
+    const { streamId, chunk, chunkIndex } = message;
+    const stream = activeBackgroundStreams.get(streamId);
+    if (stream && stream.controller) {
+      let data = chunk;
+      if (!(data instanceof Uint8Array)) {
+        if (Array.isArray(data)) {
+          data = new Uint8Array(data);
+        } else if (data instanceof ArrayBuffer) {
+          data = new Uint8Array(data);
+        } else if (data && data.buffer) {
+          data = new Uint8Array(data.buffer);
+        } else {
+          data = new Uint8Array(0);
+        }
+      }
+
+      // Check if 32-byte binary frame header is present and extract payload
+      if (data.byteLength >= 32) {
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        const payloadLen = view.getUint32(24, false);
+        if (payloadLen > 0 && 32 + payloadLen <= data.byteLength) {
+          data = data.subarray(32, 32 + payloadLen);
+        }
+      }
+
+      try {
+        stream.controller.enqueue(data);
+        stream.receivedBytes += data.byteLength;
+        stream.chunksCount++;
+        const desired = stream.controller.desiredSize ?? 1;
+        sendResponse({
+          success: true,
+          receivedBytes: stream.receivedBytes,
+          chunksCount: stream.chunksCount,
+          backpressure: desired <= 0
+        });
+      } catch (enqueueErr) {
+        sendResponse({ success: false, error: String(enqueueErr) });
+      }
+    } else {
+      sendResponse({ success: false, error: 'Stream not found' });
+    }
+    return true;
+  }
+
+  if (message?.action === 'close_background_stream') {
+    const { streamId, autoDownload = true } = message;
+    const stream = activeBackgroundStreams.get(streamId);
+    if (!stream) {
+      sendResponse({ success: false, error: 'Stream not found' });
+      return true;
+    }
+
+    (async () => {
+      try {
+        if (stream.controller) {
+          try { stream.controller.close(); } catch (_) {}
+        }
+        if (stream.pipePromise) {
+          await stream.pipePromise;
+        }
+
+        // If stored in OPFS and auto-download requested, download directly via chrome.downloads
+        if (stream.isOpfs && stream.fileHandle && autoDownload && chrome.downloads && chrome.downloads.download) {
+          try {
+            const file = await stream.fileHandle.getFile();
+            const blobUrl = URL.createObjectURL(file);
+            chrome.downloads.download({
+              url: blobUrl,
+              filename: stream.fileName,
+              saveAs: false,
+              conflictAction: 'uniquify'
+            }, () => {
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            });
+          } catch (dlErr) {
+            console.warn('[BeamDrop Background] Auto-download error:', dlErr);
+          }
+        }
+
+        activeBackgroundStreams.delete(streamId);
+        sendResponse({
+          success: true,
+          fileName: stream.fileName,
+          totalBytes: stream.receivedBytes,
+          chunksCount: stream.chunksCount,
+          isOpfs: stream.isOpfs
+        });
+      } catch (closeErr) {
+        activeBackgroundStreams.delete(streamId);
+        sendResponse({ success: false, error: String(closeErr) });
+      }
+    })();
+    return true;
+  }
+});

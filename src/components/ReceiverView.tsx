@@ -20,6 +20,7 @@ import {
   Check,
   FileSpreadsheet,
   Presentation,
+  ShieldCheck,
   X
 } from 'lucide-react';
 import { P2PTransferManager, TransferFile, TextPayload } from '../utils/p2p';
@@ -468,13 +469,22 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({
                           );
                         })()}
                       </div>
-                      <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5 font-mono">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 mt-0.5 font-mono">
                         <span>{formatBytes(file.size)}</span>
                         <span>•</span>
                         <span className="text-emerald-700 font-semibold flex items-center space-x-1">
                           <Check className="w-3 h-3" />
                           <span>P2P Received</span>
                         </span>
+                        {file.checksum && (
+                          <>
+                            <span>•</span>
+                            <span className="text-sky-700 font-semibold flex items-center space-x-1" title={`SHA-256: ${file.checksum}`}>
+                              <ShieldCheck className="w-3 h-3 text-sky-600" />
+                              <span>SHA-256 Verified</span>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

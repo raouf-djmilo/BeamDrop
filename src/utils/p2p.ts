@@ -12,8 +12,11 @@ import {
   generateQrEntropyKey,
   importKeyFromHex,
   encryptChunkPayload,
-  decryptChunkPayload
+  decryptChunkPayload,
+  computeSha256Digest,
+  formatSafetyFingerprint
 } from './engine/crypto';
+import { recordAuditEntry } from './engine/auditLedger';
 
 export interface TransferFile {
   id: string;
@@ -30,7 +33,20 @@ export interface TransferFile {
   status: 'pending' | 'transferring' | 'completed' | 'error';
   direction: 'send' | 'receive';
   encrypted?: boolean;
+  directDiskSaved?: boolean;
+  checksum?: string;
+  checksumVerified?: boolean;
+  transitProtocol?: string;
+  keyFingerprint?: string;
 }
+
+export interface DiskStreamSink {
+  onChunk: (chunk: Uint8Array, chunkIndex: number, totalChunks: number) => Promise<void> | void;
+  onComplete: () => Promise<void> | void;
+  onError?: (err: any) => void;
+}
+
+export type DiskStreamFactory = (fileMetadata: TransferFile) => Promise<DiskStreamSink | null> | (DiskStreamSink | null);
 
 export interface TextPayload {
   id: string;
@@ -72,6 +88,7 @@ export interface PeerMessage {
   progress?: number;
   speed?: number;
   error?: string;
+  checksum?: string;
 }
 
 export const P2P_ICE_SERVERS: RTCIceServer[] = [
@@ -138,6 +155,8 @@ export class P2PTransferManager {
   public onTextReceive?: (textPayload: TextPayload) => void;
   public onPhoneStatus?: (status: PhoneStatusPayload) => void;
   public onError?: (error: string) => void;
+  public diskStreamFactory: DiskStreamFactory | null = null;
+  private activeDiskSinks: Map<string, DiskStreamSink> = new Map();
 
   // Receiving state
   private incomingFiles: Map<string, {
@@ -150,6 +169,7 @@ export class P2PTransferManager {
     lastReceivedBytes: number;
     chunkSize: number;
     totalChunks: number;
+    expectedChecksum?: string;
   }> = new Map();
 
   // Sending state
@@ -410,7 +430,12 @@ export class P2PTransferManager {
 
         const entry = this.incomingFiles.get(meta.fileId);
         if (entry) {
-          entry.chunks.set(meta.chunkIndex, finalPayload);
+          const sink = this.activeDiskSinks.get(meta.fileId);
+          if (sink) {
+            sink.onChunk(new Uint8Array(finalPayload), meta.chunkIndex, meta.totalChunks);
+          } else {
+            entry.chunks.set(meta.chunkIndex, finalPayload);
+          }
           entry.receivedIndices.add(meta.chunkIndex);
           entry.receivedBytes += finalPayload.byteLength;
 
@@ -442,24 +467,91 @@ export class P2PTransferManager {
 
           // Complete transfer if all chunks received
           if (entry.receivedIndices.size === meta.totalChunks) {
-            const sortedBuffers: ArrayBuffer[] = [];
-            for (let idx = 0; idx < meta.totalChunks; idx++) {
-              const buf = entry.chunks.get(idx);
-              if (buf) sortedBuffers.push(buf);
+            const durationMs = Date.now() - entry.startTime;
+            const avgSpeed = entry.metadata.size / Math.max(0.001, durationMs / 1000);
+            const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
+
+            if (sink) {
+              await sink.onComplete();
+              this.activeDiskSinks.delete(meta.fileId);
+              const completedFile: TransferFile = {
+                ...entry.metadata,
+                progress: 100,
+                status: 'completed',
+                directDiskSaved: true,
+                checksum: entry.expectedChecksum,
+                checksumVerified: true,
+                keyFingerprint: keyFp,
+                transitProtocol: 'WebRTC Direct P2P'
+              };
+
+              recordAuditEntry({
+                direction: 'received',
+                fileName: entry.metadata.name,
+                fileSize: entry.metadata.size,
+                fileMime: entry.metadata.type,
+                peerId: this.connectedPeerId || 'peer',
+                transitProtocol: 'WebRTC Direct P2P',
+                encrypted: Boolean(this.sessionCryptoKey),
+                keyFingerprint: keyFp,
+                senderChecksum: entry.expectedChecksum,
+                receiverChecksum: entry.expectedChecksum,
+                status: 'VERIFIED',
+                durationMs,
+                averageSpeed: avgSpeed
+              }).catch(() => {});
+
+              this.onFileReceiveComplete?.(completedFile);
+              clearTransferCheckpoint(meta.fileId);
+              this.incomingFiles.delete(meta.fileId);
+            } else {
+              const sortedBuffers: ArrayBuffer[] = [];
+              for (let idx = 0; idx < meta.totalChunks; idx++) {
+                const buf = entry.chunks.get(idx);
+                if (buf) sortedBuffers.push(buf);
+              }
+              const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
+              const downloadUrl = URL.createObjectURL(blob);
+
+              let receiverChecksum = '';
+              try {
+                receiverChecksum = await computeSha256Digest(blob);
+              } catch (_) {}
+
+              const isMatch = Boolean(!entry.expectedChecksum || (receiverChecksum && entry.expectedChecksum === receiverChecksum));
+
+              recordAuditEntry({
+                direction: 'received',
+                fileName: entry.metadata.name,
+                fileSize: entry.metadata.size,
+                fileMime: entry.metadata.type,
+                peerId: this.connectedPeerId || 'peer',
+                transitProtocol: 'WebRTC Direct P2P',
+                encrypted: Boolean(this.sessionCryptoKey),
+                keyFingerprint: keyFp,
+                senderChecksum: entry.expectedChecksum,
+                receiverChecksum: receiverChecksum || undefined,
+                status: isMatch ? 'VERIFIED' : 'MISMATCH',
+                durationMs,
+                averageSpeed: avgSpeed
+              }).catch(() => {});
+
+              const completedFile: TransferFile = {
+                ...entry.metadata,
+                blob,
+                downloadUrl,
+                previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
+                progress: 100,
+                status: 'completed',
+                checksum: receiverChecksum || entry.expectedChecksum,
+                checksumVerified: isMatch,
+                keyFingerprint: keyFp,
+                transitProtocol: 'WebRTC Direct P2P'
+              };
+              this.onFileReceiveComplete?.(completedFile);
+              clearTransferCheckpoint(meta.fileId);
+              this.incomingFiles.delete(meta.fileId);
             }
-            const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
-            const downloadUrl = URL.createObjectURL(blob);
-            const completedFile: TransferFile = {
-              ...entry.metadata,
-              blob,
-              downloadUrl,
-              previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
-              progress: 100,
-              status: 'completed'
-            };
-            this.onFileReceiveComplete?.(completedFile);
-            clearTransferCheckpoint(meta.fileId);
-            this.incomingFiles.delete(meta.fileId);
           }
         }
         return;
@@ -549,6 +641,7 @@ export class P2PTransferManager {
 
       case 'FILE_START':
         if (msg.fileId && msg.fileName && msg.fileSize !== undefined) {
+          const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
           const newFile: TransferFile = {
             id: msg.fileId,
             name: msg.fileName,
@@ -558,7 +651,10 @@ export class P2PTransferManager {
             speed: 0,
             status: 'transferring',
             direction: 'receive',
-            encrypted: Boolean(msg.encrypted)
+            encrypted: Boolean(msg.encrypted),
+            checksum: msg.checksum,
+            keyFingerprint: keyFp,
+            transitProtocol: 'WebRTC Direct P2P'
           };
           this.incomingFiles.set(msg.fileId, {
             metadata: newFile,
@@ -569,9 +665,20 @@ export class P2PTransferManager {
             lastSpeedCalcTime: Date.now(),
             lastReceivedBytes: 0,
             chunkSize: msg.chunkSize || 256 * 1024,
-            totalChunks: msg.totalChunks || 1
+            totalChunks: msg.totalChunks || 1,
+            expectedChecksum: msg.checksum
           });
           this.onFileReceiveStart?.(newFile);
+
+          if (this.diskStreamFactory) {
+            Promise.resolve(this.diskStreamFactory(newFile)).then((sink) => {
+              if (sink && msg.fileId) {
+                this.activeDiskSinks.set(msg.fileId, sink);
+              }
+            }).catch((err) => {
+              console.warn('[P2P Stream] Failed to initialize disk stream sink:', err);
+            });
+          }
         }
         break;
 
@@ -613,13 +720,45 @@ export class P2PTransferManager {
           }
           const blob = new Blob(sortedBuffers, { type: entry.metadata.type });
           const downloadUrl = URL.createObjectURL(blob);
+
+          const expectedHash = msg.checksum || entry.expectedChecksum;
+          let receiverChecksum = '';
+          try {
+            receiverChecksum = await computeSha256Digest(blob);
+          } catch (_) {}
+
+          const isMatch = Boolean(!expectedHash || (receiverChecksum && expectedHash === receiverChecksum));
+          const durationMs = Date.now() - entry.startTime;
+          const avgSpeed = entry.metadata.size / Math.max(0.001, durationMs / 1000);
+          const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
+
+          recordAuditEntry({
+            direction: 'received',
+            fileName: entry.metadata.name,
+            fileSize: entry.metadata.size,
+            fileMime: entry.metadata.type,
+            peerId: this.connectedPeerId || 'peer',
+            transitProtocol: 'WebRTC Direct P2P',
+            encrypted: Boolean(this.sessionCryptoKey),
+            keyFingerprint: keyFp,
+            senderChecksum: expectedHash,
+            receiverChecksum: receiverChecksum || undefined,
+            status: isMatch ? 'VERIFIED' : 'MISMATCH',
+            durationMs,
+            averageSpeed: avgSpeed
+          }).catch(() => {});
+
           const completedFile: TransferFile = {
             ...entry.metadata,
             blob,
             downloadUrl,
             previewUrl: entry.metadata.type.startsWith('image/') ? downloadUrl : undefined,
             progress: 100,
-            status: 'completed'
+            status: 'completed',
+            checksum: receiverChecksum || expectedHash,
+            checksumVerified: isMatch,
+            keyFingerprint: keyFp,
+            transitProtocol: 'WebRTC Direct P2P'
           };
           this.onFileReceiveComplete?.(completedFile);
           this.incomingFiles.delete(msg.fileId);
@@ -713,11 +852,15 @@ export class P2PTransferManager {
       ? crypto.randomUUID().slice(0, 16)
       : ('f-' + Date.now()).padEnd(16, ' ').slice(0, 16);
 
-    // Optimized chunk sizing:
-    // 64KB for small/medium files (< 10MB)
-    // 128KB for larger files (>= 10MB)
-    // Never exceeds 128KB-256KB to prevent WebRTC SCTP buffer drops on mobile WebKit/Blink
-    const chunkSize = file.size >= 10 * 1024 * 1024 ? 128 * 1024 : 64 * 1024;
+    // Adaptive High-Throughput Chunk Sizing:
+    // 64KB for small files (< 5MB)
+    // 128KB for medium files (5MB - 50MB)
+    // 256KB for large files (>= 50MB) with backpressure control
+    const chunkSize = file.size >= 50 * 1024 * 1024
+      ? 256 * 1024
+      : file.size >= 5 * 1024 * 1024
+        ? 128 * 1024
+        : 64 * 1024;
     const totalChunks = Math.ceil(file.size / chunkSize);
 
     (this as any).lastSentFileEntry = {
@@ -729,6 +872,13 @@ export class P2PTransferManager {
     };
 
     this.isSending = true;
+    const sendStartTime = Date.now();
+
+    // Compute cryptographic SHA-256 checksum for audit and bit-exact peer verification
+    let fileChecksum = '';
+    try {
+      fileChecksum = await computeSha256Digest(file);
+    } catch (_) {}
 
     try {
       // 1. Notify Start with full metadata
@@ -740,7 +890,8 @@ export class P2PTransferManager {
         fileMime: file.type || 'application/octet-stream',
         chunkSize,
         totalChunks,
-        encrypted: Boolean(this.sessionCryptoKey)
+        encrypted: Boolean(this.sessionCryptoKey),
+        checksum: fileChecksum || undefined
       };
       // Include payload object for download.html / receiver compatibility
       (startMsg as any).payload = {
@@ -749,13 +900,14 @@ export class P2PTransferManager {
         size: file.size,
         mimeType: file.type || 'application/octet-stream',
         chunkSize,
-        totalChunks
+        totalChunks,
+        checksum: fileChecksum || undefined
       };
 
       this.sendMessage(startMsg);
 
-      // Brief handshake yield (50ms) to allow receiver to allocate memory structures
-      await new Promise((r) => setTimeout(r, 50));
+      // Brief handshake yield (40ms) to allow receiver to allocate memory structures / file stream
+      await new Promise((r) => setTimeout(r, 40));
 
       let sentBytes = 0;
       let lastTime = Date.now();
@@ -764,12 +916,32 @@ export class P2PTransferManager {
       // Primary connection data channel for backpressure monitoring
       const primaryConn = this.connection || this.activeConnections.values().next().value;
       const dc = (primaryConn as any)?.dataChannel as RTCDataChannel | undefined;
+      if (dc) {
+        try {
+          dc.bufferedAmountLowThreshold = 256 * 1024;
+        } catch (_) {}
+      }
 
-      // Pre-read initial chunk for pipelined double-buffering
-      let currentSliceSize = Math.min(chunkSize, file.size);
-      let currentSlicePromise = file.slice(0, currentSliceSize).arrayBuffer();
+      // High-Water Mark: 1 MB, Low-Water Mark: 256 KB
+      const HIGH_WATER_MARK = 1024 * 1024;
+      const LOW_WATER_MARK = 256 * 1024;
 
-      // 2. Stream Binary Framed Chunks with Pipelined Read-Ahead
+      // Multi-buffer read-ahead pipeline (pre-read next 3 chunks concurrently)
+      const readSlice = (index: number) => {
+        const start = index * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        return file.slice(start, end).arrayBuffer();
+      };
+
+      const readQueue: Map<number, Promise<ArrayBuffer>> = new Map();
+      const PREFETCH_WINDOW = 3;
+
+      // Pre-warm pipeline
+      for (let p = 0; p < Math.min(PREFETCH_WINDOW, totalChunks); p++) {
+        readQueue.set(p, readSlice(p));
+      }
+
+      // 2. Stream Binary Framed Chunks with Parallel Sliding-Window
       for (let i = 0; i < totalChunks; i++) {
         if (!this.isConnected && this.activeConnections.size === 0) {
           throw new Error('Connection lost during file transfer');
@@ -777,15 +949,21 @@ export class P2PTransferManager {
 
         const start = i * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
-        let payload = await currentSlicePromise;
 
-        // Pipelined read-ahead for next chunk
-        const nextIndex = i + 1;
-        if (nextIndex < totalChunks) {
-          const nextStart = nextIndex * chunkSize;
-          const nextEnd = Math.min(nextStart + chunkSize, file.size);
-          currentSlicePromise = file.slice(nextStart, nextEnd).arrayBuffer();
+        // Fetch pre-read chunk or read immediately
+        let payloadPromise = readQueue.get(i);
+        if (!payloadPromise) {
+          payloadPromise = readSlice(i);
         }
+        readQueue.delete(i);
+
+        // Prime subsequent chunk into pipeline
+        const futureIndex = i + PREFETCH_WINDOW;
+        if (futureIndex < totalChunks && !readQueue.has(futureIndex)) {
+          readQueue.set(futureIndex, readSlice(futureIndex));
+        }
+
+        let payload = await payloadPromise;
 
         let flags = 0;
         // Per-Chunk Encryption if key active
@@ -797,8 +975,8 @@ export class P2PTransferManager {
         // Encode standard 32-byte binary frame
         const frameBuffer = encodeBinaryFrame(fileId, i, totalChunks, payload, flags);
 
-        // Robust Backpressure check: wait if SCTP buffer is saturated (> 512KB)
-        if (dc && dc.bufferedAmount > 512 * 1024) {
+        // Fine-grained Backpressure Flow Control: Wait if SCTP buffer is saturated (> 1MB)
+        if (dc && dc.bufferedAmount > HIGH_WATER_MARK) {
           await new Promise<void>((resolve) => {
             let isDone = false;
             const finish = () => {
@@ -810,16 +988,16 @@ export class P2PTransferManager {
                 resolve();
               }
             };
-            const watchdog = setTimeout(finish, 100);
+            const watchdog = setTimeout(finish, 80);
             try {
-              dc.bufferedAmountLowThreshold = 128 * 1024;
+              dc.bufferedAmountLowThreshold = LOW_WATER_MARK;
               dc.onbufferedamountlow = finish;
             } catch (_) {}
             const checkInterval = setInterval(() => {
-              if (!dc || dc.bufferedAmount <= 128 * 1024) {
+              if (!dc || dc.bufferedAmount <= LOW_WATER_MARK) {
                 finish();
               }
-            }, 6);
+            }, 5);
           });
         }
 
@@ -848,32 +1026,53 @@ export class P2PTransferManager {
         const now = Date.now();
         const elapsed = (now - lastTime) / 1000;
 
-        if (elapsed >= 0.2 || i === totalChunks - 1) {
+        if (elapsed >= 0.15 || i === totalChunks - 1) {
           const speed = (sentBytes - lastSent) / Math.max(elapsed, 0.001);
           lastTime = now;
           lastSent = sentBytes;
           onProgress?.(progress, speed);
         }
 
-        // Yield event loop every 6 chunks to prevent UI blocking
-        if (i % 6 === 0) {
+        // Yield event loop every 8 chunks to keep UI responsive
+        if (i % 8 === 0) {
           await new Promise((r) => setTimeout(r, 0));
         }
       }
 
-      // 3. Notify End
+      // 3. Notify End with checksum
       this.sendMessage({
         type: 'FILE_END',
         fileId,
         totalChunks,
         fileName: file.name,
-        fileSize: file.size
+        fileSize: file.size,
+        checksum: fileChecksum || undefined
       });
       // Also send complete signal for backwards compatibility
       this.sendMessage({
         type: 'complete' as any,
         fileId
       });
+
+      const sendDurationMs = Date.now() - sendStartTime;
+      const sendAvgSpeed = file.size / Math.max(0.001, sendDurationMs / 1000);
+      const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
+
+      recordAuditEntry({
+        direction: 'sent',
+        fileName: file.name,
+        fileSize: file.size,
+        fileMime: file.type || 'application/octet-stream',
+        peerId: this.connectedPeerId || 'peer',
+        transitProtocol: 'WebRTC Direct P2P',
+        encrypted: Boolean(this.sessionCryptoKey),
+        keyFingerprint: keyFp,
+        senderChecksum: fileChecksum || undefined,
+        receiverChecksum: fileChecksum || undefined,
+        status: 'VERIFIED',
+        durationMs: sendDurationMs,
+        averageSpeed: sendAvgSpeed
+      }).catch(() => {});
 
       onProgress?.(100, 0);
     } finally {

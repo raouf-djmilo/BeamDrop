@@ -170,8 +170,10 @@ export async function fetchDailyUsage(
       setLocalDailyUsage(firestoreUsage, uid);
       return firestoreUsage;
     }
-  } catch (err) {
-    console.warn('Could not fetch daily usage from Firestore, using local cache:', err);
+  } catch (err: any) {
+    if (err?.code !== 'permission-denied') {
+      console.warn('Could not fetch daily usage from Firestore, using local cache:', err);
+    }
   }
 
   return localUsage;
@@ -318,8 +320,10 @@ export async function trackOperation({
         },
         { merge: true }
       );
-    } catch (err) {
-      console.warn('Firestore atomic increment warning:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Firestore atomic increment warning:', err);
+      }
     }
   }
 

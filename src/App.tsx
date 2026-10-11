@@ -24,6 +24,8 @@ import { UpgradeModal } from './components/UpgradeModal';
 import { PricingModal } from './components/PricingModal';
 import { LockedFeatureView } from './components/LockedFeatureView';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ActivityAuditDrawer } from './components/ActivityAuditDrawer';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { X, Zap } from 'lucide-react';
 
 const WorkspacesView = React.lazy(() =>
@@ -131,7 +133,25 @@ function MainApp() {
 
   // Internal state drives 100% of UI tab rendering
   const [activeTab, setActiveTab] = useState<MainTab>(() => resolveTabFromLocation());
-  const [targetedPeer, setTargetedPeer] = useState<any>(null);
+  const [targetedPeer, setTargetedPeer] = useState<any>(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get('target') || params.get('peer');
+    if (target && !initialUrlInfo.isDownload && !initialUrlInfo.isPortal) {
+      return { id: target, name: 'Target Device / PC Vault' };
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get('target') || (params.get('mode') === 'send' ? params.get('peer') : '');
+    if (target && !initialUrlInfo.isDownload && !initialUrlInfo.isPortal) {
+      setTargetedPeer({ id: target, name: 'Target Device / PC Vault' });
+      setActiveTab('sender');
+    }
+  }, [initialUrlInfo.isDownload, initialUrlInfo.isPortal]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -165,6 +185,7 @@ function MainApp() {
   const [showPricingModal, setShowPricingModal] = useState<boolean>(false);
   const [pricingReason, setPricingReason] = useState<string>('');
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
+  const [showAuditDrawer, setShowAuditDrawer] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
 
@@ -315,6 +336,7 @@ function MainApp() {
           setShowPricingModal(true);
         }}
         onOpenProfileModal={() => setShowProfileModal(true)}
+        onOpenAuditDrawer={() => setShowAuditDrawer(true)}
       />
 
       {/* Main Content Area */}
@@ -366,6 +388,7 @@ function MainApp() {
             setPricingReason('Unlock unlimited P2P transfers & priority high-speed bandwidth.');
             setShowPricingModal(true);
           }}
+          onOpenAuditDrawer={() => setShowAuditDrawer(true)}
           showArchitectureModal={showArchitectureModal}
           setShowArchitectureModal={setShowArchitectureModal}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -504,6 +527,15 @@ function MainApp() {
           setShowAuthModal(true);
         }}
       />
+
+      {/* Cryptographic Transfer Activity & Audit Ledger Drawer */}
+      <ActivityAuditDrawer
+        isOpen={showAuditDrawer}
+        onClose={() => setShowAuditDrawer(false)}
+      />
+
+      {/* PWA Universal Install Banner with iOS instructions */}
+      <PWAInstallBanner />
     </div>
   );
 }

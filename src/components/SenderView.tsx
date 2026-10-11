@@ -29,7 +29,8 @@ import {
 import { P2PTransferManager, PhoneStatusPayload } from '../utils/p2p';
 import { QrDisplay } from './QrDisplay';
 import { ephemeralPortalEngine, EphemeralPortalSession } from '../utils/engine/portal';
-import { Clock, Globe, Shield } from 'lucide-react';
+import { formatSafetyFingerprint } from '../utils/engine/crypto';
+import { Clock, Globe, Shield, Lock } from 'lucide-react';
 import { formatBytes, formatSpeed, getFileCategory, getFileTypeMeta } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -139,6 +140,11 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }, 600);
     setTimeout(() => setRebuiltNotice(null), 3500);
 
+    // Ensure active Zero-Knowledge AES-256 E2EE session key
+    transferManager.setupE2EE().then((hex) => {
+      setE2eeKeyHex(hex);
+    }).catch(() => {});
+
     // Re-stage file in transit cache with new token safely (only for lightweight files <= 25MB)
     if (stagedFiles.length > 0 && transferManager.myPeerId) {
       const file = stagedFiles[0];
@@ -155,7 +161,17 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }
   };
 
+  // Initial E2EE setup on component mount
+  useEffect(() => {
+    if (!e2eeKeyHex) {
+      transferManager.setupE2EE().then((hex) => {
+        setE2eeKeyHex(hex);
+      }).catch((e) => console.debug('E2EE key init:', e));
+    }
+  }, [transferManager, e2eeKeyHex]);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   // Default to provided receiver base URL or current origin
   const targetBaseUrl = receiverBaseUrl || (typeof window !== 'undefined'
@@ -167,16 +183,72 @@ export const SenderView: React.FC<SenderViewProps> = ({
     ? `&name=${encodeURIComponent(firstFile.name)}&size=${firstFile.size}&mime=${encodeURIComponent(firstFile.type || '')}`
     : '';
 
+  const e2eeHashFragment = e2eeKeyHex ? `#key=${e2eeKeyHex}` : '';
   const receiverUrl = activeTab === 'files'
-    ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&nonce=${qrSessionNonce}${fileParams}`
-    : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&type=text`;
+    ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&nonce=${qrSessionNonce}${fileParams}${e2eeHashFragment}`
+    : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&type=text${e2eeHashFragment}`;
 
   const qrValue = directQrMode && textPayload.trim() && textPayload.length < 500
     ? textPayload.trim()
     : receiverUrl;
 
-  const handleFileDrop = (e: React.DragEvent) => {
+  const handlePickNativeFs = async () => {
+    if (typeof (window as any).showOpenFilePicker === 'function') {
+      try {
+        const handles = await (window as any).showOpenFilePicker({ multiple: true });
+        const files = await Promise.all(handles.map((h: any) => h.getFile()));
+        if (files && files.length > 0) {
+          addFiles(files);
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          fileInputRef.current?.click();
+        }
+      }
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const queue: any[] = [];
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if ((item as any).webkitGetAsEntry) {
+          const entry = (item as any).webkitGetAsEntry();
+          if (entry) queue.push(entry);
+        }
+      }
+      if (queue.length > 0) {
+        const readEntry = async (entry: any): Promise<any> => {
+          if (entry.isFile) {
+            return new Promise((resolve) => entry.file((f: any) => resolve(f), () => resolve(null)));
+          } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const readEntries = () => new Promise<any[]>((resolve) => {
+              reader.readEntries((res: any[]) => resolve(res), () => resolve([]));
+            });
+            let allEntries: any[] = [];
+            let batch = await readEntries();
+            while (batch.length > 0) {
+              allEntries = allEntries.concat(batch);
+              batch = await readEntries();
+            }
+            const nested = await Promise.all(allEntries.map(readEntry));
+            return nested.flat(Infinity).filter(Boolean);
+          }
+          return null;
+        };
+        const nestedFiles = await Promise.all(queue.map(readEntry));
+        const flattened = nestedFiles.flat(Infinity).filter(Boolean);
+        if (flattened.length > 0) {
+          addFiles(flattened);
+          return;
+        }
+      }
+    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       addFiles(Array.from(e.dataTransfer.files));
     }
@@ -612,15 +684,54 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 className="hidden"
                 onChange={handleFileSelect}
               />
+              <input
+                ref={folderInputRef}
+                type="file"
+                // @ts-ignore
+                webkitdirectory=""
+                directory=""
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
               <div className="w-16 h-16 mx-auto mb-3.5 rounded-3xl bg-gradient-to-tr from-sky-100 via-sky-50 to-blue-100 border border-sky-200 flex items-center justify-center text-sky-600 group-hover:scale-110 group-hover:border-sky-400 transition-all shadow-sm">
                 <UploadCloud className="w-8 h-8" />
               </div>
               <h3 className="text-sm font-bold text-slate-900">
-                Drop files here to beam
+                Drop files or entire folder here to beam
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Photos, videos, documents, or archives • Fast &amp; Direct
+                Photos, videos, documents, or directory folders • Direct Disk RAM Streaming
               </p>
+            </div>
+
+            {/* Quick Action Buttons for Folder & Native Disk I/O */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/90 hover:bg-sky-50 border border-sky-200 text-xs font-semibold text-slate-700 hover:text-sky-700 transition-all shadow-xs cursor-pointer"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-sky-600" />
+                <span>Pick Files</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => folderInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/90 hover:bg-sky-50 border border-sky-200 text-xs font-semibold text-slate-700 hover:text-sky-700 transition-all shadow-xs cursor-pointer"
+              >
+                <FileArchive className="w-3.5 h-3.5 text-amber-600" />
+                <span>Pick Folder</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePickNativeFs}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white text-xs font-semibold transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                title="Direct high-speed disk access without RAM bloat"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current text-white" />
+                <span>Native Disk I/O</span>
+              </button>
             </div>
 
             {/* Staged Files Preview */}
@@ -871,6 +982,17 @@ export const SenderView: React.FC<SenderViewProps> = ({
             </div>
             <span className="font-mono text-[10px] text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-200 font-bold">
               #{qrSessionNonce.slice(0, 6)}
+            </span>
+          </div>
+
+          {/* Zero-Knowledge E2EE AES-256 Verification Badge */}
+          <div className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 text-[11px]">
+            <div className="flex items-center space-x-1.5 text-emerald-800">
+              <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-semibold">Zero-Knowledge E2EE</span>
+            </div>
+            <span className="font-mono text-[10px] text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300 font-bold" title="End-to-End Encryption AES-256-GCM Safety Fingerprint">
+              {formatSafetyFingerprint(e2eeKeyHex)}
             </span>
           </div>
 
