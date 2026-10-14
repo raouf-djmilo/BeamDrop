@@ -77,9 +77,9 @@ export default async function handler(req, res) {
     const items = transitStore.get(peer);
     const queue = Array.isArray(items) ? items : (items ? [items] : []);
 
-    // If requested by a human browser scanning via native camera app (not polling for file download):
-    if (accept.includes('text/html') && queue.length === 0) {
-      res.writeHead(302, { Location: `/?mode=send&target=${encodeURIComponent(peer)}` });
+    // If requested by a camera scanner (target parameter present or HTML navigation) and queue is empty:
+    if (queue.length === 0 && (accept.includes('text/html') || url.searchParams.get('target'))) {
+      res.writeHead(302, { Location: `/?mode=send&target=${encodeURIComponent(peer)}&name=PC%20Vault` });
       return res.end();
     }
 

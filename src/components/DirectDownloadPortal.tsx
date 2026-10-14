@@ -257,6 +257,17 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           console.warn('WebRTC P2P direct failed, falling back to High-Speed Transit Engine:', err);
           fetchViaTransitFallback();
         });
+
+      // Rapid Cellular Fallback: if WebRTC connection is blocked or takes > 3s on 4G/5G, race transit RAM buffer
+      const fallbackTimer = setTimeout(() => {
+        if (isMounted && !downloadedFile && !currentFile) {
+          fetchViaTransitFallback();
+        }
+      }, 3200);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+      };
     }
 
     // High-Resilience Watchdog: If WebRTC hasn't delivered within 1.2 seconds (e.g. 4G/5G carrier NAT), fetch via Transit

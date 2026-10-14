@@ -71,11 +71,11 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
   const shortPeer = peerId.replace('beam-', '').toUpperCase();
   const cryptoAddress = `BD-${shortPeer.slice(0, 4)}-${shortPeer.slice(4, 8) || 'ADDR'}-${shortPeer.slice(8, 12) || 'VAULT'}`;
 
-  // Direct Mobile Scan & Transit Endpoint (Auto-detects Browser vs Shortcut)
+  // Direct Mobile Scan Endpoint (Points directly to Sender with this PC as targeted peer)
   const canonicalTransitBase = (typeof window !== 'undefined' && !window.location.origin.includes('.run.app') && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1'))
     ? window.location.origin
     : 'https://beam-drop-mu.vercel.app';
-  const directMobileUrl = `${canonicalTransitBase}/api/transit?peer=${peerId}&target=${peerId}`;
+  const directMobileUrl = `${canonicalTransitBase}/?mode=send&target=${peerId}&name=PC%20Vault`;
 
   // Function to choose native destination folder via File System Access API
   const selectDirectDiskFolder = async () => {
@@ -446,17 +446,6 @@ export const ReceiveVaultView: React.FC<ReceiveVaultViewProps> = ({
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
                 <span>{copiedLink ? 'Link Copied!' : 'Copy Direct Link'}</span>
               </button>
-
-              {onOpenTrustedDevicesModal && (
-                <button
-                  type="button"
-                  onClick={onOpenTrustedDevicesModal}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 text-sky-900 border border-sky-300 text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Trusted Devices</span>
-                </button>
-              )}
             </div>
           </div>
 

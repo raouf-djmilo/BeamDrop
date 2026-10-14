@@ -82,6 +82,32 @@ export const SenderView: React.FC<SenderViewProps> = ({
     }
   }, [targetedPeer]);
 
+  // Auto-connect to target peer when arriving via QR Scan or Direct Link
+  useEffect(() => {
+    if (!currentTargetPeer?.id || transferManager.isConnected) return;
+
+    let isCancelled = false;
+    const autoConnect = async () => {
+      setIsConnectingTarget(true);
+      try {
+        await transferManager.connect(currentTargetPeer.id);
+        if (!isCancelled) {
+          notifySuccess('Device Paired!', `Connected directly with ${currentTargetPeer.name || 'Target PC'}`);
+        }
+      } catch (err: any) {
+        console.warn('[SenderView] Auto-connect target notice:', err);
+      } finally {
+        if (!isCancelled) setIsConnectingTarget(false);
+      }
+    };
+
+    const timer = setTimeout(autoConnect, 300);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [currentTargetPeer?.id, transferManager]);
+
   const handleConnectTargetPeer = async () => {
     if (!currentTargetPeer?.id) return;
     setIsConnectingTarget(true);
@@ -809,10 +835,17 @@ export const SenderView: React.FC<SenderViewProps> = ({
                 ) : (
                   <div className="space-y-3">
                     <button
-                      onClick={startSendFiles}
-                      disabled={isSending}
+                      onClick={async () => {
+                        if (!transferManager.isConnected && currentTargetPeer?.id) {
+                          try {
+                            await transferManager.connect(currentTargetPeer.id);
+                          } catch (_) {}
+                        }
+                        startSendFiles();
+                      }}
+                      disabled={isSending || (!transferManager.isConnected && !currentTargetPeer?.id)}
                       className={`w-full py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-xl cursor-pointer ${
-                        transferManager.isConnected
+                        transferManager.isConnected || currentTargetPeer
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-white shadow-emerald-500/25 active:scale-95'
                           : 'bg-sky-100 text-slate-400 border border-sky-200 cursor-not-allowed'
                       }`}
@@ -820,9 +853,11 @@ export const SenderView: React.FC<SenderViewProps> = ({
                       <Send className="w-4 h-4" />
                       <span>
                         {isSending
-                          ? 'Streaming to Phone...'
+                          ? 'Streaming to Device...'
                           : transferManager.isConnected
-                          ? 'Beam Staged Files to Phone'
+                          ? (currentTargetPeer ? `⚡ Beam Staged Files to ${currentTargetPeer.name || 'PC'}` : 'Beam Staged Files to Phone')
+                          : currentTargetPeer
+                          ? (isConnectingTarget ? 'Connecting to Device...' : `⚡ Connect & Beam to ${currentTargetPeer.name || 'PC'}`)
                           : 'Scan QR with Phone to Start Stream'}
                       </span>
                     </button>

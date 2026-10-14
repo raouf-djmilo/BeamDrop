@@ -35,10 +35,6 @@ interface HeaderProps {
   onOpenAuthModal?: () => void;
   onOpenProfileModal?: () => void;
   onOpenPricingModal?: () => void;
-  onOpenAuditDrawer?: () => void;
-  onOpenScannerModal?: () => void;
-  onOpenTelemetryModal?: () => void;
-  onOpenTrustedDevicesModal?: () => void;
   showArchitectureModal: boolean;
   setShowArchitectureModal: (show: boolean) => void;
   onToggleMobileMenu?: () => void;
@@ -53,10 +49,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuthModal,
   onOpenProfileModal,
   onOpenPricingModal,
-  onOpenAuditDrawer,
-  onOpenScannerModal,
-  onOpenTelemetryModal,
-  onOpenTrustedDevicesModal,
   showArchitectureModal,
   setShowArchitectureModal,
   onToggleMobileMenu,
@@ -164,60 +156,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline text-[11px]">Scan QR</span>
               </button>
             )}
-
-            {/* Cryptographic Audit Ledger Launcher */}
-            {onOpenAuditDrawer && (
-              <button
-                type="button"
-                onClick={onOpenAuditDrawer}
-                className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-sky-50 border border-sky-200/90 hover:border-sky-300 text-slate-700 hover:text-sky-800 transition-all text-xs font-semibold cursor-pointer shadow-2xs min-h-[36px]"
-                title="Cryptographic Transfer Activity & Audit Ledger"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                <span className="hidden lg:inline text-[11px]">Audit Ledger</span>
-              </button>
-            )}
-
-            {/* Trusted Devices Whitelist (AirDrop Style) Launcher */}
-            {onOpenTrustedDevicesModal && (
-              <button
-                type="button"
-                onClick={onOpenTrustedDevicesModal}
-                className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-300 text-sky-900 transition-all text-xs font-semibold cursor-pointer shadow-2xs min-h-[36px]"
-                title="Manage Trusted Devices (AirDrop Style Zero-Click Auto-Accept)"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span className="hidden md:inline text-[11px] font-bold">Trusted Devices</span>
-              </button>
-            )}
-
-            {/* In-App Vulnerability Scanner Launcher */}
-            {onOpenScannerModal && (
-              <button
-                type="button"
-                onClick={onOpenScannerModal}
-                className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 transition-all text-xs font-semibold cursor-pointer shadow-2xs min-h-[36px]"
-                title="Run In-App Vulnerability Diagnostic & Security Health Audit"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] font-bold">Grade A+</span>
-                <span className="hidden xl:inline text-[10px] text-emerald-700 font-normal">Audit</span>
-              </button>
-            )}
-
-            {/* Real-Time Live Telemetry HUD Launcher */}
-            {onOpenTelemetryModal && (
-              <button
-                type="button"
-                onClick={onOpenTelemetryModal}
-                className="flex items-center space-x-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-sky-300 border border-sky-500/40 transition-all text-xs font-semibold cursor-pointer shadow-xs min-h-[36px]"
-                title="Open Live Packet & Network Telemetry Dashboard"
-              >
-                <Activity className="w-3.5 h-3.5 text-sky-400" />
-                <span className="hidden lg:inline text-[11px] font-mono">HUD</span>
-              </button>
-            )}
-
             {/* User Account / Profile Entry Point */}
             {currentUser ? (
               <div className="relative">

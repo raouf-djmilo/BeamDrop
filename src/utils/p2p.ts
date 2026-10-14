@@ -75,7 +75,7 @@ export interface PhoneStatusPayload {
 }
 
 export interface PeerMessage {
-  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA' | 'PHONE_STATUS' | 'CLIPBOARD_SYNC';
+  type: 'FILE_START' | 'FILE_CHUNK' | 'FILE_END' | 'TEXT_MSG' | 'PING' | 'PONG' | 'DEVICE_INFO' | 'RESUME_SESSION' | 'RESUME_ACK' | 'RECEIVER_READY' | 'ACK_METADATA' | 'PHONE_STATUS' | 'CLIPBOARD_SYNC' | 'TRANSFER_COMPLETE_ACK';
   fileId?: string;
   fileName?: string;
   fileSize?: number;
@@ -368,6 +368,7 @@ export class P2PTransferManager {
     }
     this.connection = conn;
     this.connectedPeerId = conn.peer;
+    this.targetPeerId = conn.peer;
     this.activeConnections.set(conn.peer, conn);
     this.connectedPeersList = Array.from(this.activeConnections.keys());
     this.isConnected = true;
@@ -404,12 +405,15 @@ export class P2PTransferManager {
       if (this.activeConnections.size > 0) {
         this.connection = this.activeConnections.values().next().value || null;
         this.connectedPeerId = this.connection ? this.connection.peer : '';
+        this.targetPeerId = this.connectedPeerId;
         this.isConnected = true;
         this.onStatusChange?.(`Peer disconnected (${this.activeConnections.size} remaining)`);
       } else {
         this.isConnected = false;
         this.connection = null;
         this.connectedPeerId = '';
+        this.targetPeerId = '';
+        this.targetDeviceName = '';
         this.adaptiveChunker.stopProbing();
         this.onStatusChange?.('All peers disconnected');
         this.onDisconnected?.();
@@ -442,9 +446,14 @@ export class P2PTransferManager {
           }
         }
 
-        const entry = this.incomingFiles.get(meta.fileId);
+        const cleanFileId = (meta.fileId || '').trim();
+        let entry = this.incomingFiles.get(cleanFileId) || this.incomingFiles.get(meta.fileId);
+        if (!entry && this.incomingFiles.size === 1) {
+          entry = this.incomingFiles.values().next().value;
+        }
         if (entry) {
-          const sink = this.activeDiskSinks.get(meta.fileId);
+          const actualFileId = entry.metadata.id;
+          const sink = this.activeDiskSinks.get(actualFileId) || this.activeDiskSinks.get(cleanFileId) || this.activeDiskSinks.get(meta.fileId);
           if (sink) {
             sink.onChunk(new Uint8Array(finalPayload), meta.chunkIndex, meta.totalChunks);
           } else {
@@ -622,6 +631,12 @@ export class P2PTransferManager {
 
     // Standard JSON message handling
     switch (msg.type) {
+      case 'DEVICE_INFO':
+        if (msg.device) {
+          this.targetDeviceName = msg.device;
+        }
+        break;
+
       case 'TEXT_MSG':
         if (msg.text) {
           const isUrl = /^https?:\/\//i.test(msg.text.trim());
@@ -674,10 +689,11 @@ export class P2PTransferManager {
 
       case 'FILE_START':
         if (msg.fileId && msg.fileName && msg.fileSize !== undefined) {
+          const cleanId = msg.fileId.trim();
           const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
           const senderId = this.targetPeerId || '';
           const newFile: TransferFile = {
-            id: msg.fileId,
+            id: cleanId,
             name: msg.fileName,
             size: msg.fileSize,
             type: msg.fileMime || 'application/octet-stream',
@@ -700,7 +716,7 @@ export class P2PTransferManager {
               }
             }).catch(() => {});
           }
-          this.incomingFiles.set(msg.fileId, {
+          this.incomingFiles.set(cleanId, {
             metadata: newFile,
             chunks: new Map(),
             receivedIndices: new Set(),
@@ -714,10 +730,16 @@ export class P2PTransferManager {
           });
           this.onFileReceiveStart?.(newFile);
 
+          // Emit instant lockstep readiness signal to unlock sender streaming
+          this.sendMessage({
+            type: 'RECEIVER_READY',
+            fileId: cleanId
+          });
+
           if (this.diskStreamFactory) {
             Promise.resolve(this.diskStreamFactory(newFile)).then((sink) => {
-              if (sink && msg.fileId) {
-                this.activeDiskSinks.set(msg.fileId, sink);
+              if (sink && cleanId) {
+                this.activeDiskSinks.set(cleanId, sink);
               }
             }).catch((err) => {
               console.warn('[P2P Stream] Failed to initialize disk stream sink:', err);
@@ -728,7 +750,11 @@ export class P2PTransferManager {
 
       case 'FILE_CHUNK':
         if (msg.fileId && msg.data) {
-          const entry = this.incomingFiles.get(msg.fileId);
+          const cleanId = msg.fileId.trim();
+          let entry = this.incomingFiles.get(cleanId) || this.incomingFiles.get(msg.fileId);
+          if (!entry && this.incomingFiles.size === 1) {
+            entry = this.incomingFiles.values().next().value;
+          }
           if (!entry) return;
           const chunk = msg.data as ArrayBuffer;
           const idx = msg.chunkIndex ?? entry.receivedIndices.size;
@@ -749,14 +775,47 @@ export class P2PTransferManager {
 
           entry.metadata.progress = progress;
           entry.metadata.speed = speed;
-          this.onFileProgress?.(msg.fileId, progress, speed);
+          this.onFileProgress?.(cleanId, progress, speed);
         }
         break;
 
       case 'FILE_END':
         if (msg.fileId) {
-          const entry = this.incomingFiles.get(msg.fileId);
+          const cleanId = msg.fileId.trim();
+          let entry = this.incomingFiles.get(cleanId) || this.incomingFiles.get(msg.fileId);
+          if (!entry && this.incomingFiles.size === 1) {
+            entry = this.incomingFiles.values().next().value;
+          }
           if (!entry) return;
+
+          const durationMs = Date.now() - entry.startTime;
+          const avgSpeed = entry.metadata.size / Math.max(0.001, durationMs / 1000);
+          const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
+          const actualFileId = entry.metadata.id;
+          const sink = this.activeDiskSinks.get(actualFileId) || this.activeDiskSinks.get(cleanId) || this.activeDiskSinks.get(msg.fileId);
+
+          if (sink) {
+            await sink.onComplete();
+            this.activeDiskSinks.delete(actualFileId);
+            this.activeDiskSinks.delete(cleanId);
+            const completedFile: TransferFile = {
+              ...entry.metadata,
+              progress: 100,
+              status: 'completed',
+              directDiskSaved: true,
+              checksum: entry.expectedChecksum,
+              checksumVerified: true,
+              keyFingerprint: keyFp,
+              transitProtocol: 'WebRTC Direct P2P'
+            };
+            this.onFileReceiveComplete?.(completedFile);
+            clearTransferCheckpoint(actualFileId);
+            this.incomingFiles.delete(actualFileId);
+            this.incomingFiles.delete(cleanId);
+            this.sendMessage({ type: 'TRANSFER_COMPLETE_ACK', fileId: actualFileId });
+            return;
+          }
+
           const sortedBuffers: ArrayBuffer[] = [];
           for (let i = 0; i < (entry.totalChunks || entry.chunks.size); i++) {
             const b = entry.chunks.get(i);
@@ -772,9 +831,6 @@ export class P2PTransferManager {
           } catch (_) {}
 
           const isMatch = Boolean(!expectedHash || (receiverChecksum && expectedHash === receiverChecksum));
-          const durationMs = Date.now() - entry.startTime;
-          const avgSpeed = entry.metadata.size / Math.max(0.001, durationMs / 1000);
-          const keyFp = this.sessionRawKeyHex ? formatSafetyFingerprint(this.sessionRawKeyHex) : undefined;
 
           recordAuditEntry({
             direction: 'received',
@@ -805,7 +861,9 @@ export class P2PTransferManager {
             transitProtocol: 'WebRTC Direct P2P'
           };
           this.onFileReceiveComplete?.(completedFile);
-          this.incomingFiles.delete(msg.fileId);
+          this.incomingFiles.delete(actualFileId);
+          this.incomingFiles.delete(cleanId);
+          this.sendMessage({ type: 'TRANSFER_COMPLETE_ACK', fileId: actualFileId });
         }
         break;
     }

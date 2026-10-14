@@ -425,8 +425,10 @@ function renderReceiveVaultQr() {
     ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
     : "https://beam-drop-mu.vercel.app";
 
-  // Universal QR Address: Works for Safari/Chrome camera redirection AND iOS Shortcut direct POST
-  const targetLink = `${safeBaseTransitUrl}/api/transit?peer=${currentPeerId}&target=${currentPeerId}`;
+  // Camera QR opens Web App Send mode directly pre-paired to this Extension PC Vault!
+  const targetLink = currentReceiveQrMode === 'camera'
+    ? `${safeBaseTransitUrl}/?mode=send&target=${currentPeerId}&name=PC%20Vault`
+    : `${safeBaseTransitUrl}/api/transit?peer=${currentPeerId}&target=${currentPeerId}`;
 
   const qrCanvas = document.getElementById('receiveVaultQrCanvas');
   if (qrCanvas && typeof QRCode !== 'undefined' && QRCode.toCanvas) {
@@ -695,6 +697,9 @@ if (btnGetIosShortcut) {
 
 let vaultItems = [];
 function addVaultItem(item) {
+  if (!item.url && item.blob) {
+    try { item.url = URL.createObjectURL(item.blob); } catch (_) {}
+  }
   vaultItems.unshift(item);
   if (vaultItemsCount) vaultItemsCount.textContent = vaultItems.length;
   if (!vaultItemsList) return;
@@ -2024,35 +2029,11 @@ function setupConnectionHandlers(conn, type) {
             return fh.createWritable();
           }).then((ws) => {
             currentExtWritableStream = ws;
-            const readable = new ReadableStream({
-              start(c) {
-                currentExtStreamController = c;
-              }
-            });
-            currentExtPipePromise = readable.pipeTo(currentExtWritableStream).catch((pipeErr) => {
-              console.warn('[Direct Disk Stream] Pipe error:', pipeErr);
-            });
           }).catch((fsErr) => {
-            console.warn('[Direct Disk Stream] Init error:', fsErr);
-            currentExtStreamController = null;
+            console.warn('[Direct Disk Stream] Init notice:', fsErr);
             currentExtWritableStream = null;
           });
         } catch (_) {}
-      } else if (navigator.storage && navigator.storage.getDirectory) {
-        // Universal OPFS direct-to-disk streaming
-        navigator.storage.getDirectory().then((root) => {
-          return root.getFileHandle(`bdrop_popup_${Date.now()}_${msg.fileName || 'file'}`, { create: true });
-        }).then((fh) => {
-          return fh.createWritable();
-        }).then((ws) => {
-          currentExtWritableStream = ws;
-          const readable = new ReadableStream({
-            start(c) { currentExtStreamController = c; }
-          });
-          currentExtPipePromise = readable.pipeTo(currentExtWritableStream).catch(() => {});
-        }).catch((opfsErr) => {
-          console.warn('[Direct Disk Stream] OPFS fallback notice:', opfsErr);
-        });
       }
 
       conn.send({ type: 'RECEIVER_READY', fileId: msg.fileId });
@@ -2060,57 +2041,39 @@ function setupConnectionHandlers(conn, type) {
     }
 
     if (msg.type === 'FILE_END') {
-      if (currentExtStreamController) {
-        try { currentExtStreamController.close(); } catch (_) {}
-        if (currentExtPipePromise) {
-          currentExtPipePromise.catch(() => {}).finally(() => {
-            currentExtWritableStream = null;
-            currentExtStreamController = null;
-            currentExtPipePromise = null;
-          });
-        }
-        const fileName = (incomingMeta && incomingMeta.fileName) || 'beamed-file';
-        playExtChime('complete');
-        addVaultItem({
-          name: fileName,
-          size: incomingTotalBytes,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: (incomingMeta && incomingMeta.fileMime) || 'file',
-          url: ''
+      const fileName = (incomingMeta && incomingMeta.fileName) || `beamed_${Date.now()}`;
+      const fileMime = (incomingMeta && incomingMeta.fileMime) || 'application/octet-stream';
+      const fileBlob = new Blob(incomingChunks, { type: fileMime });
+      const blobUrl = URL.createObjectURL(fileBlob);
+
+      playExtChime('complete');
+
+      // Auto-save via Chrome Downloads API directly to PC
+      triggerChromeDownload(fileBlob, fileName);
+
+      // Also flush to custom folder if linked
+      if (currentExtWritableStream) {
+        fileBlob.stream().pipeTo(currentExtWritableStream).catch(() => {}).finally(() => {
+          currentExtWritableStream = null;
         });
-
-        if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';
-        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '100%';
-        setTimeout(() => {
-          if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'none';
-        }, 2500);
-
-        conn.send({ type: 'TRANSFER_COMPLETE_ACK', device: 'PC Extension' });
-        return;
       }
 
-      if (incomingMeta && incomingChunks.length > 0) {
-        const fileBlob = new Blob(incomingChunks, { type: incomingMeta.fileMime || 'application/octet-stream' });
-        const fileName = incomingMeta.fileName || 'beamed-file';
-        playExtChime('complete');
-        triggerChromeDownload(fileBlob, fileName);
+      addVaultItem({
+        name: fileName,
+        size: fileBlob.size || incomingTotalBytes,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: fileMime,
+        blob: fileBlob,
+        url: blobUrl
+      });
 
-        addVaultItem({
-          name: fileName,
-          size: incomingTotalBytes,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: incomingMeta.fileMime || 'file',
-          url: ''
-        });
+      if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';
+      if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '100%';
+      setTimeout(() => {
+        if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'none';
+      }, 2500);
 
-        if (receiveIncomingPercent) receiveIncomingPercent.textContent = '100%';
-        if (receiveIncomingProgressFill) receiveIncomingProgressFill.style.width = '100%';
-        setTimeout(() => {
-          if (receiveLiveStreamCard) receiveLiveStreamCard.style.display = 'none';
-        }, 2500);
-
-        conn.send({ type: 'TRANSFER_COMPLETE_ACK', device: 'PC Extension' });
-      }
+      conn.send({ type: 'TRANSFER_COMPLETE_ACK', device: 'PC Extension' });
       return;
     }
 
