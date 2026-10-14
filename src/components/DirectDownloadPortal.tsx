@@ -107,10 +107,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Set page title to the file name directly
     document.title = `Download ${displayName}`;
+  }, [displayName]);
+
+  useEffect(() => {
+    let isMounted = true;
 
     // Enable zero-RAM stream-to-disk sink via OPFS / File System Access
     transferManager.diskStreamFactory = async (meta: TransferFile) => {
@@ -258,31 +259,23 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           fetchViaTransitFallback();
         });
 
-      // Rapid Cellular Fallback: if WebRTC connection is blocked or takes > 3s on 4G/5G, race transit RAM buffer
+      // Rapid Cellular Fallback: if WebRTC connection is blocked or takes > 3.5s on 4G/5G, race transit RAM buffer
       const fallbackTimer = setTimeout(() => {
         if (isMounted && !downloadedFile && !currentFile) {
           fetchViaTransitFallback();
         }
-      }, 3200);
+      }, 3500);
 
       return () => {
         clearTimeout(fallbackTimer);
       };
     }
 
-    // High-Resilience Watchdog: If WebRTC hasn't delivered within 1.2 seconds (e.g. 4G/5G carrier NAT), fetch via Transit
-    const transitTimer = setTimeout(() => {
-      if (!downloadedFile && isMounted) {
-        fetchViaTransitFallback();
-      }
-    }, 1200);
-
     return () => {
       isMounted = false;
-      clearTimeout(transitTimer);
       transferManager.destroy();
     };
-  }, [peerId, transferManager, displayName]);
+  }, [peerId, transferManager]);
 
   const handleManualDownloadClick = () => {
     if (downloadedFile && downloadedFile.downloadUrl) {

@@ -525,6 +525,11 @@ export class P2PTransferManager {
               }).catch(() => {});
 
               this.onFileReceiveComplete?.(completedFile);
+              this.sendMessage({
+                type: 'TRANSFER_COMPLETE_ACK',
+                fileId: meta.fileId,
+                device: this.myDeviceName
+              });
               clearTransferCheckpoint(meta.fileId);
               this.incomingFiles.delete(meta.fileId);
             } else {
@@ -572,6 +577,11 @@ export class P2PTransferManager {
                 transitProtocol: 'WebRTC Direct P2P'
               };
               this.onFileReceiveComplete?.(completedFile);
+              this.sendMessage({
+                type: 'TRANSFER_COMPLETE_ACK',
+                fileId: meta.fileId,
+                device: this.myDeviceName
+              });
               clearTransferCheckpoint(meta.fileId);
               this.incomingFiles.delete(meta.fileId);
             }

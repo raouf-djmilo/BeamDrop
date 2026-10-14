@@ -322,10 +322,10 @@ export const SenderView: React.FC<SenderViewProps> = ({
     setTransferCompleted(false);
     playChime('connect');
 
-    // Pre-stage in Ephemeral RAM Transit for instant 4G/5G mobile cellular phone fallback (only files <= 25MB)
+    // Pre-stage in Ephemeral RAM Transit for instant 4G/5G mobile cellular phone fallback (files <= 4MB, Vercel payload limit)
     if (stagedFiles.length > 0 && transferManager.myPeerId) {
       const file = stagedFiles[0];
-      if (file.size <= 25 * 1024 * 1024) {
+      if (file.size <= 4 * 1024 * 1024) {
         const fileNameEnc = encodeURIComponent(file.name);
         const mimeEnc = encodeURIComponent(file.type || 'application/octet-stream');
         fetch(`${targetBaseUrl}/api/transit?peer=${encodeURIComponent(transferManager.myPeerId)}&name=${fileNameEnc}&mime=${mimeEnc}`, {

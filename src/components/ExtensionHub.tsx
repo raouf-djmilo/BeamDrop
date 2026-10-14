@@ -223,6 +223,23 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
     setFolderErrorMessage('');
     setUnpackedSuccessFolder(null);
 
+    // Check if running in an iframe / cross-origin frame where showDirectoryPicker is forbidden by browser security
+    const isInsideFrame = typeof window !== 'undefined' && window.self !== window.top;
+    if (isInsideFrame) {
+      setIsUnpackingFolder(true);
+      setFolderProgress('Browser preview iframe detected. Downloading complete extension package (.ZIP)...');
+      try {
+        await handleDownloadZip();
+        setUnpackedSuccessFolder('Extension Package (.ZIP) Downloaded! Extract and Load in chrome://extensions');
+      } catch (zipErr: any) {
+        setFolderErrorMessage('Failed downloading ZIP: ' + (zipErr.message || 'Error'));
+      } finally {
+        setIsUnpackingFolder(false);
+        setFolderProgress('');
+      }
+      return;
+    }
+
     if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
       setFolderErrorMessage('Your browser does not support the native File System Access API. Please use Google Chrome, Brave, Edge, or Opera, or click "Download Extension (.ZIP)" to download the folder archive.');
       return;
@@ -232,10 +249,32 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
       setIsUnpackingFolder(true);
       setFolderProgress('Opening folder picker on your PC...');
 
-      const dirHandle = await (window as any).showDirectoryPicker({
-        id: 'beamdrop-extension-folder',
-        mode: 'readwrite'
-      });
+      let dirHandle: any;
+      try {
+        dirHandle = await (window as any).showDirectoryPicker({
+          id: 'beamdrop-extension-folder',
+          mode: 'readwrite'
+        });
+      } catch (pickerErr: any) {
+        if (pickerErr.name === 'AbortError') {
+          setIsUnpackingFolder(false);
+          setFolderProgress('');
+          return;
+        }
+        if (
+          pickerErr.name === 'SecurityError' ||
+          pickerErr.message?.includes('Cross origin') ||
+          pickerErr.message?.includes('file picker')
+        ) {
+          setFolderProgress('Frame restrictions active: downloading complete extension (.ZIP) instead...');
+          await handleDownloadZip();
+          setUnpackedSuccessFolder('Extension Package (.ZIP) Downloaded! Extract and Load in chrome://extensions');
+          setIsUnpackingFolder(false);
+          setFolderProgress('');
+          return;
+        }
+        throw pickerErr;
+      }
 
       const targetName = dirHandle.name || 'Extension Folder';
       setFolderProgress(`Cleaning previous files in "${targetName}"...`);
@@ -309,8 +348,14 @@ export const ExtensionHub: React.FC<ExtensionHubProps> = ({ receiverBaseUrl }) =
       setFolderProgress('');
     } catch (err: any) {
       if (err.name !== 'AbortError') {
-        console.error('Folder unpack failed:', err);
-        setFolderErrorMessage(err.message || 'Failed writing files to folder');
+        if (err.name === 'SecurityError' || err.message?.includes('Cross origin')) {
+          setFolderProgress('Switching to ZIP package download...');
+          await handleDownloadZip();
+          setUnpackedSuccessFolder('Extension Package (.ZIP) Downloaded! Extract and Load in chrome://extensions');
+        } else {
+          console.warn('Folder unpack notice:', err.message);
+          setFolderErrorMessage(err.message || 'Failed writing files to folder');
+        }
       }
     } finally {
       setIsUnpackingFolder(false);

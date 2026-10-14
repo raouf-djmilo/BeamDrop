@@ -1454,8 +1454,8 @@ async function rebuildExtensionQrSession() {
       console.error('QR render error:', e);
     }
 
-    // Re-stage file in RAM transit (lightweight files <= 25MB only)
-    if (activePreparedFile.size <= 25 * 1024 * 1024) {
+    // Re-stage file in RAM transit (lightweight files <= 4MB only, Vercel payload limit)
+    if (activePreparedFile.size <= 4 * 1024 * 1024) {
       try {
         fetch(`${safeBaseUrl}/api/transit?peer=${currentPeerId}&token=${nonce}&name=${fileNameEnc}&mime=${mimeEnc}`, {
           method: 'POST',
@@ -1463,7 +1463,7 @@ async function rebuildExtensionQrSession() {
         }).catch(() => {});
       } catch (_) {}
     } else {
-      console.log(`[BeamDrop] Large file (${(activePreparedFile.size / (1024*1024)).toFixed(1)} MB) configured for direct high-speed P2P DataChannel transmission.`);
+      console.log(`[BeamDrop] Staged large payload (${(activePreparedFile.size / (1024*1024)).toFixed(1)} MB) configured for direct high-speed P2P DataChannel transmission.`);
     }
 
     initPeerJsSession('file');
@@ -1558,8 +1558,8 @@ async function startFilePortalSession(file) {
     console.error('QR rendering failed:', err);
   }
 
-  // Pre-stage in Ephemeral In-Memory RAM Transit for instant mobile 4G/5G phone fallback (only for files <= 25MB)
-  if (file.size <= 25 * 1024 * 1024) {
+  // Pre-stage in Ephemeral In-Memory RAM Transit for instant mobile 4G/5G phone fallback (files <= 4MB, Vercel payload limit)
+  if (file.size <= 4 * 1024 * 1024) {
     try {
       const transitUrl = `${safeBaseUrl}/api/transit?peer=${currentPeerId}&name=${fileNameEnc}&mime=${mimeEnc}`;
       fetch(transitUrl, {
@@ -1890,6 +1890,7 @@ function initPeerJsSession(type = 'file') {
     }
 
     activeConnection = conn;
+    isStreaming = false;
     updateStatus('connected', 'Phone Connected');
 
     // Immediately detect that Phone Scanned QR code!
@@ -2433,6 +2434,18 @@ async function startBackpressureStream(conn, file) {
     if (chunkIndex % 6 === 0) {
       await new Promise(r => setTimeout(r, 0));
     }
+  }
+  
+  if (offset < file.size) {
+    console.warn('[BeamDrop] DataChannel closed before full transmission. Transferred:', offset, 'of', file.size);
+    isStreaming = false;
+    releaseExtensionWakeLock();
+    updateStatus('idle', 'Transfer Interrupted');
+    updateRemotePhoneStatus({
+      stage: 'failed',
+      error: 'Connection closed before transfer finished'
+    });
+    return;
   }
 
   // 4. Send Complete Signal
