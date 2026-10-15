@@ -7,6 +7,31 @@
 const DEFAULT_VERCEL_URL = "https://beam-drop-mu.vercel.app";
 const GITHUB_RAW_URL = "https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/public/version.json";
 const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
+let lastWebDragPayload = null;
+
+/**
+ * Function to display/clear update badge on toolbar icon
+ * @param {boolean} hasUpdate - If true, show Electric Sky Blue badge with "NEW"
+ */
+function updateExtensionBadge(hasUpdate) {
+  const BADGE_COLOR = "#0284C7"; // BeamDrop Electric Sky Blue
+  const BADGE_TEXT = "NEW";
+
+  if (typeof chrome !== 'undefined' && chrome.action) {
+    if (hasUpdate) {
+      if (chrome.action.setBadgeBackgroundColor) {
+        chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
+      }
+      if (chrome.action.setBadgeText) {
+        chrome.action.setBadgeText({ text: BADGE_TEXT });
+      }
+    } else {
+      if (chrome.action.setBadgeText) {
+        chrome.action.setBadgeText({ text: "" });
+      }
+    }
+  }
+}
 
 function setupContextMenus() {
   if (!chrome.contextMenus) return;
@@ -416,13 +441,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'web_page_drag_started') {
+    lastWebDragPayload = message.data;
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ beamdrop_last_web_drag: message.data }).catch(() => {});
+    }
+    sendResponse({ success: true, received: true });
+    return true;
+  }
+
+  if (message.action === 'get_last_web_drag') {
+    sendResponse({ success: true, data: lastWebDragPayload });
+    return true;
+  }
+
   if (message.action === 'check_updates_now') {
     checkCloudForUpdates().then((res) => sendResponse(res));
     return true;
   }
 
   if (message.action === 'clear_update_badge') {
-    chrome.action.setBadgeText({ text: '' });
+    updateExtensionBadge(false);
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.remove(['updateAvailable']);
     }
@@ -662,9 +701,8 @@ async function checkCloudForUpdates() {
     const isNewer = compareSemver(remoteVer, installedVer) > 0;
 
     if (isNewer) {
-      // Set badge on toolbar icon
-      chrome.action.setBadgeText({ text: 'NEW' });
-      chrome.action.setBadgeBackgroundColor({ color: '#06b6d4' }); // Glowing cyan
+      // Set badge on toolbar icon with brand color (#0284C7)
+      updateExtensionBadge(true);
       chrome.action.setTitle({ title: `⚡ BeamDrop Update Available (v${remoteVer})! Click to update.` });
 
       if (chrome.storage && chrome.storage.local) {
@@ -690,7 +728,7 @@ async function checkCloudForUpdates() {
 
       return { hasUpdate: true, version: remoteVer, data };
     } else {
-      chrome.action.setBadgeText({ text: '' });
+      updateExtensionBadge(false);
       return { hasUpdate: false, version: remoteVer, data };
     }
   } catch (err) {

@@ -3401,7 +3401,180 @@ body {
   transform: translateX(14px);
 }
 
+/* =========================================================
+   PHASE 5: TRANSFER HISTORY VAULT, MEDIA PREVIEW & OPTICAL QR
+   ========================================================= */
 
+/* History Item Card */
+.hist-item-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(186, 230, 253, 0.8);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.05);
+  transition: all 0.15s ease;
+}
 
+.hist-item-card:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+  transform: translateY(-1px);
+}
 
+.hist-thumb-wrap {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid rgba(186, 230, 253, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
 
+.hist-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.hist-thumb-wrap:hover .hist-thumb-img {
+  transform: scale(1.08);
+}
+
+.hist-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hist-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hist-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hist-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  color: #64748b;
+}
+
+.hist-direction-pill {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.hist-direction-pill.received {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.hist-direction-pill.sent {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.hist-sha-pill {
+  font-family: ui-monospace, monospace;
+  font-size: 8.5px;
+  color: #047857;
+  background: #ecfdf5;
+  padding: 1px 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hist-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hist-action-btn {
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.12s ease;
+}
+
+.hist-btn-save {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: rgba(186, 230, 253, 0.9);
+}
+
+.hist-btn-save:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.hist-btn-rebeam {
+  background: rgba(240, 249, 255, 0.8);
+  color: #0369a1;
+  border-color: rgba(186, 230, 253, 0.7);
+}
+
+.hist-btn-rebeam:hover {
+  background: #38bdf8;
+  color: #ffffff;
+}
+
+.hist-btn-del {
+  background: transparent;
+  color: #94a3b8;
+  padding: 3px 4px;
+}
+
+.hist-btn-del:hover {
+  color: #e11d48;
+}
+
+/* Optical Chunk Block Grid */
+.chunk-cell {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 0.1s ease;
+}
+
+.chunk-cell.collected {
+  background: #38bdf8;
+  box-shadow: 0 0 4px #38bdf8;
+}

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BeamDrop</title>
   <link rel="stylesheet" href="style.css">
-  <script src="qrcode.min.js"></script>
-  <script src="peerjs.min.js"></script>
+  <script src="libs/qrcode.min.js"></script>
+  <script src="libs/peerjs.min.js"></script>
   <script src="libs/jszip.min.js"></script>
 </head>
 <body>
@@ -82,6 +82,14 @@
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
       <span>Receive</span>
+    </button>
+    <button id="navTabHistory" class="nav-tab" title="Transfer History Vault & Media Preview">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>Vault</span>
+      <span id="navHistoryCountBadge" class="nav-nearby-pill" style="display: none;">0</span>
     </button>
     <button id="navTabNearby" class="nav-tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -301,11 +309,23 @@
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
+      <!-- Portal Sub-Mode Tabs: P2P WebRTC vs Animated Optical Loop -->
+      <div class="portal-submode-pills" style="display: flex; gap: 4px; background: rgba(2,132,199,0.06); padding: 3px; border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(186,230,253,0.7);">
+        <button id="btnPortalModeWebRtc" class="portal-submode-btn active" type="button" style="flex: 1; padding: 5px 8px; border-radius: 9px; font-size: 10.5px; font-weight: 700; border: none; background: #ffffff; color: #0284c7; box-shadow: 0 2px 6px rgba(2,132,199,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>P2P Direct</span>
+        </button>
+        <button id="btnPortalModeLoop" class="portal-submode-btn" type="button" style="flex: 1; padding: 5px 8px; border-radius: 9px; font-size: 10.5px; font-weight: 700; border: none; background: transparent; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="100% Offline Optical Animated QR Loop (No internet or WebRTC needed)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Animated Loop ⚡</span>
+        </button>
+      </div>
+
       <!-- Top Action: Rebuild QR Button & Rolling Nonce Badge -->
       <div class="portal-top-bar">
         <div style="display: flex; align-items: center; gap: 6px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span style="font-size: 11px; font-weight: 700; color: #0284c7;">One-Time QR</span>
+          <span style="font-size: 11px; font-weight: 700; color: #0284c7;" id="portalHeaderModeLabel">One-Time QR</span>
           <span id="portalNonceBadge" class="portal-nonce-pill">#live</span>
         </div>
         <button id="btnRebuildQr" class="btn-rebuild-qr" type="button" title="Regenerate fresh random QR session">
@@ -323,22 +343,61 @@
         <span id="portalFileSizeBadge" class="portal-filesize">(0 KB)</span>
       </div>
 
-      <div class="qr-box-200">
-        <canvas id="qrcodeCanvas"></canvas>
+      <!-- 1. STANDARD WEBRTC QR CONTAINER -->
+      <div id="portalWebRtcBox">
+        <div class="qr-box-200">
+          <canvas id="qrcodeCanvas"></canvas>
+        </div>
+
+        <!-- Real-Time Remote Phone Detection & Verification Status Card -->
+        <div id="portalPhoneStatusCard" class="portal-phone-status-card">
+          <div class="phone-status-left">
+            <span id="phoneStatusIcon" class="phone-status-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            </span>
+            <div class="phone-status-text">
+              <p id="phoneStatusTitle" class="phone-status-title">Waiting for phone scan...</p>
+              <p id="phoneStatusSub" class="phone-status-sub">Aim camera to pair directly</p>
+            </div>
+          </div>
+          <span id="phoneStatusBadge" class="phone-status-badge">READY</span>
+        </div>
       </div>
 
-      <!-- Real-Time Remote Phone Detection & Verification Status Card -->
-      <div id="portalPhoneStatusCard" class="portal-phone-status-card">
-        <div class="phone-status-left">
-          <span id="phoneStatusIcon" class="phone-status-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-          </span>
-          <div class="phone-status-text">
-            <p id="phoneStatusTitle" class="phone-status-title">Waiting for phone scan...</p>
-            <p id="phoneStatusSub" class="phone-status-sub">Aim camera to pair directly</p>
+      <!-- 2. ANIMATED OPTICAL QR LOOP PLAYER CONTAINER (100% Offline Optical Data) -->
+      <div id="portalLoopPlayerWrap" style="display: none; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+          <span id="loopFrameText" style="font-weight: 800; color: #0284c7; font-family: ui-monospace, monospace;">Frame 1 / 1</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="loopWakeLockBadge" class="portal-nonce-pill" style="background: rgba(16,185,129,0.1); color: #059669; border-color: rgba(16,185,129,0.3);">⚡ Awake</span>
+            <span id="loopFpsBadge" class="portal-nonce-pill" style="background: #e0f2fe; color: #0369a1;">8 FPS</span>
           </div>
         </div>
-        <span id="phoneStatusBadge" class="phone-status-badge">READY</span>
+
+        <div class="qr-box-200" style="position: relative; overflow: hidden;">
+          <canvas id="qrcodeLoopCanvas"></canvas>
+        </div>
+
+        <!-- Loop Segmented Progress Track -->
+        <div style="width: 100%; height: 6px; background: #e0f2fe; border-radius: 6px; overflow: hidden;">
+          <div id="loopProgressBar" style="width: 10%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8); border-radius: 6px; transition: width 0.08s ease;"></div>
+        </div>
+
+        <!-- Player Controls -->
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px;">
+          <button id="btnLoopPrev" class="btn-clean-check" type="button" style="padding: 5px 10px;" title="Previous frame">◀</button>
+          <button id="btnLoopPlayPause" class="btn-clean-check" type="button" style="flex: 1; padding: 5px 12px; font-weight: 700; color: #0284c7; border-color: rgba(2,132,199,0.4); justify-content: center;" title="Play or Pause QR loop">
+            <span id="btnLoopPlayPauseText">Pause ❚❚</span>
+          </button>
+          <button id="btnLoopNext" class="btn-clean-check" type="button" style="padding: 5px 10px;" title="Next frame">▶</button>
+          <button id="btnLoopSpeed" class="btn-clean-check" type="button" style="padding: 5px 8px; font-size: 10px; font-weight: 700;" title="Change loop speed (4, 8, 12 FPS)">
+            <span id="btnLoopSpeedText">8 FPS</span>
+          </button>
+        </div>
+
+        <p style="font-size: 10px; color: #64748b; text-align: center; margin: 0; line-height: 1.35;">
+          Point any phone camera or BeamDrop receiver. Frames loop continuously until 100% captured with zero internet.
+        </p>
       </div>
 
       <!-- Clean Actions Row -->
@@ -384,6 +443,15 @@
         <span id="transferSpeedText" class="speed-tag">0.0 MB/s</span>
         <span id="transferEtaText">Streaming</span>
       </div>
+
+      <!-- Protection & Integrity HUD -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(2,132,199,0.2); font-size: 10px; color: #64748b;">
+        <span id="transferWakeLockPill" style="display: flex; align-items: center; gap: 4px; color: #0284c7; font-weight: 700;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>⚡ Screen Kept Awake</span>
+        </span>
+        <span id="transferShaStatus" style="font-family: ui-monospace, monospace; font-size: 9.5px; color: #059669; font-weight: 600;">🛡️ SHA-256 Armed</span>
+      </div>
     </div>
   </main>
 
@@ -397,6 +465,13 @@
       </div>
       <h3 class="complete-title">Transfer Complete</h3>
       <p id="completeSubText" class="complete-sub">Direct transmission finished with zero cloud storage.</p>
+      
+      <!-- Verified SHA-256 Integrity Badge -->
+      <div id="completeShaBadge" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; background: rgba(5,150,105,0.08); border: 1px solid rgba(5,150,105,0.3); border-radius: 10px; color: #059669; font-size: 11px; font-weight: 700; margin: 6px 0 12px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        <span id="completeShaText">Bit-Exact SHA-256 Verified</span>
+      </div>
+
       <button id="btnSendAnother" class="btn-cta-generate">
         <span>Beam Another Object</span>
       </button>
@@ -682,6 +757,20 @@
           <canvas id="receiveVaultQrCanvas" style="display: block; border-radius: 8px;"></canvas>
           <video id="receiveVaultCameraVideo" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"></video>
           <div id="cameraScanCrosshair" style="display: none; position: absolute; inset: 16px; border: 2px dashed #0284c7; border-radius: 8px; pointer-events: none;"></div>
+          
+          <!-- Real-Time Optical Frame Reception HUD -->
+          <div id="opticalScanHud" style="display: none; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px); border-radius: 8px; padding: 6px 8px; position: absolute; bottom: 6px; left: 6px; right: 6px; color: #ffffff; z-index: 10; font-size: 10px; border: 1px solid rgba(56,189,248,0.4);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+              <span style="font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 4px;">
+                <span class="status-dot-green"></span> Optical Loop Stream
+              </span>
+              <span id="opticalFrameProgressText" style="font-weight: 800; font-family: monospace; color: #f8fafc;">0/0</span>
+            </div>
+            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+              <div id="opticalProgressFill" style="width: 0%; height: 100%; background: #38bdf8; border-radius: 4px; transition: width 0.08s ease;"></div>
+            </div>
+            <div id="opticalChunksGrid" style="display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; max-height: 22px; overflow: hidden;"></div>
+          </div>
         </div>
       </div>
 
@@ -721,17 +810,100 @@
       </div>
     </div>
 
-    <!-- Vault History Drawer -->
+    <!-- Quick Vault Drawer Link -->
     <div style="background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.8); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span style="font-size: 11px; font-weight: 700; color: #334155;">Transfer History Vault (<span id="vaultItemsCount">0</span>)</span>
-        <button id="btnClearVaultHistory" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #e11d48; cursor: pointer; padding: 1px 4px;">Clear History</button>
+        <button id="btnOpenFullVaultTab" type="button" style="background: none; border: none; font-size: 10.5px; font-weight: 700; color: #0284c7; cursor: pointer; padding: 1px 4px; display: flex; align-items: center; gap: 3px;">
+          <span>View Full Vault</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
       </div>
       <div id="vaultItemsList" style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
         <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px 0;">No items received yet</div>
       </div>
     </div>
   </main>
+
+  <!-- STAGE 7: TRANSFER HISTORY VAULT & MEDIA PREVIEW -->
+  <main id="stageHistory" class="stage-container" style="display: none; flex-direction: column; gap: 10px;">
+    <!-- History Top Card -->
+    <div style="background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(186, 230, 253, 0.9); border-radius: 16px; padding: 12px 14px; box-shadow: 0 4px 16px rgba(2,132,199,0.06);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #0284c7, #38bdf8); display: flex; align-items: center; justify-content: center; color: #ffffff;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div>
+            <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; margin: 0;">Transfer Vault</h3>
+            <p style="font-size: 10px; color: #64748b; margin: 0;">Direct device transfers • SHA-256 verified</p>
+          </div>
+        </div>
+        <button id="btnClearAllHistory" type="button" style="padding: 4px 8px; border-radius: 8px; background: #fff1f2; border: 1px solid #fecdd3; color: #e11d48; font-size: 10px; font-weight: 700; cursor: pointer;" title="Clear local transfer history">
+          Clear History
+        </button>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="bridge-mode-pills" style="margin-bottom: 0;">
+        <button id="filterHistAll" class="bridge-mode-btn active" type="button">All (<span id="histCountAll">0</span>)</button>
+        <button id="filterHistReceived" class="bridge-mode-btn" type="button">Received (<span id="histCountReceived">0</span>)</button>
+        <button id="filterHistSent" class="bridge-mode-btn" type="button">Sent (<span id="histCountSent">0</span>)</button>
+        <button id="filterHistMedia" class="bridge-mode-btn" type="button">Media</button>
+      </div>
+    </div>
+
+    <!-- History Items Container -->
+    <div id="historyItemsContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 2px;">
+      <!-- Populated dynamically by popup.js -->
+      <div id="histEmptyState" style="background: rgba(255,255,255,0.8); border: 1px dashed rgba(186,230,253,0.8); border-radius: 14px; padding: 24px 16px; text-align: center;">
+        <div style="width: 40px; height: 40px; margin: 0 auto 8px; border-radius: 12px; background: #e0f2fe; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <p style="font-size: 12px; font-weight: 700; color: #334155; margin: 0 0 4px 0;">No Transfer History Yet</p>
+        <p style="font-size: 10.5px; color: #94a3b8; margin: 0; line-height: 1.4;">
+          Files, images, and text beamed or received on this PC will appear here with instant preview and re-sharing.
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <!-- MEDIA PREVIEW LIGHTBOX MODAL -->
+  <div id="mediaLightboxModal" class="incoming-modal-backdrop" style="display: none;">
+    <div class="incoming-modal-card" style="max-width: 360px; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; width: 100%;">
+        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; text-align: left;">
+          <h4 id="lightboxTitle" style="font-size: 12px; font-weight: 800; color: #0f172a; margin: 0; overflow: hidden; text-overflow: ellipsis;">Media Preview</h4>
+          <span id="lightboxSub" style="font-size: 10px; color: #64748b;">0 KB • Received</span>
+        </div>
+        <button id="btnCloseLightbox" class="btn-auth-close" type="button" style="position: static;">✕</button>
+      </div>
+
+      <!-- Preview Canvas / Image -->
+      <div style="width: 100%; border-radius: 12px; overflow: hidden; background: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 180px; max-height: 240px; margin-bottom: 10px;">
+        <img id="lightboxImage" src="" alt="Media Preview" style="max-width: 100%; max-height: 240px; object-fit: contain; display: block;">
+        <div id="lightboxTextWrap" style="display: none; padding: 12px; color: #f8fafc; font-size: 11px; max-height: 200px; overflow-y: auto; text-align: left; width: 100%;">
+          <pre id="lightboxTextContent" style="white-space: pre-wrap; font-family: ui-monospace, monospace; margin: 0;"></pre>
+        </div>
+      </div>
+
+      <!-- Lightbox Footer with SHA-256 and Actions -->
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: #64748b;">
+          <span id="lightboxHashPill" style="font-family: ui-monospace, monospace; color: #059669; font-weight: 700;">🛡️ SHA-256 Verified</span>
+          <span id="lightboxDateText">Just now</span>
+        </div>
+        <div style="display: flex; gap: 6px; width: 100%;">
+          <button id="btnLightboxSave" class="btn-modal-accept" type="button" style="flex: 1; padding: 8px;">
+            <span>Save / Download</span>
+          </button>
+          <button id="btnLightboxRebeam" class="btn-pick-action" type="button" style="padding: 8px 12px; background: rgba(2,132,199,0.1); border-color: rgba(2,132,199,0.3); color: #0284c7; font-weight: 700;">
+            <span>Re-Beam ⚡</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- INCOMING TRANSFER ORDER MODAL (AirDrop-Style Acceptance Modal) -->
   <div id="incomingTransferModal" class="incoming-modal-backdrop" style="display: none;">

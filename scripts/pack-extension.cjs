@@ -62,8 +62,11 @@ async function packExtension() {
   const publicBuildInfoPath = path.resolve(__dirname, "../public/buildInfo.js");
   fs.writeFileSync(publicBuildInfoPath, buildInfoJs, "utf8");
 
-  // Mirror extension folder into public/extension
+  // Mirror extension folder into public/extension cleanly
   const publicExtDir = path.resolve(__dirname, "../public/extension");
+  if (fs.existsSync(publicExtDir)) {
+    fs.rmSync(publicExtDir, { recursive: true, force: true });
+  }
   function copyDirRecursive(src, dest) {
     if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
     for (const item of fs.readdirSync(src)) {

@@ -54,12 +54,14 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [completedCount, setCompletedCount] = useState<number>(0);
+  const [opticalProgress, setOpticalProgress] = useState<{ collected: number; total: number; name: string } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const opticalSessionsRef = useRef<Map<string, { total: number; chunks: Map<number, string>; name: string; mime: string; checksum: string }>>(new Map());
 
   // 1. Initialize Camera for live QR scanning
   const startCamera = async (mode: 'environment' | 'user' = facingMode) => {
@@ -158,6 +160,11 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
       });
 
       if (code && code.data) {
+        if (code.data.startsWith('BD1|')) {
+          handleOpticalLoopFrame(code.data);
+          animFrameRef.current = requestAnimationFrame(scanFrame);
+          return;
+        }
         handleQrDetected(code.data);
         return;
       }
@@ -165,6 +172,63 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
 
     if (isScanning) {
       animFrameRef.current = requestAnimationFrame(scanFrame);
+    }
+  };
+
+  const handleOpticalLoopFrame = (frameStr: string) => {
+    const parts = frameStr.split('|');
+    if (parts.length < 8 || parts[0] !== 'BD1') return;
+
+    const [_, frameId, seqStr, totalStr, checksum, encName, encMime, ...chunkParts] = parts;
+    const chunk = chunkParts.join('|');
+    const seq = parseInt(seqStr, 10);
+    const total = parseInt(totalStr, 10);
+    const name = decodeURIComponent(encName);
+    const mime = decodeURIComponent(encMime);
+
+    if (isNaN(seq) || isNaN(total) || total <= 0) return;
+
+    let session = opticalSessionsRef.current.get(frameId);
+    if (!session) {
+      session = { total, chunks: new Map(), name, mime, checksum };
+      opticalSessionsRef.current.set(frameId, session);
+      playChime('connect');
+    }
+
+    session.chunks.set(seq, chunk);
+    const collected = session.chunks.size;
+    setOpticalProgress({ collected, total, name });
+
+    if (collected >= total) {
+      stopCamera();
+      setIsScanning(false);
+      setOpticalProgress(null);
+      opticalSessionsRef.current.delete(frameId);
+      playChime('complete');
+
+      let full = '';
+      for (let i = 0; i < total; i++) {
+        full += (session.chunks.get(i) || '');
+      }
+
+      if (mime.startsWith('text/') || mime === 'application/json') {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(full).catch(() => {});
+        }
+        alert('⚡ Received via Optical QR Loop:\n\n' + full);
+      } else if (full.startsWith('data:')) {
+        fetch(full).then(r => r.blob()).then(blob => {
+          const u = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = u;
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+      setTransferStatus('completed');
+      setCurrentFileName(name);
     }
   };
 
@@ -502,6 +566,26 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
                     <SwitchCamera className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Real-time Optical Stream Reception HUD */}
+                {opticalProgress && (
+                  <div className="absolute bottom-3 left-3 right-3 bg-slate-950/90 backdrop-blur-md rounded-xl p-2.5 border border-sky-400/60 text-white z-20 shadow-xl">
+                    <div className="flex justify-between items-center text-xs font-bold mb-1">
+                      <span className="text-sky-400 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Optical Stream
+                      </span>
+                      <span className="font-mono text-sky-200">{opticalProgress.collected} / {opticalProgress.total}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-sky-400 transition-all duration-100"
+                        style={{ width: `${Math.round((opticalProgress.collected / opticalProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-300 mt-1 truncate">{opticalProgress.name}</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-2">

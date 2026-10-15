@@ -23,12 +23,11 @@ const DEFAULT_INJECT_FILES = [
   'background.js',
   'options.html',
   'options.js',
+  'contentBridge.js',
   'updater.html',
   'updater.js',
   'folderStore.js',
   'buildInfo.js',
-  'peerjs.min.js',
-  'qrcode.min.js',
   'update.bat',
   'update.sh',
   'icons/icon16.png',
@@ -39,6 +38,7 @@ const DEFAULT_INJECT_FILES = [
   'icons/icon-128.png',
   'icons/icon.svg',
   'libs/jszip.min.js',
+  'libs/jsQR.min.js',
   'libs/peerjs.min.js',
   'libs/qrcode.min.js'
 ];

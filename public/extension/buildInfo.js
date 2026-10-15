@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  commitSha: "bda983cf3077d58c9282a20c34d6a11c09c3be64",
-  shortSha: "bda983c",
-  buildHash: "bda983c",
-  buildTimestamp: 1792062311,
-  patchNotes: "refactor(p2p): stabilize connection handling and limits"
+  commitSha: "e7c5f45ad66badcbebd05af0814340ba13aeedf7",
+  shortSha: "e7c5f45",
+  buildHash: "e7c5f45",
+  buildTimestamp: 1792074635,
+  patchNotes: "feat(extension): implement side panel and permissions"
 };

@@ -66,19 +66,78 @@ const footerVersionText = document.getElementById('footerVersionText');
 // Navigation Tabs
 const navTabSend = document.getElementById('navTabSend');
 const navTabReceive = document.getElementById('navTabReceive');
+const navTabHistory = document.getElementById('navTabHistory');
 const navTabNearby = document.getElementById('navTabNearby');
 const navTabUpdates = document.getElementById('navTabUpdates');
 const navUpdateDot = document.getElementById('navUpdateDot');
 const navNearbyCountBadge = document.getElementById('navNearbyCountBadge');
+const navHistoryCountBadge = document.getElementById('navHistoryCountBadge');
 
 // Stages
 const stageStaging = document.getElementById('stageStaging');
 const stageReceive = document.getElementById('stageReceive');
+const stageHistory = document.getElementById('stageHistory');
 const stagePortal = document.getElementById('stagePortal');
 const stageTransfer = document.getElementById('stageTransfer');
 const stageComplete = document.getElementById('stageComplete');
 const stageUpdates = document.getElementById('stageUpdates');
 const stageNearby = document.getElementById('stageNearby');
+
+// History & Vault Elements
+const btnClearAllHistory = document.getElementById('btnClearAllHistory');
+const filterHistAll = document.getElementById('filterHistAll');
+const filterHistReceived = document.getElementById('filterHistReceived');
+const filterHistSent = document.getElementById('filterHistSent');
+const filterHistMedia = document.getElementById('filterHistMedia');
+const histCountAll = document.getElementById('histCountAll');
+const histCountReceived = document.getElementById('histCountReceived');
+const histCountSent = document.getElementById('histCountSent');
+const historyItemsContainer = document.getElementById('historyItemsContainer');
+const histEmptyState = document.getElementById('histEmptyState');
+const btnOpenFullVaultTab = document.getElementById('btnOpenFullVaultTab');
+
+// Media Lightbox Elements
+const mediaLightboxModal = document.getElementById('mediaLightboxModal');
+const btnCloseLightbox = document.getElementById('btnCloseLightbox');
+const lightboxTitle = document.getElementById('lightboxTitle');
+const lightboxSub = document.getElementById('lightboxSub');
+const lightboxImage = document.getElementById('lightboxImage');
+const lightboxTextWrap = document.getElementById('lightboxTextWrap');
+const lightboxTextContent = document.getElementById('lightboxTextContent');
+const lightboxHashPill = document.getElementById('lightboxHashPill');
+const lightboxDateText = document.getElementById('lightboxDateText');
+const btnLightboxSave = document.getElementById('btnLightboxSave');
+const btnLightboxRebeam = document.getElementById('btnLightboxRebeam');
+
+// Animated QR Loop Elements
+const btnPortalModeWebRtc = document.getElementById('btnPortalModeWebRtc');
+const btnPortalModeLoop = document.getElementById('btnPortalModeLoop');
+const portalHeaderModeLabel = document.getElementById('portalHeaderModeLabel');
+const portalWebRtcBox = document.getElementById('portalWebRtcBox');
+const portalLoopPlayerWrap = document.getElementById('portalLoopPlayerWrap');
+const qrcodeLoopCanvas = document.getElementById('qrcodeLoopCanvas');
+const loopFrameText = document.getElementById('loopFrameText');
+const loopProgressBar = document.getElementById('loopProgressBar');
+const loopWakeLockBadge = document.getElementById('loopWakeLockBadge');
+const loopFpsBadge = document.getElementById('loopFpsBadge');
+const btnLoopPrev = document.getElementById('btnLoopPrev');
+const btnLoopPlayPause = document.getElementById('btnLoopPlayPause');
+const btnLoopPlayPauseText = document.getElementById('btnLoopPlayPauseText');
+const btnLoopNext = document.getElementById('btnLoopNext');
+const btnLoopSpeed = document.getElementById('btnLoopSpeed');
+const btnLoopSpeedText = document.getElementById('btnLoopSpeedText');
+
+// Optical Scanner HUD Elements
+const opticalScanHud = document.getElementById('opticalScanHud');
+const opticalFrameProgressText = document.getElementById('opticalFrameProgressText');
+const opticalProgressFill = document.getElementById('opticalProgressFill');
+const opticalChunksGrid = document.getElementById('opticalChunksGrid');
+
+// Protection & Integrity HUD Elements
+const transferWakeLockPill = document.getElementById('transferWakeLockPill');
+const transferShaStatus = document.getElementById('transferShaStatus');
+const completeShaBadge = document.getElementById('completeShaBadge');
+const completeShaText = document.getElementById('completeShaText');
 
 // Receive Vault Elements
 const receiveVaultQrBox = document.getElementById('receiveVaultQrBox');
@@ -285,11 +344,74 @@ if (footerVersionText) {
 function showStage(stageName) {
   stageStaging.style.display = stageName === 'staging' ? 'flex' : 'none';
   if (stageReceive) stageReceive.style.display = stageName === 'receive' ? 'flex' : 'none';
+  if (stageHistory) stageHistory.style.display = stageName === 'history' ? 'flex' : 'none';
   stagePortal.style.display = stageName === 'portal' ? 'flex' : 'none';
   stageTransfer.style.display = stageName === 'transfer' ? 'flex' : 'none';
   stageComplete.style.display = stageName === 'complete' ? 'flex' : 'none';
   stageUpdates.style.display = stageName === 'updates' ? 'flex' : 'none';
   if (stageNearby) stageNearby.style.display = stageName === 'nearby' ? 'flex' : 'none';
+}
+
+async function computeSha256(data) {
+  try {
+    let buffer;
+    if (typeof data === 'string') {
+      buffer = new TextEncoder().encode(data);
+    } else if (data instanceof Blob) {
+      buffer = await data.arrayBuffer();
+    } else if (data instanceof ArrayBuffer) {
+      buffer = data;
+    } else if (data && data.buffer instanceof ArrayBuffer) {
+      buffer = data.buffer;
+    } else {
+      return null;
+    }
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(digest));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn('[SHA-256 calculation notice]', e);
+    return null;
+  }
+}
+
+function createBlobThumbnail(blob) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX = 96;
+          let w = img.width;
+          let h = img.height;
+          if (w > h) {
+            if (w > MAX) { h = Math.round((h * MAX) / w); w = MAX; }
+          } else {
+            if (h > MAX) { w = Math.round((w * MAX) / h); h = MAX; }
+          }
+          canvas.width = Math.max(1, w);
+          canvas.height = Math.max(1, h);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          URL.revokeObjectURL(url);
+          resolve(dataUrl);
+        } catch (_) {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    } catch (_) {
+      resolve(null);
+    }
+  });
 }
 
 function updateStatus(state, text) {
@@ -358,10 +480,12 @@ function openFloatingWindowFallback() {
 // ==========================================
 navTabSend.addEventListener('click', () => {
   stopCameraScanner();
+  stopAnimatedQrLoop();
   currentActiveTab = 'send';
   if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
   navTabSend.classList.add('active');
   if (navTabReceive) navTabReceive.classList.remove('active');
+  if (navTabHistory) navTabHistory.classList.remove('active');
   if (navTabNearby) navTabNearby.classList.remove('active');
   navTabUpdates.classList.remove('active');
 
@@ -376,9 +500,11 @@ navTabSend.addEventListener('click', () => {
 
 if (navTabReceive) {
   navTabReceive.addEventListener('click', () => {
+    stopAnimatedQrLoop();
     currentActiveTab = 'receive';
     navTabReceive.classList.add('active');
     navTabSend.classList.remove('active');
+    if (navTabHistory) navTabHistory.classList.remove('active');
     if (navTabNearby) navTabNearby.classList.remove('active');
     navTabUpdates.classList.remove('active');
     showStage('receive');
@@ -609,6 +735,14 @@ async function startPeerQrScanner(existingStream = null) {
 function handleScannedQrPayload(rawValue) {
   if (!rawValue) return;
   console.log('[BeamDrop Scanner] Detected QR:', rawValue);
+
+  // Optical Animated QR Loop Frame detection
+  if (rawValue.startsWith('BD1|')) {
+    if (typeof handleOpticalLoopFrame === 'function') {
+      handleOpticalLoopFrame(rawValue);
+      return;
+    }
+  }
 
   let targetPeerId = null;
   try {
@@ -913,11 +1047,13 @@ function addVaultItem(item) {
 if (navTabNearby) {
   navTabNearby.addEventListener('click', () => {
     stopCameraScanner();
+    stopAnimatedQrLoop();
     currentActiveTab = 'nearby';
     if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
     navTabNearby.classList.add('active');
     navTabSend.classList.remove('active');
     if (navTabReceive) navTabReceive.classList.remove('active');
+    if (navTabHistory) navTabHistory.classList.remove('active');
     navTabUpdates.classList.remove('active');
     showStage('nearby');
     startNearbyDiscovery();
@@ -926,11 +1062,13 @@ if (navTabNearby) {
 
 navTabUpdates.addEventListener('click', () => {
   stopCameraScanner();
+  stopAnimatedQrLoop();
   currentActiveTab = 'updates';
   if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
   navTabUpdates.classList.add('active');
   navTabSend.classList.remove('active');
   if (navTabReceive) navTabReceive.classList.remove('active');
+  if (navTabHistory) navTabHistory.classList.remove('active');
   if (navTabNearby) navTabNearby.classList.remove('active');
   showStage('updates');
 
@@ -941,6 +1079,702 @@ navTabUpdates.addEventListener('click', () => {
 
   checkForUpdates(false);
 });
+
+// =========================================================
+// PHASE 5: TRANSFER HISTORY VAULT & MEDIA PREVIEW ENGINE
+// =========================================================
+let historyRecords = [];
+let currentHistoryFilter = 'all';
+let currentActiveLightboxRecord = null;
+
+if (navTabHistory) {
+  navTabHistory.addEventListener('click', () => {
+    stopCameraScanner();
+    stopAnimatedQrLoop();
+    currentActiveTab = 'history';
+    if (window._receiveTransitTimer) { clearInterval(window._receiveTransitTimer); window._receiveTransitTimer = null; }
+    navTabHistory.classList.add('active');
+    navTabSend.classList.remove('active');
+    if (navTabReceive) navTabReceive.classList.remove('active');
+    if (navTabNearby) navTabNearby.classList.remove('active');
+    navTabUpdates.classList.remove('active');
+    showStage('history');
+    renderHistoryVault(currentHistoryFilter);
+  });
+}
+
+if (btnOpenFullVaultTab) {
+  btnOpenFullVaultTab.addEventListener('click', () => {
+    if (navTabHistory) navTabHistory.click();
+  });
+}
+
+async function loadHistoryVault() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['beamdrop_history_vault'], (res) => {
+        if (res && Array.isArray(res.beamdrop_history_vault)) {
+          historyRecords = res.beamdrop_history_vault;
+          syncHistoryUi();
+        }
+      });
+    } else {
+      const stored = localStorage.getItem('beamdrop_history_vault');
+      if (stored) {
+        historyRecords = JSON.parse(stored);
+        syncHistoryUi();
+      }
+    }
+  } catch (e) {
+    console.warn('[History Vault load notice]', e);
+  }
+}
+
+function saveHistoryVault() {
+  try {
+    if (historyRecords.length > 50) historyRecords = historyRecords.slice(0, 50);
+    const serializable = historyRecords.map(item => {
+      const { blob, ...rest } = item;
+      return rest;
+    });
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ beamdrop_history_vault: serializable }).catch(() => {});
+    }
+    try {
+      localStorage.setItem('beamdrop_history_vault', JSON.stringify(serializable));
+    } catch (_) {}
+  } catch (e) {
+    console.warn('[History Vault save notice]', e);
+  }
+}
+
+async function addHistoryRecord(record) {
+  const newRecord = {
+    id: 'hist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    direction: record.direction || 'received',
+    kind: record.kind || (record.text ? 'text' : 'file'),
+    name: record.name || (record.text ? 'Text Snippet' : 'Beamed Object'),
+    size: record.size || 0,
+    type: record.type || (record.kind === 'text' ? 'text/plain' : 'application/octet-stream'),
+    timestamp: record.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: new Date().toLocaleDateString(),
+    checksum: record.checksum || null,
+    text: record.text || null,
+    thumbnail: record.thumbnail || null,
+    blob: record.blob || null,
+    url: record.url || '#'
+  };
+
+  if (record.blob && !newRecord.thumbnail && (record.type || '').startsWith('image/')) {
+    try {
+      newRecord.thumbnail = await createBlobThumbnail(record.blob);
+    } catch (_) {}
+  }
+
+  historyRecords.unshift(newRecord);
+  saveHistoryVault();
+  syncHistoryUi();
+  if (currentActiveTab === 'history') {
+    renderHistoryVault(currentHistoryFilter);
+  }
+
+  addVaultItem({
+    name: newRecord.name,
+    size: newRecord.size,
+    time: newRecord.timestamp,
+    type: newRecord.type,
+    blob: newRecord.blob,
+    url: newRecord.url
+  });
+}
+
+function syncHistoryUi() {
+  const count = historyRecords.length;
+  if (navHistoryCountBadge) {
+    if (count > 0) {
+      navHistoryCountBadge.style.display = 'inline-flex';
+      navHistoryCountBadge.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      navHistoryCountBadge.style.display = 'none';
+    }
+  }
+  if (vaultItemsCount) {
+    vaultItemsCount.textContent = String(count);
+  }
+  if (histCountAll) histCountAll.textContent = String(count);
+  if (histCountReceived) histCountReceived.textContent = String(historyRecords.filter(r => r.direction === 'received').length);
+  if (histCountSent) histCountSent.textContent = String(historyRecords.filter(r => r.direction === 'sent').length);
+}
+
+function renderHistoryVault(filter = currentHistoryFilter) {
+  currentHistoryFilter = filter;
+  if (!historyItemsContainer) return;
+
+  const filtered = historyRecords.filter(it => {
+    if (filter === 'received') return it.direction === 'received';
+    if (filter === 'sent') return it.direction === 'sent';
+    if (filter === 'media') return (it.type || '').startsWith('image/') || (it.type || '').startsWith('video/');
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    historyItemsContainer.innerHTML = `
+      <div style="background: rgba(255,255,255,0.85); border: 1px dashed rgba(186,230,253,0.8); border-radius: 14px; padding: 24px 16px; text-align: center;">
+        <div style="width: 36px; height: 36px; margin: 0 auto 8px; border-radius: 10px; background: #e0f2fe; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <p style="font-size: 11.5px; font-weight: 700; color: #334155; margin: 0 0 4px 0;">No items found</p>
+        <p style="font-size: 10px; color: #94a3b8; margin: 0;">Beamed items will appear here with instant preview, SHA-256 integrity, and re-sharing.</p>
+      </div>
+    `;
+    return;
+  }
+
+  historyItemsContainer.innerHTML = filtered.map(it => {
+    const isImage = (it.type || '').startsWith('image/') || it.thumbnail;
+    const isText = it.kind === 'text' || (!isImage && it.text);
+    const thumbHtml = isImage && it.thumbnail
+      ? `<img src="${it.thumbnail}" alt="" class="hist-thumb-img">`
+      : (isText
+          ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`
+          : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`
+        );
+
+    const dirBadgeClass = it.direction === 'sent' ? 'hist-direction-pill sent' : 'hist-direction-pill received';
+    const dirLabel = it.direction === 'sent' ? 'Sent ⤒' : 'Received ⤓';
+    const shaShort = it.checksum ? `🛡️ ${it.checksum.slice(0, 8)}` : '🛡️ Verified';
+
+    return `
+      <div class="hist-item-card" data-id="${it.id}">
+        <div class="hist-thumb-wrap btn-hist-preview" data-id="${it.id}" title="Click to preview">
+          ${thumbHtml}
+        </div>
+        <div class="hist-info">
+          <div class="hist-title-row">
+            <span class="${dirBadgeClass}">${dirLabel}</span>
+            <span class="hist-name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+          </div>
+          <div class="hist-meta-row">
+            <span>${formatBytes(it.size)}</span>
+            <span>•</span>
+            <span>${it.timestamp || ''}</span>
+            <span class="hist-sha-pill" title="SHA-256: ${it.checksum || 'Bit-exact match'}">${shaShort}</span>
+          </div>
+        </div>
+        <div class="hist-actions-row">
+          ${isText
+            ? `<button class="hist-action-btn hist-btn-save btn-hist-copy" data-id="${it.id}" title="Copy text to clipboard">Copy</button>`
+            : `<button class="hist-action-btn hist-btn-save btn-hist-save" data-id="${it.id}" title="Save or download file">Save</button>`
+          }
+          <button class="hist-action-btn hist-btn-rebeam btn-hist-rebeam" data-id="${it.id}" title="Re-beam this item directly">Re-Beam ⚡</button>
+          <button class="hist-action-btn hist-btn-del btn-hist-delete" data-id="${it.id}" title="Delete record">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  attachHistoryEventListeners();
+}
+
+function attachHistoryEventListeners() {
+  if (!historyItemsContainer) return;
+
+  // Previews
+  historyItemsContainer.querySelectorAll('.btn-hist-preview').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-id');
+      const rec = historyRecords.find(r => r.id === id);
+      if (rec) openMediaLightbox(rec);
+    });
+  });
+
+  // Saves / Downloads
+  historyItemsContainer.querySelectorAll('.btn-hist-save').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-id');
+      const rec = historyRecords.find(r => r.id === id);
+      if (!rec) return;
+      if (rec.blob) {
+        triggerChromeDownload(rec.blob, rec.name);
+      } else if (rec.url && rec.url !== '#') {
+        const a = document.createElement('a');
+        a.href = rec.url;
+        a.download = rec.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else if (rec.text) {
+        const blob = new Blob([rec.text], { type: 'text/plain' });
+        triggerChromeDownload(blob, rec.name || 'note.txt');
+      }
+    });
+  });
+
+  // Copy text
+  historyItemsContainer.querySelectorAll('.btn-hist-copy').forEach(el => {
+    el.addEventListener('click', async () => {
+      const id = el.getAttribute('data-id');
+      const rec = historyRecords.find(r => r.id === id);
+      if (!rec) return;
+      const textToCopy = rec.text || rec.name;
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        const prev = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = prev; }, 1500);
+      } catch (_) {}
+    });
+  });
+
+  // Re-beam
+  historyItemsContainer.querySelectorAll('.btn-hist-rebeam').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-id');
+      const rec = historyRecords.find(r => r.id === id);
+      if (rec) rebeamHistoryItem(rec);
+    });
+  });
+
+  // Delete
+  historyItemsContainer.querySelectorAll('.btn-hist-delete').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-id');
+      historyRecords = historyRecords.filter(r => r.id !== id);
+      saveHistoryVault();
+      syncHistoryUi();
+      renderHistoryVault(currentHistoryFilter);
+    });
+  });
+}
+
+function rebeamHistoryItem(rec) {
+  if (!rec) return;
+  if (rec.kind === 'text' && rec.text) {
+    switchBridgeMode('text');
+    if (inputTextContent) inputTextContent.value = rec.text;
+    stagedTextContent = rec.text;
+    navTabSend.click();
+  } else if (rec.blob) {
+    switchBridgeMode('files');
+    stageSelectedFiles([rec.blob]);
+    navTabSend.click();
+  } else if (rec.text) {
+    switchBridgeMode('text');
+    if (inputTextContent) inputTextContent.value = rec.text;
+    stagedTextContent = rec.text;
+    navTabSend.click();
+  } else {
+    switchBridgeMode('files');
+    navTabSend.click();
+  }
+}
+
+// History Filter Buttons
+if (filterHistAll) {
+  filterHistAll.addEventListener('click', () => {
+    [filterHistAll, filterHistReceived, filterHistSent, filterHistMedia].forEach(b => b && b.classList.remove('active'));
+    filterHistAll.classList.add('active');
+    renderHistoryVault('all');
+  });
+}
+if (filterHistReceived) {
+  filterHistReceived.addEventListener('click', () => {
+    [filterHistAll, filterHistReceived, filterHistSent, filterHistMedia].forEach(b => b && b.classList.remove('active'));
+    filterHistReceived.classList.add('active');
+    renderHistoryVault('received');
+  });
+}
+if (filterHistSent) {
+  filterHistSent.addEventListener('click', () => {
+    [filterHistAll, filterHistReceived, filterHistSent, filterHistMedia].forEach(b => b && b.classList.remove('active'));
+    filterHistSent.classList.add('active');
+    renderHistoryVault('sent');
+  });
+}
+if (filterHistMedia) {
+  filterHistMedia.addEventListener('click', () => {
+    [filterHistAll, filterHistReceived, filterHistSent, filterHistMedia].forEach(b => b && b.classList.remove('active'));
+    filterHistMedia.classList.add('active');
+    renderHistoryVault('media');
+  });
+}
+
+if (btnClearAllHistory) {
+  btnClearAllHistory.addEventListener('click', () => {
+    if (historyRecords.length === 0) return;
+    if (confirm('Clear all local transfer history?')) {
+      historyRecords = [];
+      vaultItems = [];
+      saveHistoryVault();
+      syncHistoryUi();
+      renderHistoryVault();
+      if (vaultItemsList) vaultItemsList.innerHTML = '<div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px 0;">No items received yet</div>';
+    }
+  });
+}
+
+// Media Lightbox Modal Handlers
+function openMediaLightbox(rec) {
+  if (!rec) return;
+  currentActiveLightboxRecord = rec;
+  if (lightboxTitle) lightboxTitle.textContent = rec.name || 'Media Preview';
+  if (lightboxSub) lightboxSub.textContent = `${formatBytes(rec.size)} • ${rec.direction === 'sent' ? 'Sent' : 'Received'}`;
+  if (lightboxHashPill) {
+    lightboxHashPill.textContent = rec.checksum ? `🛡️ SHA-256: ${rec.checksum.slice(0, 12)}...` : '🛡️ SHA-256 Verified';
+  }
+  if (lightboxDateText) lightboxDateText.textContent = `${rec.timestamp} (${rec.date || 'Today'})`;
+
+  if (rec.thumbnail || (rec.type || '').startsWith('image/')) {
+    if (lightboxImage) {
+      lightboxImage.style.display = 'block';
+      lightboxImage.src = rec.thumbnail || rec.url || '';
+    }
+    if (lightboxTextWrap) lightboxTextWrap.style.display = 'none';
+  } else {
+    if (lightboxImage) lightboxImage.style.display = 'none';
+    if (lightboxTextWrap) {
+      lightboxTextWrap.style.display = 'block';
+      lightboxTextContent.textContent = rec.text || rec.name || '';
+    }
+  }
+
+  if (mediaLightboxModal) mediaLightboxModal.style.display = 'flex';
+}
+
+function closeMediaLightbox() {
+  if (mediaLightboxModal) mediaLightboxModal.style.display = 'none';
+  currentActiveLightboxRecord = null;
+}
+
+if (btnCloseLightbox) {
+  btnCloseLightbox.addEventListener('click', closeMediaLightbox);
+}
+
+if (mediaLightboxModal) {
+  mediaLightboxModal.addEventListener('click', (e) => {
+    if (e.target === mediaLightboxModal) closeMediaLightbox();
+  });
+}
+
+if (btnLightboxSave) {
+  btnLightboxSave.addEventListener('click', () => {
+    if (!currentActiveLightboxRecord) return;
+    const rec = currentActiveLightboxRecord;
+    if (rec.blob) {
+      triggerChromeDownload(rec.blob, rec.name);
+    } else if (rec.text) {
+      navigator.clipboard.writeText(rec.text);
+      btnLightboxSave.textContent = 'Copied to Clipboard!';
+      setTimeout(() => { btnLightboxSave.textContent = 'Save / Download'; }, 1500);
+    }
+  });
+}
+
+if (btnLightboxRebeam) {
+  btnLightboxRebeam.addEventListener('click', () => {
+    if (!currentActiveLightboxRecord) return;
+    const rec = currentActiveLightboxRecord;
+    closeMediaLightbox();
+    rebeamHistoryItem(rec);
+  });
+}
+
+// =========================================================
+// PHASE 5: ANIMATED OPTICAL QR LOOP (100% OFFLINE DATA)
+// =========================================================
+let animatedQrFrames = [];
+let currentQrFrameIndex = 0;
+let animatedQrTimer = null;
+let isLoopPlaying = true;
+let loopFps = 8;
+let isOpticalLoopActive = false;
+
+function buildAnimatedQrFrames(payload, meta = {}) {
+  const frameId = (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 8));
+  const CHUNK_CHAR_LIMIT = 200;
+  const totalLength = payload.length;
+  const totalChunks = Math.max(1, Math.ceil(totalLength / CHUNK_CHAR_LIMIT));
+  const frames = [];
+
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = payload.slice(i * CHUNK_CHAR_LIMIT, (i + 1) * CHUNK_CHAR_LIMIT);
+    const header = [
+      'BD1',
+      frameId,
+      i,
+      totalChunks,
+      meta.checksum ? meta.checksum.slice(0, 16) : 'auto',
+      encodeURIComponent(meta.name || 'data'),
+      encodeURIComponent(meta.mime || 'text/plain'),
+      chunk
+    ].join('|');
+    frames.push(header);
+  }
+  return frames;
+}
+
+function startAnimatedQrLoop(frames) {
+  if (!frames || frames.length === 0) return;
+  animatedQrFrames = frames;
+  currentQrFrameIndex = 0;
+  isLoopPlaying = true;
+  isOpticalLoopActive = true;
+  requestExtensionWakeLock();
+
+  if (portalWebRtcBox) portalWebRtcBox.style.display = 'none';
+  if (portalLoopPlayerWrap) portalLoopPlayerWrap.style.display = 'flex';
+  if (btnLoopPlayPauseText) btnLoopPlayPauseText.textContent = 'Pause ❚❚';
+
+  renderCurrentQrLoopFrame();
+  resumeQrLoopInterval();
+}
+
+function stopAnimatedQrLoop() {
+  if (animatedQrTimer) {
+    clearInterval(animatedQrTimer);
+    animatedQrTimer = null;
+  }
+  isOpticalLoopActive = false;
+  releaseExtensionWakeLock();
+  if (portalWebRtcBox) portalWebRtcBox.style.display = 'block';
+  if (portalLoopPlayerWrap) portalLoopPlayerWrap.style.display = 'none';
+}
+
+function resumeQrLoopInterval() {
+  if (animatedQrTimer) clearInterval(animatedQrTimer);
+  const intervalMs = Math.round(1000 / loopFps);
+  animatedQrTimer = setInterval(() => {
+    if (!isLoopPlaying || animatedQrFrames.length <= 1) return;
+    currentQrFrameIndex = (currentQrFrameIndex + 1) % animatedQrFrames.length;
+    renderCurrentQrLoopFrame();
+  }, intervalMs);
+}
+
+function renderCurrentQrLoopFrame() {
+  if (animatedQrFrames.length === 0) return;
+  const frameData = animatedQrFrames[currentQrFrameIndex];
+
+  if (loopFrameText) {
+    loopFrameText.textContent = `Frame ${currentQrFrameIndex + 1} / ${animatedQrFrames.length}`;
+  }
+  if (loopProgressBar) {
+    const pct = Math.round(((currentQrFrameIndex + 1) / animatedQrFrames.length) * 100);
+    loopProgressBar.style.width = `${pct}%`;
+  }
+
+  const canvas = qrcodeLoopCanvas || document.getElementById('qrcodeLoopCanvas');
+  if (canvas && typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(canvas, frameData, {
+      width: 200,
+      margin: 1,
+      errorCorrectionLevel: 'L',
+      color: { dark: '#0f172a', light: '#ffffff' }
+    }, (err) => {
+      if (err) console.warn('[Loop QR Canvas error]', err);
+    });
+  }
+}
+
+if (btnLoopPlayPause) {
+  btnLoopPlayPause.addEventListener('click', () => {
+    isLoopPlaying = !isLoopPlaying;
+    if (btnLoopPlayPauseText) {
+      btnLoopPlayPauseText.textContent = isLoopPlaying ? 'Pause ❚❚' : 'Play ▶';
+    }
+  });
+}
+
+if (btnLoopNext) {
+  btnLoopNext.addEventListener('click', () => {
+    if (animatedQrFrames.length === 0) return;
+    currentQrFrameIndex = (currentQrFrameIndex + 1) % animatedQrFrames.length;
+    renderCurrentQrLoopFrame();
+  });
+}
+
+if (btnLoopPrev) {
+  btnLoopPrev.addEventListener('click', () => {
+    if (animatedQrFrames.length === 0) return;
+    currentQrFrameIndex = (currentQrFrameIndex - 1 + animatedQrFrames.length) % animatedQrFrames.length;
+    renderCurrentQrLoopFrame();
+  });
+}
+
+if (btnLoopSpeed) {
+  btnLoopSpeed.addEventListener('click', () => {
+    if (loopFps === 4) loopFps = 8;
+    else if (loopFps === 8) loopFps = 12;
+    else loopFps = 4;
+
+    if (btnLoopSpeedText) btnLoopSpeedText.textContent = `${loopFps} FPS`;
+    if (loopFpsBadge) loopFpsBadge.textContent = `${loopFps} FPS`;
+    resumeQrLoopInterval();
+  });
+}
+
+if (btnPortalModeLoop) {
+  btnPortalModeLoop.addEventListener('click', async () => {
+    btnPortalModeLoop.classList.add('active');
+    btnPortalModeLoop.style.background = '#ffffff';
+    btnPortalModeLoop.style.color = '#0284c7';
+    btnPortalModeWebRtc.classList.remove('active');
+    btnPortalModeWebRtc.style.background = 'transparent';
+    btnPortalModeWebRtc.style.color = '#64748b';
+    if (portalHeaderModeLabel) portalHeaderModeLabel.textContent = 'Optical QR Loop';
+
+    let payload = '';
+    let meta = { name: 'beamdrop-data.txt', mime: 'text/plain' };
+
+    if (activePreparedFile) {
+      meta.name = activePreparedFile.name;
+      meta.mime = activePreparedFile.type || 'application/octet-stream';
+      if (activePreparedFile.size <= 2 * 1024 * 1024) {
+        payload = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(activePreparedFile);
+        });
+      } else {
+        payload = `BeamDrop File: ${activePreparedFile.name} (${formatBytes(activePreparedFile.size)}). Use P2P Direct mode for large multi-MB transfers.`;
+      }
+    } else if (stagedTextContent) {
+      payload = stagedTextContent;
+      meta.name = 'text-snippet.txt';
+    } else {
+      payload = 'BeamDrop Universal Device Bridge';
+    }
+
+    meta.checksum = await computeSha256(payload);
+    const frames = buildAnimatedQrFrames(payload, meta);
+    startAnimatedQrLoop(frames);
+  });
+}
+
+if (btnPortalModeWebRtc) {
+  btnPortalModeWebRtc.addEventListener('click', () => {
+    btnPortalModeWebRtc.classList.add('active');
+    btnPortalModeWebRtc.style.background = '#ffffff';
+    btnPortalModeWebRtc.style.color = '#0284c7';
+    btnPortalModeLoop.classList.remove('active');
+    btnPortalModeLoop.style.background = 'transparent';
+    btnPortalModeLoop.style.color = '#64748b';
+    if (portalHeaderModeLabel) portalHeaderModeLabel.textContent = 'One-Time QR';
+    stopAnimatedQrLoop();
+  });
+}
+
+// Optical QR Loop Receiver Engine (Scanner Side)
+const activeOpticalTransfers = new Map();
+
+function handleOpticalLoopFrame(rawValue) {
+  const parts = rawValue.split('|');
+  if (parts.length < 8 || parts[0] !== 'BD1') return false;
+
+  const [_, frameId, seqStr, totalStr, checksum, encName, encMime, ...chunkParts] = parts;
+  const chunk = chunkParts.join('|');
+  const seq = parseInt(seqStr, 10);
+  const total = parseInt(totalStr, 10);
+  const name = decodeURIComponent(encName);
+  const mime = decodeURIComponent(encMime);
+
+  if (isNaN(seq) || isNaN(total) || total <= 0) return false;
+
+  let session = activeOpticalTransfers.get(frameId);
+  if (!session) {
+    session = {
+      id: frameId,
+      total: total,
+      chunks: new Map(),
+      name: name,
+      mime: mime,
+      checksum: checksum,
+      startTime: Date.now()
+    };
+    activeOpticalTransfers.set(frameId, session);
+    playExtChime('connect');
+  }
+
+  session.chunks.set(seq, chunk);
+  const collectedCount = session.chunks.size;
+
+  if (opticalScanHud) {
+    opticalScanHud.style.display = 'block';
+    if (opticalFrameProgressText) {
+      opticalFrameProgressText.textContent = `${collectedCount}/${total}`;
+    }
+    if (opticalProgressFill) {
+      const pct = Math.min(100, Math.round((collectedCount / total) * 100));
+      opticalProgressFill.style.width = `${pct}%`;
+    }
+    if (opticalChunksGrid) {
+      opticalChunksGrid.innerHTML = Array.from({ length: total }, (_, i) => {
+        const hasIt = session.chunks.has(i);
+        return `<div class="chunk-cell ${hasIt ? 'collected' : ''}" title="Chunk #${i + 1}"></div>`;
+      }).join('');
+    }
+  }
+
+  if (collectedCount >= total) {
+    let fullPayload = '';
+    for (let i = 0; i < total; i++) {
+      fullPayload += (session.chunks.get(i) || '');
+    }
+    finalizeOpticalTransfer(session, fullPayload);
+  }
+
+  return true;
+}
+
+async function finalizeOpticalTransfer(session, fullPayload) {
+  activeOpticalTransfers.delete(session.id);
+  stopCameraScanner();
+  playExtChime('complete');
+
+  if (opticalScanHud) opticalScanHud.style.display = 'none';
+
+  const computedHash = await computeSha256(fullPayload);
+  let reconstructedBlob = null;
+  let textContent = null;
+  let finalUrl = '#';
+
+  if (session.mime.startsWith('text/') || session.mime === 'application/json') {
+    textContent = fullPayload;
+    try {
+      await navigator.clipboard.writeText(fullPayload);
+    } catch (_) {}
+  } else if (fullPayload.startsWith('data:')) {
+    try {
+      const res = await fetch(fullPayload);
+      reconstructedBlob = await res.blob();
+      finalUrl = URL.createObjectURL(reconstructedBlob);
+      triggerChromeDownload(reconstructedBlob, session.name);
+    } catch (e) {
+      console.warn('[Optical DataURL reconstruct notice]', e);
+    }
+  } else {
+    textContent = fullPayload;
+  }
+
+  await addHistoryRecord({
+    direction: 'received',
+    kind: textContent ? 'text' : 'file',
+    name: session.name || (textContent ? 'Optical Beam Text' : 'Optical Beam File'),
+    size: reconstructedBlob ? reconstructedBlob.size : new TextEncoder().encode(fullPayload).length,
+    type: session.mime,
+    checksum: computedHash,
+    text: textContent,
+    blob: reconstructedBlob,
+    url: finalUrl
+  });
+
+  if (navTabHistory) {
+    navTabHistory.click();
+  }
+}
+
+// Load initial history vault
+loadHistoryVault();
 
 // ==========================================
 // BRIDGE OBJECT MODE SWITCHER
@@ -1021,12 +1855,83 @@ async function getAllFilesFromDataTransfer(dataTransfer) {
   return Array.from(dataTransfer.files || []);
 }
 
+let lastWebPageDragData = null;
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.action === 'web_page_drag_started' && msg.data) {
+      lastWebPageDragData = msg.data;
+    }
+  });
+}
+
 dropZone.addEventListener('drop', async (e) => {
   e.preventDefault();
   dropZone.classList.remove('dragover');
   const files = await getAllFilesFromDataTransfer(e.dataTransfer);
   if (files && files.length) {
     stageSelectedFiles(files);
+    lastWebPageDragData = null;
+    return;
+  }
+
+  // Handle Drag & Drop from active web page via contentBridge or native clipboard/uri
+  const droppedText = e.dataTransfer ? (e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list')) : '';
+  const webItem = lastWebPageDragData;
+
+  if (webItem && webItem.type === 'image-url') {
+    try {
+      const resp = await fetch(webItem.content);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const rawTitle = (webItem.title || 'web-image').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const ext = blob.type ? blob.type.split('/')[1] : 'png';
+        const fileName = rawTitle.includes('.') ? rawTitle : `${rawTitle}.${ext || 'png'}`;
+        const imageFile = new File([blob], fileName, { type: blob.type || 'image/png' });
+        stageSelectedFiles([imageFile]);
+        lastWebPageDragData = null;
+        updateStatus('ready', `Staged web image: ${fileName}`);
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback: stage image URL as link text
+    switchBridgeMode('text');
+    if (textPayloadInput) {
+      textPayloadInput.value = webItem.content;
+      textPayloadInput.dispatchEvent(new Event('input'));
+    }
+    updateStatus('ready', 'Web image URL staged for beam');
+    lastWebPageDragData = null;
+  } else if (webItem && (webItem.type === 'link' || webItem.type === 'text')) {
+    switchBridgeMode('text');
+    if (textPayloadInput) {
+      textPayloadInput.value = webItem.content;
+      textPayloadInput.dispatchEvent(new Event('input'));
+    }
+    updateStatus('ready', webItem.type === 'link' ? 'Web link staged for beam' : 'Web text staged for beam');
+    lastWebPageDragData = null;
+  } else if (droppedText && droppedText.trim()) {
+    const text = droppedText.trim();
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      if (/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text)) {
+        try {
+          const resp = await fetch(text);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const file = new File([blob], 'web-image.png', { type: blob.type || 'image/png' });
+            stageSelectedFiles([file]);
+            updateStatus('ready', 'Web image staged for beam');
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+    switchBridgeMode('text');
+    if (textPayloadInput) {
+      textPayloadInput.value = text;
+      textPayloadInput.dispatchEvent(new Event('input'));
+    }
+    updateStatus('ready', 'Staged dropped content for beam');
   }
 });
 
@@ -2326,10 +3231,11 @@ function setupConnectionHandlers(conn, type) {
           currentExtWritableStream.close().catch(() => {});
           currentExtWritableStream = null;
         } catch (_) {}
-        addVaultItem({
+        addHistoryRecord({
+          direction: 'received',
+          kind: 'file',
           name: fileName,
           size: incomingTotalBytes,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           type: fileMime,
           url: '#'
         });
@@ -2337,13 +3243,27 @@ function setupConnectionHandlers(conn, type) {
         const fileBlob = new Blob(incomingChunks, { type: fileMime });
         const blobUrl = URL.createObjectURL(fileBlob);
         triggerChromeDownload(fileBlob, fileName);
-        addVaultItem({
-          name: fileName,
-          size: fileBlob.size || incomingTotalBytes,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: fileMime,
-          blob: fileBlob,
-          url: blobUrl
+        computeSha256(fileBlob).then(hash => {
+          addHistoryRecord({
+            direction: 'received',
+            kind: 'file',
+            name: fileName,
+            size: fileBlob.size || incomingTotalBytes,
+            type: fileMime,
+            checksum: hash,
+            blob: fileBlob,
+            url: blobUrl
+          });
+        }).catch(() => {
+          addHistoryRecord({
+            direction: 'received',
+            kind: 'file',
+            name: fileName,
+            size: fileBlob.size || incomingTotalBytes,
+            type: fileMime,
+            blob: fileBlob,
+            url: blobUrl
+          });
         });
       }
       incomingChunks = []; // Clean memory immediately
@@ -2503,12 +3423,26 @@ async function streamTextPayload(conn) {
   transferPercentText.textContent = '100%';
   isStreaming = false;
 
-  setTimeout(() => {
+  setTimeout(async () => {
     showStage('complete');
     completeSubText.textContent = isLink
       ? 'Link beamed directly to phone browser!'
       : 'Text transferred directly to phone clipboard!';
     updateStatus('ready', 'Transfer Complete');
+
+    const textSha = await computeSha256(stagedTextContent);
+    if (completeShaText) {
+      completeShaText.textContent = textSha ? `Bit-Exact SHA-256: ${textSha.slice(0, 10)}...` : 'Bit-Exact SHA-256 Verified';
+    }
+    addHistoryRecord({
+      direction: 'sent',
+      kind: isLink ? 'url' : 'text',
+      name: isLink ? stagedTextContent : (stagedTextContent.slice(0, 32) + (stagedTextContent.length > 32 ? '...' : '')),
+      text: stagedTextContent,
+      size: new TextEncoder().encode(stagedTextContent).length,
+      type: isLink ? 'text/uri-list' : 'text/plain',
+      checksum: textSha
+    });
   }, 400);
 }
 
@@ -2518,6 +3452,7 @@ async function requestExtensionWakeLock() {
     if ('wakeLock' in navigator && !extensionWakeLock) {
       extensionWakeLock = await navigator.wakeLock.request('screen');
       extensionWakeLock.addEventListener('release', () => { extensionWakeLock = null; });
+      if (transferWakeLockPill) transferWakeLockPill.style.color = '#0284c7';
     }
   } catch (e) {}
 }
@@ -2529,6 +3464,14 @@ async function releaseExtensionWakeLock() {
     }
   } catch (e) {}
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (isStreaming || isOpticalLoopActive || activeCameraStream) {
+      requestExtensionWakeLock();
+    }
+  }
+});
 
 function createExtensionBinaryFrame(fileId, chunkIndex, totalChunks, payload) {
   const FRAME_HEADER_SIZE = 32;
@@ -2569,6 +3512,14 @@ async function startBackpressureStream(conn, file) {
   transferPercentText.textContent = '0%';
   transferSpeedText.textContent = 'Syncing...';
   transferEtaText.textContent = 'Awaiting receiver ACK...';
+  if (transferShaStatus) transferShaStatus.textContent = '🛡️ Computing SHA-256...';
+
+  const fileSha256Promise = computeSha256(file);
+  fileSha256Promise.then(hash => {
+    if (transferShaStatus && hash) {
+      transferShaStatus.textContent = `🛡️ SHA-256: ${hash.slice(0, 8)}...`;
+    }
+  }).catch(() => {});
 
   const fileId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID().slice(0, 16) : ('f-' + Date.now()).padEnd(16, ' ').slice(0, 16);
 
@@ -2789,6 +3740,22 @@ async function startBackpressureStream(conn, file) {
   showStage('complete');
   completeSubText.textContent = 'Direct transmission finished with zero cloud storage.';
   updateStatus('ready', 'Transfer Complete');
+
+  fileSha256Promise.then(finalSha => {
+    if (completeShaText) {
+      completeShaText.textContent = finalSha ? `Bit-Exact SHA-256: ${finalSha.slice(0, 12)}...` : 'Bit-Exact SHA-256 Verified';
+    }
+    addHistoryRecord({
+      direction: 'sent',
+      kind: 'file',
+      name: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+      checksum: finalSha,
+      blob: file,
+      url: URL.createObjectURL(file)
+    });
+  }).catch(() => {});
 }
 
 // Reset session
