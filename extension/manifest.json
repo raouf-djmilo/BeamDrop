@@ -24,10 +24,16 @@
     "contextMenus",
     "notifications",
     "downloads",
-    "alarms"
+    "alarms",
+    "activeTab"
   ],
   "side_panel": {
     "default_path": "popup.html"
+  },
+  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "host_permissions": [
     "https://*/*",
@@ -46,7 +52,14 @@
       "suggested_key": {
         "default": "Alt+B"
       },
-      "description": "Open BeamDrop Device Bridge"
+      "description": "Open BeamDrop Side Panel"
+    },
+    "quick-beam-clipboard": {
+      "suggested_key": {
+        "default": "Alt+Shift+B",
+        "mac": "Alt+Shift+B"
+      },
+      "description": "Quick beam clipboard content via BeamDrop"
     }
   },
   "content_scripts": [
@@ -75,7 +88,8 @@
         "updater.html",
         "updater.js",
         "folderStore.js",
-        "libs/jszip.min.js"
+        "libs/jszip.min.js",
+        "libs/jsQR.min.js"
       ],
       "matches": [
         "<all_urls>"

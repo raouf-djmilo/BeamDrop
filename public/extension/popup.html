@@ -173,6 +173,10 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           <span>Native Disk I/O</span>
         </button>
+        <button id="btnCaptureTabScreenshot" class="btn-pick-action" type="button" title="Capture active browser tab screenshot and beam to phone" style="background: rgba(2,132,199,0.06); border-color: rgba(2,132,199,0.3); color: #0284c7;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span>Screenshot</span>
+        </button>
       </div>
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin: -2px 0;">
@@ -281,10 +285,16 @@
       </div>
 
       <!-- Primary CTA for Text -->
-      <button id="btnGenerateTextQr" class="btn-cta-generate" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        <span>Beam to Smart Notebook (Instant QR)</span>
-      </button>
+      <div style="display: flex; gap: 6px; width: 100%;">
+        <button id="btnGenerateTextQr" class="btn-cta-generate" style="flex: 1;" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Beam (Instant QR)</span>
+        </button>
+        <button id="btnAnimatedQrStream" class="btn-cta-generate" type="button" style="width: auto; padding: 0 12px; background: linear-gradient(135deg, #059669, #0284c7);" title="Optical animated QR sequence for offline air-gapped environments" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Offline QR</span>
+        </button>
+      </div>
     </div>
   </main>
 
@@ -651,21 +661,27 @@
 
     <!-- Crypto-Style Address Card -->
     <div class="qr-card-container" style="padding: 12px 14px;">
-      <!-- QR Mode Selector: Camera Scan (Direct WebRTC) vs iOS Shortcut (API Transit) -->
+      <!-- QR Mode Selector: Camera Scan (Direct WebRTC) vs iOS Shortcut (API Transit) vs PC Camera Scanner -->
       <div class="qr-mode-switch">
-        <button id="qrModeCameraBtn" class="qr-mode-btn active" type="button" title="Point iPhone or Android camera to beam directly over WebRTC">
+        <button id="qrModeCameraBtn" class="qr-mode-btn active" type="button" title="Show QR for iPhone or Android camera to scan">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          <span>Camera (P2P Web)</span>
+          <span>Phone Scans PC</span>
+        </button>
+        <button id="qrModeScanPeerBtn" class="qr-mode-btn" type="button" title="Use PC / Laptop webcam to scan phone QR code directly">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path></svg>
+          <span>PC Scans QR</span>
         </button>
         <button id="qrModeShortcutBtn" class="qr-mode-btn" type="button" title="Direct Share Sheet upload via Apple Shortcuts">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.4c.58-.72.98-1.72.87-2.73-.85.04-1.92.59-2.53 1.3-.54.62-.99 1.62-.87 2.6.96.07 1.96-.46 2.53-1.17z"></path></svg>
-          <span>iOS Shortcut</span>
+          <span>iOS</span>
         </button>
       </div>
 
       <div style="background: #ffffff; padding: 10px; border-radius: 16px; border: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2,132,199,0.1); margin-bottom: 8px;">
-        <div id="receiveVaultQrBox" style="width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+        <div id="receiveVaultQrBox" style="width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; margin: 0 auto; position: relative; overflow: hidden; border-radius: 8px; background: #f8fafc;">
           <canvas id="receiveVaultQrCanvas" style="display: block; border-radius: 8px;"></canvas>
+          <video id="receiveVaultCameraVideo" autoplay playsinline muted style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"></video>
+          <div id="cameraScanCrosshair" style="display: none; position: absolute; inset: 16px; border: 2px dashed #0284c7; border-radius: 8px; pointer-events: none;"></div>
         </div>
       </div>
 
@@ -708,7 +724,8 @@
     <!-- Vault History Drawer -->
     <div style="background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(186, 230, 253, 0.8); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 11px; font-weight: 700; color: #334155;">Received Vault History (<span id="vaultItemsCount">0</span>)</span>
+        <span style="font-size: 11px; font-weight: 700; color: #334155;">Transfer History Vault (<span id="vaultItemsCount">0</span>)</span>
+        <button id="btnClearVaultHistory" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #e11d48; cursor: pointer; padding: 1px 4px;">Clear History</button>
       </div>
       <div id="vaultItemsList" style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
         <div style="font-size: 10.5px; color: #94a3b8; text-align: center; padding: 8px 0;">No items received yet</div>
@@ -872,6 +889,7 @@
 
   <script src="folderStore.js"></script>
   <script src="buildInfo.js"></script>
+  <script src="libs/jsQR.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

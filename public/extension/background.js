@@ -53,9 +53,26 @@ function setupContextMenus() {
   });
 }
 
+// Persistent Chrome Side Panel (Manifest V3) configuration
+function configureSidePanelBehavior() {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['sidePanelEnabled'], (res) => {
+        const enabled = res.sidePanelEnabled !== false;
+        chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: enabled })
+          .catch((err) => console.log('[BeamDrop] Side panel behavior notice:', err));
+      });
+    } else {
+      chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((err) => console.log('[BeamDrop] Side panel behavior notice:', err));
+    }
+  }
+}
+
 // Initialize on installed
 chrome.runtime.onInstalled.addListener(() => {
   setupContextMenus();
+  configureSidePanelBehavior();
 
   // Setup periodic background check for updates (every 30 mins, with immediate 1-min initial check)
   chrome.alarms.create(UPDATE_ALARM_NAME, {
@@ -66,6 +83,13 @@ chrome.runtime.onInstalled.addListener(() => {
   // Check immediately on install
   checkCloudForUpdates();
 });
+
+// Configure Side Panel on browser startup
+if (chrome.runtime && chrome.runtime.onStartup) {
+  chrome.runtime.onStartup.addListener(() => {
+    configureSidePanelBehavior();
+  });
+}
 
 // Periodic alarm listener
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -81,6 +105,31 @@ if (chrome.notifications && chrome.notifications.onClicked) {
       if (chrome.action && chrome.action.openPopup) {
         chrome.action.openPopup().catch(() => {});
       }
+    }
+  });
+}
+
+// Keyboard Shortcuts Listener (chrome.commands)
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener(async (command, tab) => {
+    if (command === "quick-beam-clipboard") {
+      if (chrome.sidePanel && chrome.sidePanel.open) {
+        if (tab && tab.id) {
+          await chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+        } else {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0] && tabs[0].id) {
+              chrome.sidePanel.open({ tabId: tabs[0].id }).catch(() => {});
+            }
+          });
+        }
+      }
+
+      setTimeout(() => {
+        chrome.runtime.sendMessage({
+          action: "beam_from_clipboard_shortcut"
+        }).catch(() => {});
+      }, 300);
     }
   });
 }
@@ -118,6 +167,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   const phoneLabel = (paired && (paired.phoneName || paired.name)) || 'Paired Phone';
+
+  // Automatically open the persistent Side Panel when user beams via context menu
+  if (chrome.sidePanel && chrome.sidePanel.open && tab && tab.id) {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  }
 
   // 1. BEAM IMAGE DIRECTLY TO PHONE (RAM Streaming - No PC Disk Footprint)
   if (info.menuItemId === "beamdrop_send_image" && info.srcUrl) {
@@ -484,14 +538,65 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.action === 'unpair_session') {
-    if (chrome.storage && chrome.storage.local) {
-      chrome.storage.local.remove(['beamdrop_paired_phone'], () => {
-        sendResponse({ success: true, unpaired: true });
+  if (message.action === 'open_camera_permission_tab') {
+    if (chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('options.html?grant=camera')
+      }, (tab) => {
+        sendResponse({ success: true, tabId: tab ? tab.id : null });
       });
       return true;
     }
     sendResponse({ success: false });
+    return true;
+  }
+
+  if (message.action === 'set_side_panel_behavior') {
+    const enabled = Boolean(message.enabled);
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ sidePanelEnabled: enabled }, () => {
+        if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+          chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: enabled })
+            .catch(() => {});
+        }
+        sendResponse({ success: true, enabled });
+      });
+      return true;
+    }
+  }
+
+  if (message.action === 'open_side_panel') {
+    if (chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && tabs[0].id) {
+          chrome.sidePanel.open({ tabId: tabs[0].id })
+            .then(() => sendResponse({ success: true }))
+            .catch((err) => sendResponse({ success: false, error: (err && err.message) || 'failed' }));
+        } else {
+          sendResponse({ success: false, error: 'no_active_tab' });
+        }
+      });
+      return true;
+    }
+    sendResponse({ success: false, error: 'side_panel_unsupported' });
+    return true;
+  }
+
+  if (message.action === 'capture_active_tab_screenshot') {
+    if (chrome.tabs && chrome.tabs.captureVisibleTab) {
+      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+        if (chrome.runtime.lastError || !dataUrl) {
+          sendResponse({
+            success: false,
+            error: (chrome.runtime.lastError && chrome.runtime.lastError.message) || 'capture_failed'
+          });
+        } else {
+          sendResponse({ success: true, dataUrl });
+        }
+      });
+      return true;
+    }
+    sendResponse({ success: false, error: 'capture_unsupported' });
     return true;
   }
 

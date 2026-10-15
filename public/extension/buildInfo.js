@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  commitSha: "d7ecad661272b206176af66503fc334af303a186",
-  shortSha: "d7ecad6",
-  buildHash: "d7ecad6",
-  buildTimestamp: 1791987871,
-  patchNotes: "feat(extension): implement OPFS and image streaming"
+  commitSha: "bda983cf3077d58c9282a20c34d6a11c09c3be64",
+  shortSha: "bda983c",
+  buildHash: "bda983c",
+  buildTimestamp: 1792062311,
+  patchNotes: "refactor(p2p): stabilize connection handling and limits"
 };
