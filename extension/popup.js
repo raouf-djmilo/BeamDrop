@@ -1558,8 +1558,8 @@ async function startFilePortalSession(file) {
     console.error('QR rendering failed:', err);
   }
 
-  // Pre-stage in Ephemeral In-Memory RAM Transit for instant mobile 4G/5G phone fallback (only for files <= 25MB)
-  if (file.size <= 25 * 1024 * 1024) {
+  // Pre-stage in Ephemeral In-Memory RAM Transit for instant mobile 4G/5G phone fallback (only for small files <= 4MB)
+  if (file.size <= 4 * 1024 * 1024) {
     try {
       const transitUrl = `${safeBaseUrl}/api/transit?peer=${currentPeerId}&name=${fileNameEnc}&mime=${mimeEnc}`;
       fetch(transitUrl, {
@@ -1860,6 +1860,9 @@ if (btnCopyQrImage) {
   });
 }
 
+let activeStreamAbortController = null;
+let activeStreamingConn = null;
+
 // ==========================================
 // PEERJS WEBRTC SESSION CONTROLLER
 // ==========================================
@@ -1883,6 +1886,19 @@ function initPeerJsSession(type = 'file') {
 
   peer.on('connection', (conn) => {
     console.log('[BeamDrop] Receiver Connected:', conn.peer);
+
+    // If an existing open connection to this exact same peer is already active, don't kill it!
+    if (activeConnection && activeConnection.open && activeConnection.peer === conn.peer) {
+      console.log('[BeamDrop] Retaining active open connection to:', conn.peer);
+      return;
+    }
+
+    // Cleanly cancel any active in-flight stream on older connection
+    if (activeStreamAbortController) {
+      try { activeStreamAbortController.abort(); } catch (_) {}
+      activeStreamAbortController = null;
+    }
+    isStreaming = false;
 
     // If an existing connection exists from an earlier test or device, cleanly close it
     if (activeConnection && activeConnection !== conn) {
@@ -2146,12 +2162,12 @@ function setupConnectionHandlers(conn, type) {
     }
   });
 
-  // 2. Direct hook into native WebRTC RTCDataChannel onopen event
-  if (conn.dataChannel) {
-    conn.dataChannel.onopen = () => {
+  // 2. Direct hook into native WebRTC RTCDataChannel onopen event without overwriting PeerJS internals
+  if (conn.dataChannel && typeof conn.dataChannel.addEventListener === 'function') {
+    conn.dataChannel.addEventListener('open', () => {
       console.log('[BeamDrop] Native RTCDataChannel onopen fired');
       startTransmission();
-    };
+    });
   }
 
   // 3. Start when DataChannel is confirmed OPEN
@@ -2179,6 +2195,14 @@ function setupConnectionHandlers(conn, type) {
 
   conn.on('close', () => {
     clearInterval(pollTimer);
+    if (activeStreamingConn === conn) {
+      if (activeStreamAbortController) {
+        try { activeStreamAbortController.abort(); } catch (_) {}
+        activeStreamAbortController = null;
+      }
+      isStreaming = false;
+      activeStreamingConn = null;
+    }
     if (!isStreaming) {
       updateStatus('idle', 'Disconnected');
       if (portalRadarText) portalRadarText.textContent = 'Connection closed';
@@ -2261,7 +2285,15 @@ function createExtensionBinaryFrame(fileId, chunkIndex, totalChunks, payload) {
 }
 
 async function startBackpressureStream(conn, file) {
-  if (!file || isStreaming) return;
+  if (!file) return;
+
+  // Cleanly abort any earlier in-flight stream on another connection
+  if (activeStreamAbortController) {
+    try { activeStreamAbortController.abort(); } catch (_) {}
+  }
+  activeStreamAbortController = new AbortController();
+  const currentSignal = activeStreamAbortController.signal;
+  activeStreamingConn = conn;
   isStreaming = true;
   requestExtensionWakeLock();
 
@@ -2283,23 +2315,27 @@ async function startBackpressureStream(conn, file) {
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
   // 1. Send File Metadata Header
-  conn.send({
-    type: 'FILE_START',
-    fileId: fileId,
-    fileName: file.name,
-    fileSize: file.size,
-    fileMime: file.type || 'application/octet-stream',
-    totalChunks: totalChunks,
-    chunkSize: CHUNK_SIZE,
-    payload: {
-      id: fileId,
-      name: file.name,
-      size: file.size,
-      mimeType: file.type || 'application/octet-stream',
+  try {
+    conn.send({
+      type: 'FILE_START',
+      fileId: fileId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileMime: file.type || 'application/octet-stream',
+      totalChunks: totalChunks,
       chunkSize: CHUNK_SIZE,
-      totalChunks: totalChunks
-    }
-  });
+      payload: {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        chunkSize: CHUNK_SIZE,
+        totalChunks: totalChunks
+      }
+    });
+  } catch (startSendErr) {
+    console.warn('[BeamDrop] Failed sending FILE_START header:', startSendErr);
+  }
 
   // Ensure optimized bufferedAmount thresholds on data channel
   const dc = conn.dataChannel;
@@ -2322,13 +2358,17 @@ async function startBackpressureStream(conn, file) {
       if (msg && (msg.type === 'ACK_START' || msg.type === 'START_STREAM' || msg.type === 'RECEIVER_READY')) {
         if (!resolved) {
           resolved = true;
-          conn.off ? conn.off('data', onAck) : null;
+          try {
+            if (typeof conn.off === 'function') conn.off('data', onAck);
+          } catch (_) {}
           resolve();
         }
       }
     };
 
-    conn.on('data', onAck);
+    try {
+      conn.on('data', onAck);
+    } catch (_) {}
 
     setTimeout(() => {
       if (!resolved) {
@@ -2337,6 +2377,16 @@ async function startBackpressureStream(conn, file) {
       }
     }, 1500);
   });
+
+  if (currentSignal.aborted || !conn.open) {
+    console.warn('[BeamDrop] Handshake aborted or connection closed');
+    if (activeStreamingConn === conn) {
+      isStreaming = false;
+      activeStreamingConn = null;
+    }
+    releaseExtensionWakeLock();
+    return;
+  }
 
   updateStatus('connected', 'Streaming...');
   transferEtaText.textContent = 'Streaming data...';
@@ -2356,8 +2406,8 @@ async function startBackpressureStream(conn, file) {
   let currentChunkPromise = file.slice(offset, offset + currentSliceSize).arrayBuffer();
 
   while (offset < file.size) {
-    if (!conn.open) {
-      console.warn('[BeamDrop] DataChannel closed during stream');
+    if (currentSignal.aborted || !conn.open) {
+      console.warn('[BeamDrop] DataChannel closed or stream aborted');
       break;
     }
 
@@ -2388,6 +2438,8 @@ async function startBackpressureStream(conn, file) {
         }, 8);
       });
     }
+
+    if (currentSignal.aborted || !conn.open) break;
 
     // Await current chunk buffer
     const arrayBuffer = await currentChunkPromise;
@@ -2435,6 +2487,17 @@ async function startBackpressureStream(conn, file) {
     }
   }
 
+  // If interrupted before completion, do NOT claim 100% complete
+  if (offset < file.size || currentSignal.aborted) {
+    console.warn(`[BeamDrop] Stream ended incompletely at ${offset}/${file.size} bytes`);
+    if (activeStreamingConn === conn) {
+      isStreaming = false;
+      activeStreamingConn = null;
+    }
+    releaseExtensionWakeLock();
+    return;
+  }
+
   // 4. Send Complete Signal
   try {
     conn.send({
@@ -2446,7 +2509,10 @@ async function startBackpressureStream(conn, file) {
     conn.send({ type: 'complete', fileId: fileId });
   } catch (_) {}
   
-  isStreaming = false;
+  if (activeStreamingConn === conn) {
+    isStreaming = false;
+    activeStreamingConn = null;
+  }
   releaseExtensionWakeLock();
 
   // Instant 100% visual completion

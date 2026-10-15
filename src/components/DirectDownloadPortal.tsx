@@ -44,7 +44,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const [isTransitFetching, setIsTransitFetching] = useState<boolean>(false);
   const [streamTelemetry, setStreamTelemetry] = useState<import('../utils/streamDiskSink').StreamTelemetry | null>(null);
 
-  const transferManager = useMemo(() => new P2PTransferManager(), []);
+  const transferManagerRef = useRef<P2PTransferManager | null>(null);
+  if (!transferManagerRef.current) {
+    transferManagerRef.current = new P2PTransferManager();
+  }
+  const transferManager = transferManagerRef.current;
   const autoTriggeredRef = useRef(false);
   const isConnectingRef = useRef(false);
 
@@ -259,23 +263,29 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           fetchViaTransitFallback();
         });
 
-      // Rapid Cellular Fallback: if WebRTC connection is blocked or takes > 3.5s on 4G/5G, race transit RAM buffer
+      // Rapid Cellular Fallback: if WebRTC connection is blocked or takes > 6s on 4G/5G, race transit RAM buffer
       const fallbackTimer = setTimeout(() => {
         if (isMounted && !downloadedFile && !currentFile) {
           fetchViaTransitFallback();
         }
-      }, 3500);
+      }, 6000);
 
       return () => {
+        isMounted = false;
         clearTimeout(fallbackTimer);
       };
     }
 
     return () => {
       isMounted = false;
-      transferManager.destroy();
     };
-  }, [peerId, transferManager]);
+  }, [peerId]);
+
+  useEffect(() => {
+    return () => {
+      transferManagerRef.current?.destroy();
+    };
+  }, []);
 
   const handleManualDownloadClick = () => {
     if (downloadedFile && downloadedFile.downloadUrl) {

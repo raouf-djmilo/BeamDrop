@@ -1051,7 +1051,12 @@
           config: { iceServers: ICE_SERVERS }
         });
 
+        let p2pConnectInitiated = false;
         peer.on('open', function() {
+          if (p2pConnectInitiated && connection && (connection.open || !connection.destroyed)) {
+            return;
+          }
+          p2pConnectInitiated = true;
           transferStatusText.textContent = 'Connecting to sender...';
           connection = peer.connect(peerId, { reliable: true });
           setupConnection(connection);
@@ -1063,7 +1068,7 @@
             console.log('[BeamDrop] WebRTC P2P negotiating slowly or blocked by carrier NAT, engaging RAM Transit...');
             attemptTransitFallback();
           }
-        }, 1200);
+        }, 6000);
 
         peer.on('disconnected', function() {
           if (peer && !peer.destroyed) {
@@ -1192,7 +1197,21 @@
             : (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
               ? data.buffer
               : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
-          if (!currentFileEntry) return;
+          if (!currentFileEntry) {
+            currentFileEntry = {
+              id: 'f-stream',
+              name: expectedName || 'Shared File',
+              size: expectedSize || 1,
+              mime: expectedMime || 'application/octet-stream',
+              totalChunks: 0,
+              chunks: [],
+              receivedIndices: new Set(),
+              rawCounter: 0,
+              receivedBytes: 0,
+              lastTime: Date.now(),
+              lastBytes: 0
+            };
+          }
 
           const unpacked = unpackChunkFrame(rawBuffer, currentFileEntry.rawCounter);
           currentFileEntry.rawCounter++;

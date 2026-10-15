@@ -8,38 +8,54 @@ const DEFAULT_VERCEL_URL = "https://beam-drop-mu.vercel.app";
 const GITHUB_RAW_URL = "https://raw.githubusercontent.com/raouf-djmilo/BeamDrop/main/public/version.json";
 const UPDATE_ALARM_NAME = "beamdrop_periodic_update_check";
 
+function setupContextMenus() {
+  if (!chrome.contextMenus) return;
+  chrome.contextMenus.removeAll(() => {
+    void chrome.runtime.lastError;
+
+    const safeCreate = (props) => {
+      chrome.contextMenus.create(props, () => {
+        void chrome.runtime.lastError;
+      });
+    };
+
+    safeCreate({
+      id: "beamdrop_send_image",
+      title: "⚡ Beam image directly to Phone (RAM stream)",
+      contexts: ["image"]
+    });
+
+    safeCreate({
+      id: "beamdrop_send_selection",
+      title: "⚡ Beam selected text to Phone",
+      contexts: ["selection"]
+    });
+
+    safeCreate({
+      id: "beamdrop_send_link",
+      title: "⚡ Beam link to Phone",
+      contexts: ["link"]
+    });
+
+    safeCreate({
+      id: "beamdrop_send_page",
+      title: "⚡ Beam this page to Phone",
+      contexts: ["page"]
+    });
+
+    if (chrome.sidePanel) {
+      safeCreate({
+        id: "beamdrop_open_sidepanel",
+        title: "⚡ BeamDrop: Open Side Panel (Persistent)",
+        contexts: ["action"]
+      });
+    }
+  });
+}
+
 // Initialize on installed
 chrome.runtime.onInstalled.addListener(() => {
-  // Setup Context Menus for Universal Right-Click Web Beam
-  chrome.contextMenus.create({
-    id: "beamdrop_send_image",
-    title: "⚡ Beam image directly to Phone (RAM stream)",
-    contexts: ["image"]
-  });
-
-  chrome.contextMenus.create({
-    id: "beamdrop_send_selection",
-    title: "⚡ Beam selected text to Phone",
-    contexts: ["selection"]
-  });
-
-  chrome.contextMenus.create({
-    id: "beamdrop_send_link",
-    title: "⚡ Beam link to Phone",
-    contexts: ["link"]
-  });
-
-  chrome.contextMenus.create({
-    id: "beamdrop_send_page",
-    title: "⚡ Beam this page to Phone",
-    contexts: ["page"]
-  });
-
-  chrome.contextMenus.create({
-    id: "beamdrop_open_sidepanel",
-    title: "⚡ BeamDrop: Open Side Panel (Persistent)",
-    contexts: ["action"]
-  });
+  setupContextMenus();
 
   // Setup periodic background check for updates (every 30 mins, with immediate 1-min initial check)
   chrome.alarms.create(UPDATE_ALARM_NAME, {
@@ -478,6 +494,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: false });
     return true;
   }
+
+  // Fallback for unhandled message actions so message ports do not close prematurely
+  sendResponse({ success: false, error: 'unknown_action' });
+  return false;
 });
 
 // Compare Semver utility

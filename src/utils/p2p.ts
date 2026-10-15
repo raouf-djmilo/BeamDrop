@@ -181,6 +181,7 @@ export class P2PTransferManager {
     totalChunks: number;
     expectedChecksum?: string;
   }> = new Map();
+  private orphanFrames: Map<string, Array<{ meta: any; payload: ArrayBuffer }>> = new Map();
 
   // Sending state
   private isSending: boolean = false;
@@ -430,10 +431,19 @@ export class P2PTransferManager {
   private async handleIncomingData(rawMsg: any) {
     if (!rawMsg) return;
 
+    let buffer: ArrayBuffer | null = null;
+    if (rawMsg instanceof ArrayBuffer) {
+      buffer = rawMsg;
+    } else if (ArrayBuffer.isView(rawMsg)) {
+      buffer = rawMsg.buffer.slice(rawMsg.byteOffset, rawMsg.byteOffset + rawMsg.byteLength) as ArrayBuffer;
+    } else if (typeof Blob !== 'undefined' && rawMsg instanceof Blob) {
+      try { buffer = await rawMsg.arrayBuffer(); } catch (_) {}
+    }
+
     // Check if message is a 32-Byte Binary Frame
-    if (rawMsg instanceof ArrayBuffer && rawMsg.byteLength >= FRAME_HEADER_SIZE) {
+    if (buffer && buffer.byteLength >= FRAME_HEADER_SIZE) {
       try {
-        const { meta, payload } = decodeBinaryFrame(rawMsg);
+        const { meta, payload } = decodeBinaryFrame(buffer);
         let finalPayload = payload;
 
         // If encrypted (flag === 1) and we have sessionCryptoKey
@@ -450,6 +460,17 @@ export class P2PTransferManager {
         let entry = this.incomingFiles.get(cleanFileId) || this.incomingFiles.get(meta.fileId);
         if (!entry && this.incomingFiles.size === 1) {
           entry = this.incomingFiles.values().next().value;
+        }
+        if (!entry) {
+          let list = this.orphanFrames.get(cleanFileId);
+          if (!list) {
+            list = [];
+            this.orphanFrames.set(cleanFileId, list);
+          }
+          if (list.length < 150) {
+            list.push({ meta, payload: finalPayload });
+          }
+          return;
         }
         if (entry) {
           const actualFileId = entry.metadata.id;
@@ -726,10 +747,10 @@ export class P2PTransferManager {
               }
             }).catch(() => {});
           }
-          this.incomingFiles.set(cleanId, {
+          const createdEntry = {
             metadata: newFile,
-            chunks: new Map(),
-            receivedIndices: new Set(),
+            chunks: new Map<number, ArrayBuffer>(),
+            receivedIndices: new Set<number>(),
             receivedBytes: 0,
             startTime: Date.now(),
             lastSpeedCalcTime: Date.now(),
@@ -737,7 +758,20 @@ export class P2PTransferManager {
             chunkSize: msg.chunkSize || 256 * 1024,
             totalChunks: msg.totalChunks || 1,
             expectedChecksum: msg.checksum
-          });
+          };
+          this.incomingFiles.set(cleanId, createdEntry);
+
+          // Drain any early arriving orphan frames
+          const buffered = this.orphanFrames.get(cleanId);
+          if (buffered && buffered.length > 0) {
+            this.orphanFrames.delete(cleanId);
+            for (const item of buffered) {
+              createdEntry.chunks.set(item.meta.chunkIndex, item.payload);
+              createdEntry.receivedIndices.add(item.meta.chunkIndex);
+              createdEntry.receivedBytes += item.payload.byteLength;
+            }
+          }
+
           this.onFileReceiveStart?.(newFile);
 
           // Emit instant lockstep readiness signal to unlock sender streaming
