@@ -236,6 +236,32 @@ export default defineConfig(() => {
               return;
             }
 
+            // 0b. 24h Global Cloud Drop Endpoint (/api/cloud-drop)
+            if (req.url && (req.url === '/api/cloud-drop' || req.url.startsWith('/api/cloud-drop?') || req.url.startsWith('/api/cloud-drop/'))) {
+              if (!(res as any).status) {
+                (res as any).status = function(code: number) { this.statusCode = code; return this; };
+              }
+              if (!(res as any).json) {
+                (res as any).json = function(data: any) {
+                  this.setHeader('Content-Type', 'application/json');
+                  this.end(JSON.stringify(data));
+                };
+              }
+              if (!(res as any).send) {
+                (res as any).send = function(data: any) { this.end(data); };
+              }
+              try {
+                const { default: cloudDropHandler } = await import('./api/cloud-drop.js');
+                await cloudDropHandler(req, res);
+                return;
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: err?.message || 'Cloud drop error' }));
+                return;
+              }
+            }
+
             // Vault QR Generator (/api/vault/qr) for iOS Shortcuts Quick Look
             if (req.url && (req.url === '/api/vault/qr' || req.url.startsWith('/api/vault/qr?') || req.url.startsWith('/api/vault/qr/'))) {
               const u = new URL(req.url, 'http://localhost');
@@ -1057,6 +1083,60 @@ export default defineConfig(() => {
               }));
               return;
             }
+
+            // Route /api/cloud-drop and /api/qr-studio to their Vercel serverless handlers in local Vite preview
+            if (req.url?.startsWith('/api/cloud-drop') || req.url?.startsWith('/api/qr-studio')) {
+              const parsedUrl = new URL(req.url, 'http://localhost:3000');
+              const queryObj: Record<string, string> = {};
+              parsedUrl.searchParams.forEach((v, k) => {
+                queryObj[k] = v;
+              });
+              (req as any).query = queryObj;
+
+              let rawBody = '';
+              req.on('data', (chunk) => {
+                rawBody += chunk;
+              });
+              req.on('end', async () => {
+                if (rawBody) {
+                  try {
+                    (req as any).body = JSON.parse(rawBody);
+                  } catch (_) {
+                    (req as any).body = {};
+                  }
+                } else {
+                  (req as any).body = {};
+                }
+
+                // Provide Express/Vercel-compatible res.status().json() helpers
+                const vercelRes: any = res;
+                vercelRes.status = (code: number) => {
+                  res.statusCode = code;
+                  return vercelRes;
+                };
+                vercelRes.json = (data: any) => {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return vercelRes;
+                };
+
+                try {
+                  if (parsedUrl.pathname.startsWith('/api/cloud-drop')) {
+                    const mod = await import('./api/cloud-drop.js');
+                    await mod.default(req, vercelRes);
+                  } else if (parsedUrl.pathname.startsWith('/api/qr-studio')) {
+                    const mod = await import('./api/qr-studio.js');
+                    await mod.default(req, vercelRes);
+                  }
+                } catch (err: any) {
+                  res.statusCode = 500;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ error: err?.message || 'Internal API error' }));
+                }
+              });
+              return;
+            }
+
             next();
           });
         },

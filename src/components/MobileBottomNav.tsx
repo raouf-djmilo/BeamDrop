@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, QrCode, Radio, Building2, Menu, Lock } from 'lucide-react';
+import { Zap, QrCode, Radio, Building2, Menu, Lock, Palette } from 'lucide-react';
 import { MainTab } from './Sidebar';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,8 +23,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   }> = [
     { id: 'sender', label: 'Send', icon: Zap, activeColor: 'text-sky-600' },
     { id: 'receive', label: 'Receive', icon: QrCode, activeColor: 'text-emerald-600' },
-    { id: 'radar', label: 'Radar', icon: Radio, activeColor: 'text-indigo-600' },
-    { id: 'workspaces', label: 'Rooms', icon: Building2, activeColor: 'text-amber-600' }
+    { id: 'qrstudio', label: 'QR Studio', icon: Palette, activeColor: 'text-blue-600' },
+    { id: 'radar', label: 'Radar', icon: Radio, activeColor: 'text-indigo-600' }
   ];
 
   return (

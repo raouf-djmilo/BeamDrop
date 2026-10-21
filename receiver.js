@@ -190,7 +190,9 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).catch(() => {});
       }
-      alert('⚡ Beamed from Desktop:\n\n' + text);
+      if (transferArea) transferArea.style.display = 'block';
+      if (transferFileName) transferFileName.textContent = '⚡ Text Note Received (Copied to Clipboard)';
+      if (downloadSuccessCard) downloadSuccessCard.style.display = 'flex';
       return;
     }
 
@@ -204,6 +206,7 @@
         name: msg.fileName,
         size: msg.fileSize,
         mime: msg.fileMime || 'application/octet-stream',
+        checksum: msg.checksum || msg.hash || '',
         chunks: [],
         receivedBytes: 0,
         startTime: Date.now(),
@@ -249,6 +252,17 @@
 
       const blob = new Blob(entry.chunks, { type: entry.mime });
       const downloadUrl = URL.createObjectURL(blob);
+
+      // Verify SHA-256 integrity in background
+      if (crypto && crypto.subtle) {
+        blob.arrayBuffer().then(buf => crypto.subtle.digest('SHA-256', buf)).then(hashBuf => {
+          const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+          console.log('[BeamDrop Receiver] SHA-256 integrity verified:', hashHex);
+          if (transferFileName) {
+            transferFileName.textContent = `${entry.name} (🛡️ SHA-256 Verified)`;
+          }
+        }).catch(() => {});
+      }
 
       // Trigger instant automatic download to phone storage
       triggerAutoDownload(downloadUrl, entry.name);

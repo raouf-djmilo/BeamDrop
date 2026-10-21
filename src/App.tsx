@@ -37,6 +37,12 @@ const NotebookView = React.lazy(() =>
 const ExtensionHub = React.lazy(() =>
   import('./components/ExtensionHub').then((m) => ({ default: m.ExtensionHub }))
 );
+const QrStudioView = React.lazy(() =>
+  import('./components/QrStudioView').then((m) => ({ default: m.QrStudioView }))
+);
+const DynamicQrLandingPortal = React.lazy(() =>
+  import('./components/DynamicQrLandingPortal').then((m) => ({ default: m.DynamicQrLandingPortal }))
+);
 
 function resolveTabFromLocation(): MainTab {
   if (typeof window === 'undefined') return 'sender';
@@ -45,6 +51,7 @@ function resolveTabFromLocation(): MainTab {
     // 1. Path-based check
     const path = window.location.pathname.toLowerCase();
     if (path.startsWith('/receive') || path.startsWith('/vault')) return 'receive';
+    if (path.startsWith('/qrstudio') || path.startsWith('/qr-studio') || path === '/qr') return 'qrstudio';
     if (path.startsWith('/radar') || path.startsWith('/nearby')) return 'radar';
     if (path.startsWith('/workspaces') || path.startsWith('/rooms')) return 'workspaces';
     if (path.startsWith('/notebook') || path.startsWith('/notes') || path.startsWith('/text')) return 'notebook';
@@ -55,6 +62,7 @@ function resolveTabFromLocation(): MainTab {
     const params = new URLSearchParams(window.location.search);
     const mode = (params.get('mode') || params.get('tab') || params.get('action') || '').toLowerCase();
     if (mode === 'receive' || mode === 'vault') return 'receive';
+    if (mode === 'qrstudio' || mode === 'qr' || mode === 'qr-studio') return 'qrstudio';
     if (mode === 'radar') return 'radar';
     if (mode === 'workspaces' || mode === 'rooms') return 'workspaces';
     if (mode === 'notebook') return 'notebook';
@@ -64,6 +72,7 @@ function resolveTabFromLocation(): MainTab {
     // 3. Hash-based check (#receive, #radar, etc.)
     const hash = window.location.hash.toLowerCase().replace(/^#/, '');
     if (hash === 'receive' || hash === 'vault') return 'receive';
+    if (hash === 'qrstudio' || hash === 'qr' || hash === 'qr-studio') return 'qrstudio';
     if (hash === 'radar') return 'radar';
     if (hash === 'workspaces' || hash === 'rooms') return 'workspaces';
     if (hash === 'notebook') return 'notebook';
@@ -81,11 +90,12 @@ function MainApp() {
   // One-time initial URL inspection for direct downloads or ephemeral portals
   const initialUrlInfo = useMemo(() => {
     if (typeof window === 'undefined') {
-      return { isDownload: false, isPortal: false, peer: '', name: '', size: 0, mime: '', portalId: '' };
+      return { isDownload: false, isPortal: false, isDynamicQr: false, dynamicQrCode: '', peer: '', dropId: '', name: '', size: 0, mime: '', portalId: '' };
     }
 
     try {
       const searchParams = new URLSearchParams(window.location.search);
+      const dropId = searchParams.get('drop') || searchParams.get('cloud') || '';
       const targetParam = searchParams.get('target') || '';
       let targetPeer = '';
       if (targetParam) {
@@ -115,19 +125,25 @@ function MainApp() {
       const portalMatch = path.match(/\/portal\/([^\/]+)/);
       const portalId = portalMatch ? portalMatch[1] : '';
 
-      const isDirectDownload = Boolean(peer && action !== 'send' && mode !== 'app' && mode !== 'full' && mode !== 'scan' && mode !== 'scanner' && mode !== 'send' && mode !== 'receive' && mode !== 'vault');
+      const dynamicQrMatch = path.match(/^\/q\/([^\/]+)/);
+      const dynamicQrCode = dynamicQrMatch ? dynamicQrMatch[1] : (searchParams.get('q') || '');
+
+      const isDirectDownload = Boolean((peer || dropId) && action !== 'send' && mode !== 'app' && mode !== 'full' && mode !== 'scan' && mode !== 'scanner' && mode !== 'send' && mode !== 'receive' && mode !== 'vault');
 
       return {
-        isDownload: (isDirectDownload || isDlPath) && Boolean(peer),
+        isDownload: (isDirectDownload || isDlPath) && Boolean(peer || dropId),
         isPortal: isPortal && Boolean(portalId || peer),
+        isDynamicQr: Boolean(dynamicQrCode),
+        dynamicQrCode,
         peer,
+        dropId,
         name,
         size,
         mime,
         portalId
       };
     } catch (_) {
-      return { isDownload: false, isPortal: false, peer: '', name: '', size: 0, mime: '', portalId: '' };
+      return { isDownload: false, isPortal: false, isDynamicQr: false, dynamicQrCode: '', peer: '', dropId: '', name: '', size: 0, mime: '', portalId: '' };
     }
   }, []);
 
@@ -282,12 +298,24 @@ function MainApp() {
     ? window.location.protocol + '//' + window.location.host
     : 'https://beam-drop-mu.vercel.app';
 
+  // DYNAMIC QR GATEWAY (/q/:code)
+  if (initialUrlInfo.isDynamicQr && initialUrlInfo.dynamicQrCode) {
+    return (
+      <ErrorBoundary fallbackTitle="Dynamic QR Gateway Error">
+        <React.Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
+          <DynamicQrLandingPortal code={initialUrlInfo.dynamicQrCode} />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   // DIRECT DOWNLOAD GATEWAY (Only if loaded explicitly with download parameters)
-  if (initialUrlInfo.isDownload && initialUrlInfo.peer) {
+  if (initialUrlInfo.isDownload && (initialUrlInfo.peer || initialUrlInfo.dropId)) {
     return (
       <ErrorBoundary fallbackTitle="Direct Download Gateway Error">
         <DirectDownloadPortal
           peerId={initialUrlInfo.peer}
+          dropId={initialUrlInfo.dropId}
           expectedFileName={initialUrlInfo.name}
           expectedFileSize={initialUrlInfo.size}
           expectedFileMime={initialUrlInfo.mime}
@@ -408,6 +436,10 @@ function MainApp() {
                   transferManager={transferManager}
                   onOpenMobileScanner={() => setShowMobileScanner(true)}
                 />
+              )}
+
+              {activeTab === 'qrstudio' && (
+                <QrStudioView receiverBaseUrl={receiverBaseUrl} />
               )}
 
               {activeTab === 'radar' && (

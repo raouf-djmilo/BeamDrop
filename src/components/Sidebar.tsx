@@ -14,12 +14,13 @@ import {
   Lock,
   ShieldCheck,
   ShieldAlert,
-  Activity
+  Activity,
+  Palette
 } from 'lucide-react';
 import { useTransfer } from '../context/TransferContext';
 import { useAuth } from '../context/AuthContext';
 
-export type MainTab = 'sender' | 'receive' | 'radar' | 'workspaces' | 'notebook' | 'extension';
+export type MainTab = 'sender' | 'receive' | 'qrstudio' | 'radar' | 'workspaces' | 'notebook' | 'extension';
 
 export interface TabConfig {
   id: MainTab;
@@ -32,6 +33,7 @@ import { SidebarQuotaCard } from './SidebarQuotaCard';
 export const TABS_CONFIG: TabConfig[] = [
   { id: 'sender', label: 'Send', icon: Zap },
   { id: 'receive', label: 'Receive', icon: QrCode },
+  { id: 'qrstudio', label: 'QR Studio', icon: Palette },
   { id: 'radar', label: 'Radar', icon: Radio },
   { id: 'workspaces', label: 'Rooms', icon: Building2 },
   { id: 'notebook', label: 'Notebook', icon: BookOpen },

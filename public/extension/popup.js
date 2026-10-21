@@ -1615,6 +1615,15 @@ if (btnLoopSpeed) {
 
 if (btnPortalModeLoop) {
   btnPortalModeLoop.addEventListener('click', async () => {
+    const btnCloudPill = document.getElementById('btnPortalModeCloud');
+    const cloudWrap = document.getElementById('portalCloudDropWrap');
+    if (btnCloudPill) {
+      btnCloudPill.classList.remove('active');
+      btnCloudPill.style.background = 'transparent';
+      btnCloudPill.style.color = '#64748b';
+    }
+    if (cloudWrap) cloudWrap.style.display = 'none';
+
     btnPortalModeLoop.classList.add('active');
     btnPortalModeLoop.style.background = '#ffffff';
     btnPortalModeLoop.style.color = '#0284c7';
@@ -1653,6 +1662,15 @@ if (btnPortalModeLoop) {
 
 if (btnPortalModeWebRtc) {
   btnPortalModeWebRtc.addEventListener('click', () => {
+    const btnCloudPill = document.getElementById('btnPortalModeCloud');
+    const cloudWrap = document.getElementById('portalCloudDropWrap');
+    if (btnCloudPill) {
+      btnCloudPill.classList.remove('active');
+      btnCloudPill.style.background = 'transparent';
+      btnCloudPill.style.color = '#64748b';
+    }
+    if (cloudWrap) cloudWrap.style.display = 'none';
+
     btnPortalModeWebRtc.classList.add('active');
     btnPortalModeWebRtc.style.background = '#ffffff';
     btnPortalModeWebRtc.style.color = '#0284c7';
@@ -1661,6 +1679,227 @@ if (btnPortalModeWebRtc) {
     btnPortalModeLoop.style.color = '#64748b';
     if (portalHeaderModeLabel) portalHeaderModeLabel.textContent = 'One-Time QR';
     stopAnimatedQrLoop();
+  });
+}
+
+// =========================================================
+// PHASE 7: 24H GLOBAL CLOUD DROP ENGINE (GOOGLE DRIVE + HYBRID)
+// =========================================================
+let activeExtCloudDrop = null;
+let extCloudCountdownInterval = null;
+
+function activatePortalCloudTabUI() {
+  stopAnimatedQrLoop();
+  const btnCloudPill = document.getElementById('btnPortalModeCloud');
+  const cloudWrap = document.getElementById('portalCloudDropWrap');
+  if (portalWebRtcBox) portalWebRtcBox.style.display = 'none';
+  if (portalLoopPlayerWrap) portalLoopPlayerWrap.style.display = 'none';
+  if (cloudWrap) cloudWrap.style.display = 'flex';
+
+  [btnPortalModeWebRtc, btnPortalModeLoop].forEach(b => {
+    if (b) {
+      b.classList.remove('active');
+      b.style.background = 'transparent';
+      b.style.color = '#64748b';
+    }
+  });
+  if (btnCloudPill) {
+    btnCloudPill.classList.add('active');
+    btnCloudPill.style.background = '#ffffff';
+    btnCloudPill.style.color = '#0284c7';
+  }
+  if (portalHeaderModeLabel) portalHeaderModeLabel.textContent = '24h Cloud Drop';
+}
+
+async function start24hCloudDropUpload(fileToUpload) {
+  if (!fileToUpload) return;
+  showStage('portal');
+  activatePortalCloudTabUI();
+
+  const fileInfo = getExtensionFileTypeInfo(fileToUpload.name, fileToUpload.type);
+  if (portalBadgeIcon) portalBadgeIcon.textContent = fileInfo.icon || '☁️';
+  if (portalFileNameBadge) portalFileNameBadge.textContent = fileToUpload.name;
+  if (portalFileSizeBadge) portalFileSizeBadge.textContent = `(${formatBytes(fileToUpload.size)})`;
+
+  const shareInput = document.getElementById('extCloudShareUrlInput');
+  const statusLbl = document.getElementById('extCloudStatusLabel');
+  const modeBadge = document.getElementById('extCloudModeBadge');
+  const timerBadge = document.getElementById('extCloudTimerBadge');
+  const cloudCanvas = document.getElementById('qrcodeCloudCanvas');
+
+  if (shareInput) shareInput.value = 'Uploading to 24h Cloud Vault...';
+  if (statusLbl) statusLbl.textContent = '⚡ Computing SHA-256 & Uploading...';
+  updateStatus('connecting', 'Uploading 24h Cloud...');
+
+  const safeBaseUrl = (VERCEL_RECEIVER_URL && !VERCEL_RECEIVER_URL.includes('.run.app') && !VERCEL_RECEIVER_URL.includes('localhost'))
+    ? VERCEL_RECEIVER_URL.replace(/\/$/, '')
+    : 'https://beam-drop-mu.vercel.app';
+
+  try {
+    const sha256 = await computeSha256(fileToUpload);
+    const sessionRes = await fetch(`${safeBaseUrl}/api/cloud-drop?action=create_session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: fileToUpload.name,
+        size: fileToUpload.size,
+        mime: fileToUpload.type || 'application/octet-stream',
+        sha256
+      })
+    });
+    const sessionData = await sessionRes.json();
+    if (!sessionRes.ok || !sessionData || !sessionData.id) {
+      throw new Error((sessionData && sessionData.error) || 'Failed creating 24h Cloud Drop session');
+    }
+
+    const dropId = sessionData.id;
+    const storageMode = sessionData.mode === 'gdrive' ? 'gdrive' : 'hybrid';
+
+    if (storageMode === 'gdrive' && sessionData.uploadUrl) {
+      const putRes = await fetch(sessionData.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': fileToUpload.type || 'application/octet-stream' },
+        body: fileToUpload
+      });
+      if (!putRes.ok) throw new Error('Google Drive Resumable Upload failed');
+      const gdriveMeta = await putRes.json();
+      await fetch(`${safeBaseUrl}/api/cloud-drop?action=finalize_upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: dropId, gdriveFileId: gdriveMeta.id, sha256 })
+      });
+    } else {
+      const arrayBuf = await fileToUpload.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      const base64Data = btoa(binary);
+      const upRes = await fetch(`${safeBaseUrl}/api/cloud-drop?action=upload_hybrid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: dropId,
+          name: fileToUpload.name,
+          size: fileToUpload.size,
+          mime: fileToUpload.type || 'application/octet-stream',
+          sha256,
+          base64Data
+        })
+      });
+      if (!upRes.ok) throw new Error('Hybrid 24h Cloud upload failed');
+    }
+
+    const shareUrl = `${safeBaseUrl}/download.html?drop=${dropId}`;
+    const expiresAt = sessionData.expiresAt || (Date.now() + 24 * 60 * 60 * 1000);
+    activeExtCloudDrop = { id: dropId, shareUrl, expiresAt, storageMode, sha256, baseUrl: safeBaseUrl };
+
+    currentPortalUrl = shareUrl;
+    if (portalUrlText) portalUrlText.textContent = shareUrl;
+    if (shareInput) shareInput.value = shareUrl;
+    if (modeBadge) {
+      modeBadge.textContent = storageMode === 'gdrive' ? '☁️ GOOGLE DRIVE 24H' : '☁️ HYBRID CLOUD 24H';
+    }
+    if (statusLbl) {
+      statusLbl.textContent = sha256 ? `🛡️ SHA-256: ${sha256.slice(0, 10)}... • Auto-Purges` : '🛡️ Verified • Auto-Purges in 24h';
+    }
+
+    if (cloudCanvas && typeof QRCode !== 'undefined') {
+      await QRCode.toCanvas(cloudCanvas, shareUrl, {
+        width: 196,
+        margin: 2,
+        color: { dark: '#030712', light: '#ffffff' }
+      });
+    }
+
+    if (extCloudCountdownInterval) clearInterval(extCloudCountdownInterval);
+    const updateTimer = () => {
+      if (!activeExtCloudDrop) return;
+      const rem = Math.max(0, activeExtCloudDrop.expiresAt - Date.now());
+      const h = String(Math.floor(rem / (1000 * 60 * 60))).padStart(2, '0');
+      const m = String(Math.floor((rem % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+      const s = String(Math.floor((rem % (1000 * 60)) / 1000)).padStart(2, '0');
+      if (timerBadge) timerBadge.textContent = `⏱️ ${h}:${m}:${s}`;
+    };
+    updateTimer();
+    extCloudCountdownInterval = setInterval(updateTimer, 1000);
+
+    updateStatus('ready', '24h Cloud Link Active');
+    playExtChime('complete');
+  } catch (err) {
+    console.warn('[BeamDrop 24h Cloud Error]:', err);
+    if (statusLbl) statusLbl.textContent = '⚠️ Cloud upload error — try Direct P2P';
+    if (shareInput) shareInput.value = err.message || 'Upload failed';
+    updateStatus('idle', 'Cloud Error');
+  }
+}
+
+const btnUpload24hCloudEl = document.getElementById('btnUpload24hCloud');
+if (btnUpload24hCloudEl) {
+  btnUpload24hCloudEl.addEventListener('click', async () => {
+    if (stagedFiles.length === 0) return;
+    btnUpload24hCloudEl.disabled = true;
+    try {
+      if (stagedFiles.length > 1 && typeof JSZip !== 'undefined') {
+        const zip = new JSZip();
+        for (const f of stagedFiles) zip.file(f.name, f);
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        activePreparedFile = new File([zipBlob], `beamdrop-bundle-${stagedFiles.length}-files.zip`, { type: 'application/zip' });
+      } else {
+        activePreparedFile = stagedFiles[0];
+      }
+      await start24hCloudDropUpload(activePreparedFile);
+    } finally {
+      btnUpload24hCloudEl.disabled = false;
+    }
+  });
+}
+
+const btnPortalModeCloudEl = document.getElementById('btnPortalModeCloud');
+if (btnPortalModeCloudEl) {
+  btnPortalModeCloudEl.addEventListener('click', async () => {
+    activatePortalCloudTabUI();
+    if (!activeExtCloudDrop && activePreparedFile) {
+      await start24hCloudDropUpload(activePreparedFile);
+    }
+  });
+}
+
+const btnExtCopyCloudUrlEl = document.getElementById('btnExtCopyCloudUrl');
+if (btnExtCopyCloudUrlEl) {
+  btnExtCopyCloudUrlEl.addEventListener('click', () => {
+    const shareInput = document.getElementById('extCloudShareUrlInput');
+    const url = (activeExtCloudDrop && activeExtCloudDrop.shareUrl) || (shareInput && shareInput.value) || '';
+    if (!url || url.startsWith('Uploading')) return;
+    navigator.clipboard.writeText(url).then(() => {
+      btnExtCopyCloudUrlEl.textContent = 'Copied!';
+      setTimeout(() => { btnExtCopyCloudUrlEl.textContent = 'Copy'; }, 1800);
+    });
+  });
+}
+
+const btnExtDeleteCloudNowEl = document.getElementById('btnExtDeleteCloudNow');
+if (btnExtDeleteCloudNowEl) {
+  btnExtDeleteCloudNowEl.addEventListener('click', async () => {
+    if (!activeExtCloudDrop) return;
+    btnExtDeleteCloudNowEl.textContent = 'Deleting...';
+    try {
+      await fetch(`${activeExtCloudDrop.baseUrl}/api/cloud-drop?action=delete&id=${encodeURIComponent(activeExtCloudDrop.id)}`, {
+        method: 'POST'
+      });
+    } catch (_) {}
+    if (extCloudCountdownInterval) clearInterval(extCloudCountdownInterval);
+    activeExtCloudDrop = null;
+    const shareInput = document.getElementById('extCloudShareUrlInput');
+    const statusLbl = document.getElementById('extCloudStatusLabel');
+    const timerBadge = document.getElementById('extCloudTimerBadge');
+    if (shareInput) shareInput.value = 'Purged from 24h Cloud Storage.';
+    if (statusLbl) statusLbl.textContent = '🗑️ Permanently Deleted from Cloud';
+    if (timerBadge) timerBadge.textContent = '⏱️ 00:00:00';
+    btnExtDeleteCloudNowEl.textContent = '🗑️ Deleted';
+    setTimeout(() => { btnExtDeleteCloudNowEl.textContent = '🗑️ Delete Now'; }, 2000);
   });
 }
 
@@ -1779,22 +2018,72 @@ loadHistoryVault();
 // ==========================================
 // BRIDGE OBJECT MODE SWITCHER
 // ==========================================
+const modeBtnQuickQr = document.getElementById('modeBtnQuickQr');
+const viewQuickQrMode = document.getElementById('viewQuickQrMode');
+const quickQrInput = document.getElementById('quickQrInput');
+const quickQrCanvasContainer = document.getElementById('quickQrCanvasContainer');
+const btnGrabCurrentTabUrl = document.getElementById('btnGrabCurrentTabUrl');
+const btnDownloadQuickQrPng = document.getElementById('btnDownloadQuickQrPng');
+const btnOpenFullQrStudio = document.getElementById('btnOpenFullQrStudio');
+
+function renderQuickQrCode(textVal) {
+  if (!quickQrCanvasContainer || typeof QRCode === 'undefined') return;
+  const val = (textVal || '').trim() || 'https://beam-drop-mu.vercel.app';
+  quickQrCanvasContainer.innerHTML = '';
+  new QRCode(quickQrCanvasContainer, {
+    text: val,
+    width: 156,
+    height: 156,
+    colorDark: '#0f172a',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+function populateActiveTabUrlForQuickQr() {
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeUrl = (tabs && tabs[0] && tabs[0].url) ? tabs[0].url : 'https://beam-drop-mu.vercel.app';
+      if (quickQrInput) quickQrInput.value = activeUrl;
+      renderQuickQrCode(activeUrl);
+    });
+  } else {
+    const fallbackUrl = window.location.origin || 'https://beam-drop-mu.vercel.app';
+    if (quickQrInput) quickQrInput.value = fallbackUrl;
+    renderQuickQrCode(fallbackUrl);
+  }
+}
+
 function switchBridgeMode(mode) {
   activeBridgeMode = mode;
   modeBtnFiles.className = mode === 'files' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
   modeBtnText.className = mode === 'text' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
   modeBtnClipboard.className = mode === 'clipboard' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  if (modeBtnQuickQr) {
+    modeBtnQuickQr.className = mode === 'quickqr' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  }
 
   if (mode === 'files') {
     viewFilesMode.style.display = 'flex';
     viewTextMode.style.display = 'none';
+    if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
   } else if (mode === 'text' || mode === 'clipboard') {
     viewFilesMode.style.display = 'none';
     viewTextMode.style.display = 'flex';
+    if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
     // Mode changed to clipboard/text: do NOT auto-read clipboard without direct user click
     if (mode === 'clipboard') {
       // Focus input without raising DOMException
       if (textPayloadInput) textPayloadInput.focus();
+    }
+  } else if (mode === 'quickqr') {
+    viewFilesMode.style.display = 'none';
+    viewTextMode.style.display = 'none';
+    if (viewQuickQrMode) viewQuickQrMode.style.display = 'flex';
+    if (quickQrInput && !quickQrInput.value.trim()) {
+      populateActiveTabUrlForQuickQr();
+    } else if (quickQrInput) {
+      renderQuickQrCode(quickQrInput.value);
     }
   }
 }
@@ -1802,6 +2091,52 @@ function switchBridgeMode(mode) {
 modeBtnFiles.addEventListener('click', () => switchBridgeMode('files'));
 modeBtnText.addEventListener('click', () => switchBridgeMode('text'));
 modeBtnClipboard.addEventListener('click', () => switchBridgeMode('clipboard'));
+if (modeBtnQuickQr) {
+  modeBtnQuickQr.addEventListener('click', () => switchBridgeMode('quickqr'));
+}
+if (quickQrInput) {
+  quickQrInput.addEventListener('input', (e) => renderQuickQrCode(e.target.value));
+}
+if (btnGrabCurrentTabUrl) {
+  btnGrabCurrentTabUrl.addEventListener('click', () => populateActiveTabUrlForQuickQr());
+}
+if (btnDownloadQuickQrPng) {
+  btnDownloadQuickQrPng.addEventListener('click', () => {
+    if (!quickQrCanvasContainer) return;
+    const canvas = quickQrCanvasContainer.querySelector('canvas');
+    const img = quickQrCanvasContainer.querySelector('img');
+    const dataUrl = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+    if (dataUrl) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'beamdrop-quick-qr.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  });
+}
+if (btnOpenFullQrStudio) {
+  btnOpenFullQrStudio.addEventListener('click', () => {
+    const base = getCleanBaseUrl();
+    const targetStudioUrl = `${base}/?tab=qrstudio`;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: targetStudioUrl });
+    } else {
+      window.open(targetStudioUrl, '_blank');
+    }
+  });
+}
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.action === 'open_quick_qr' && msg.payload) {
+      if (navTabSend) navTabSend.click();
+      if (quickQrInput) quickQrInput.value = msg.payload;
+      switchBridgeMode('quickqr');
+      renderQuickQrCode(msg.payload);
+    }
+  });
+}
 
 // ==========================================
 // STAGE 1A: FILE STAGING
@@ -2034,6 +2369,8 @@ if (btnClearStagedFiles) {
     fileInput.value = '';
     if (folderInput) folderInput.value = '';
     btnGenerateQr.disabled = true;
+    const btnCloud = document.getElementById('btnUpload24hCloud');
+    if (btnCloud) btnCloud.disabled = true;
     if (btnDirectBeamTargeted) btnDirectBeamTargeted.style.display = 'none';
     updateStatus('idle', 'Ready');
   });
@@ -2049,6 +2386,8 @@ btnRemoveFile.addEventListener('click', (e) => {
   fileInput.value = '';
   if (folderInput) folderInput.value = '';
   btnGenerateQr.disabled = true;
+  const btnCloud = document.getElementById('btnUpload24hCloud');
+  if (btnCloud) btnCloud.disabled = true;
   if (btnDirectBeamTargeted) btnDirectBeamTargeted.style.display = 'none';
   updateStatus('idle', 'Ready');
 });
@@ -2172,6 +2511,8 @@ function stageSelectedFiles(files) {
   }
 
   btnGenerateQr.disabled = false;
+  const btnCloud = document.getElementById('btnUpload24hCloud');
+  if (btnCloud) btnCloud.disabled = false;
   if (extTargetedPeer && btnDirectBeamTargeted) {
     btnDirectBeamTargeted.style.display = 'flex';
     if (btnDirectBeamTargetedText) {

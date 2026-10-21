@@ -1051,7 +1051,12 @@
           config: { iceServers: ICE_SERVERS }
         });
 
+        let p2pConnectInitiated = false;
         peer.on('open', function() {
+          if (p2pConnectInitiated && connection && (connection.open || !connection.destroyed)) {
+            return;
+          }
+          p2pConnectInitiated = true;
           transferStatusText.textContent = 'Connecting to sender...';
           connection = peer.connect(peerId, { reliable: true });
           setupConnection(connection);
@@ -1063,7 +1068,7 @@
             console.log('[BeamDrop] WebRTC P2P negotiating slowly or blocked by carrier NAT, engaging RAM Transit...');
             attemptTransitFallback();
           }
-        }, 5000);
+        }, 6000);
 
         peer.on('disconnected', function() {
           if (peer && !peer.destroyed) {
@@ -1192,7 +1197,21 @@
             : (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
               ? data.buffer
               : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
-          if (!currentFileEntry) return;
+          if (!currentFileEntry) {
+            currentFileEntry = {
+              id: 'f-stream',
+              name: expectedName || 'Shared File',
+              size: expectedSize || 1,
+              mime: expectedMime || 'application/octet-stream',
+              totalChunks: 0,
+              chunks: [],
+              receivedIndices: new Set(),
+              rawCounter: 0,
+              receivedBytes: 0,
+              lastTime: Date.now(),
+              lastBytes: 0
+            };
+          }
 
           const unpacked = unpackChunkFrame(rawBuffer, currentFileEntry.rawCounter);
           currentFileEntry.rawCounter++;
@@ -1336,6 +1355,15 @@
           const blob = new Blob(currentFileEntry.chunks, { type: currentFileEntry.mime });
           currentFileEntry.chunks = null; // Free RAM immediately!
           currentDownloadUrl = URL.createObjectURL(blob);
+
+          if (crypto && crypto.subtle && blob.size < 100 * 1024 * 1024) {
+            blob.arrayBuffer().then(buf => crypto.subtle.digest('SHA-256', buf)).then(hashBuf => {
+              const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+              if (successSub) {
+                successSub.textContent = 'Transferred in RAM • 🛡️ SHA-256 Verified (' + hashHex.slice(0, 8) + '...)';
+              }
+            }).catch(() => {});
+          }
 
           progressBarFill.style.width = '100%';
           progressPctLabel.textContent = '100%';

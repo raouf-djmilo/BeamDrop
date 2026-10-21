@@ -68,6 +68,12 @@ function setupContextMenus() {
       contexts: ["page"]
     });
 
+    safeCreate({
+      id: "beamdrop_quick_qr",
+      title: "🎨 BeamDrop: Quick QR Code for this Page / Link",
+      contexts: ["page", "link", "selection"]
+    });
+
     if (chrome.sidePanel) {
       safeCreate({
         id: "beamdrop_open_sidepanel",
@@ -196,6 +202,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   // Automatically open the persistent Side Panel when user beams via context menu
   if (chrome.sidePanel && chrome.sidePanel.open && tab && tab.id) {
     chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  }
+
+  if (info.menuItemId === "beamdrop_quick_qr") {
+    const qrTarget = info.linkUrl || info.selectionText || info.pageUrl || (tab && tab.url) || DEFAULT_VERCEL_URL;
+    setTimeout(() => {
+      chrome.runtime.sendMessage({
+        action: "open_quick_qr",
+        payload: qrTarget
+      }).catch(() => {});
+    }, 350);
+    return;
   }
 
   // 1. BEAM IMAGE DIRECTLY TO PHONE (RAM Streaming - No PC Disk Footprint)

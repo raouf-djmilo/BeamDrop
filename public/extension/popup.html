@@ -148,6 +148,15 @@
         </svg>
         <span>Clipboard</span>
       </button>
+      <button id="modeBtnQuickQr" class="bridge-mode-btn" type="button" title="Quick QR Generator for active page URL, Wi-Fi, or vCard">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>Quick QR</span>
+      </button>
     </div>
 
     <!-- SUB-VIEW 1: FILES & MEDIA -->
@@ -235,10 +244,15 @@
       </div>
 
       <!-- Primary CTA Button -->
-      <button id="btnGenerateQr" class="btn-cta-generate" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        <span>Generate Direct Download QR</span>
-      </button>
+      <div style="display: flex; gap: 6px; width: 100%;">
+        <button id="btnGenerateQr" class="btn-cta-generate" style="flex: 1;" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Direct P2P QR</span>
+        </button>
+        <button id="btnUpload24hCloud" class="btn-cta-generate" type="button" style="flex: 1; background: linear-gradient(135deg, #0284c7 0%, #2563eb 55%, #059669 100%);" title="Upload to 24h Global Cloud Drop (Google Drive / Hybrid Vault) — link works for 24h even after closing PC" disabled>
+          <span>☁️ 24h Cloud Drop</span>
+        </button>
+      </div>
 
       <!-- Direct Beam to Targeted Peer Button (if peer is targeted) -->
       <button id="btnDirectBeamTargeted" class="btn-cta-generate" type="button" style="display: none; background: linear-gradient(135deg, #059669 0%, #0284c7 100%);">
@@ -304,20 +318,46 @@
         </button>
       </div>
     </div>
+
+    <!-- SUB-VIEW 3: QUICK QR STUDIO (1-Click Page URL, Wi-Fi & Custom QR) -->
+    <div id="viewQuickQrMode" style="display: none; flex-direction: column; gap: 10px;">
+      <div style="background: #ffffff; border: 1.5px solid #bae6fd; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(2,132,199,0.06);">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <span style="font-size: 11px; font-weight: 800; color: #0f172a;">🎨 Quick QR Studio</span>
+          <button id="btnGrabCurrentTabUrl" type="button" style="padding: 3px 8px; border-radius: 7px; border: 1px solid #bae6fd; background: #f0f9ff; color: #0284c7; font-size: 10px; font-weight: 700; cursor: pointer;">Use Active Tab URL</button>
+        </div>
+
+        <input id="quickQrInput" type="text" placeholder="https://example.com or any text..." style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 11px; font-family: ui-monospace, monospace; color: #0f172a; background: #f8fafc;">
+
+        <div id="quickQrCanvasContainer" style="background: #ffffff; padding: 10px; border-radius: 14px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 170px; min-width: 170px;"></div>
+
+        <div style="display: flex; gap: 6px; width: 100%;">
+          <button id="btnDownloadQuickQrPng" type="button" class="btn-cta-generate" style="flex: 1; padding: 8px; font-size: 11px;">
+            <span>⬇ Save QR PNG</span>
+          </button>
+          <button id="btnOpenFullQrStudio" type="button" style="flex: 1; padding: 8px; border-radius: 11px; border: 1px solid #cbd5e1; background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer;">
+            <span>Full QR Studio ↗</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- STAGE 2: Portal Active & QR Code Display -->
   <main id="stagePortal" class="stage-container" style="display: none;">
     <div class="qr-card-container">
-      <!-- Portal Sub-Mode Tabs: P2P WebRTC vs Animated Optical Loop -->
+      <!-- Portal Sub-Mode Tabs: P2P WebRTC vs Animated Optical Loop vs 24h Cloud Drop -->
       <div class="portal-submode-pills" style="display: flex; gap: 4px; background: rgba(2,132,199,0.06); padding: 3px; border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(186,230,253,0.7);">
-        <button id="btnPortalModeWebRtc" class="portal-submode-btn active" type="button" style="flex: 1; padding: 5px 8px; border-radius: 9px; font-size: 10.5px; font-weight: 700; border: none; background: #ffffff; color: #0284c7; box-shadow: 0 2px 6px rgba(2,132,199,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <button id="btnPortalModeWebRtc" class="portal-submode-btn active" type="button" style="flex: 1; padding: 5px 6px; border-radius: 9px; font-size: 10px; font-weight: 700; border: none; background: #ffffff; color: #0284c7; box-shadow: 0 2px 6px rgba(2,132,199,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           <span>P2P Direct</span>
         </button>
-        <button id="btnPortalModeLoop" class="portal-submode-btn" type="button" style="flex: 1; padding: 5px 8px; border-radius: 9px; font-size: 10.5px; font-weight: 700; border: none; background: transparent; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="100% Offline Optical Animated QR Loop (No internet or WebRTC needed)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          <span>Animated Loop ⚡</span>
+        <button id="btnPortalModeLoop" class="portal-submode-btn" type="button" style="flex: 1; padding: 5px 6px; border-radius: 9px; font-size: 10px; font-weight: 700; border: none; background: transparent; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px;" title="100% Offline Optical Animated QR Loop (No internet or WebRTC needed)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Loop ⚡</span>
+        </button>
+        <button id="btnPortalModeCloud" class="portal-submode-btn" type="button" style="flex: 1; padding: 5px 6px; border-radius: 9px; font-size: 10px; font-weight: 700; border: none; background: transparent; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px;" title="24h Global Cloud Drop (Google Drive / Hybrid 24h Auto-Purge)">
+          <span>☁️ 24h Cloud</span>
         </button>
       </div>
 
@@ -398,6 +438,33 @@
         <p style="font-size: 10px; color: #64748b; text-align: center; margin: 0; line-height: 1.35;">
           Point any phone camera or BeamDrop receiver. Frames loop continuously until 100% captured with zero internet.
         </p>
+      </div>
+
+      <!-- 3. 24H GLOBAL CLOUD DROP CONTAINER (Google Drive / Hybrid 24h Auto-Purge) -->
+      <div id="portalCloudDropWrap" style="display: none; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 10.5px;">
+          <span id="extCloudModeBadge" class="portal-nonce-pill" style="background: rgba(16,185,129,0.12); color: #047857; border-color: rgba(16,185,129,0.35); font-weight: 800;">☁️ 24H CLOUD VAULT</span>
+          <span id="extCloudTimerBadge" style="font-family: ui-monospace, monospace; font-weight: 800; font-size: 11px; background: #0f172a; color: #38bdf8; padding: 3px 8px; border-radius: 8px;">⏱️ 24:00:00</span>
+        </div>
+
+        <div class="qr-box-200" style="position: relative; overflow: hidden;">
+          <canvas id="qrcodeCloudCanvas"></canvas>
+        </div>
+
+        <div style="width: 100%; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 7px 9px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px;">
+            <span id="extCloudStatusLabel" style="font-weight: 700; color: #0369a1;">🛡️ SHA-256 Verified • Auto-Purges in 24h</span>
+            <button id="btnExtDeleteCloudNow" type="button" style="background: #ffe4e6; color: #be123c; border: 1px solid #fda4af; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Permanently delete this file from Cloud Storage right now">
+              🗑️ Delete Now
+            </button>
+          </div>
+          <div style="display: flex; gap: 5px; width: 100%;">
+            <input id="extCloudShareUrlInput" type="text" readonly value="" placeholder="Uploading to 24h Cloud Drop..." style="flex: 1; font-size: 10px; font-family: ui-monospace, monospace; padding: 4px 7px; border-radius: 6px; border: 1px solid #7dd3fc; background: #ffffff; color: #0f172a; outline: none;">
+            <button id="btnExtCopyCloudUrl" type="button" style="background: #0284c7; color: #ffffff; border: none; border-radius: 6px; padding: 4px 9px; font-size: 10px; font-weight: 700; cursor: pointer;">
+              Copy
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Clean Actions Row -->

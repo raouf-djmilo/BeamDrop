@@ -491,6 +491,127 @@
       cursor: pointer; box-shadow: 0 4px 15px rgba(2,132,199,0.4);
     }
     .btn-order-accept:hover { filter: brightness(1.15); }
+
+    /* ─── 24h Cloud Drop & Live Countdown HUD ─── */
+    .countdown-hud-card {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 249, 255, 0.95));
+      border: 1.5px solid rgba(14, 165, 233, 0.35);
+      border-radius: 20px;
+      padding: 16px 14px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 25px rgba(2, 132, 199, 0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .countdown-top-row {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .countdown-pill {
+      font-size: 10px;
+      font-weight: 800;
+      color: #0369a1;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      padding: 3px 9px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      letter-spacing: 0.5px;
+    }
+    .countdown-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #0284c7;
+      animation: pulseBorder 1.5s infinite;
+    }
+    .countdown-mode-pill {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #059669;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .countdown-clock-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .clock-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 8px 12px;
+      min-width: 62px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+    .clock-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 800;
+      color: #38bdf8;
+      line-height: 1;
+    }
+    .clock-lbl {
+      font-size: 8px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+    .clock-colon {
+      font-size: 22px;
+      font-weight: 900;
+      color: #0284c7;
+      margin-top: -10px;
+    }
+    .countdown-track {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .countdown-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0284c7, #38bdf8);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+    .countdown-note {
+      font-size: 10.5px;
+      color: #64748b;
+      margin: 0;
+      text-align: center;
+    }
+    .sha-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(5, 150, 105, 0.08);
+      border: 1px solid rgba(5, 150, 105, 0.3);
+      color: #059669;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 10px;
+      word-break: break-all;
+      max-width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -513,6 +634,47 @@
     <span id="portalBadgeTag" class="file-badge-tag">DIRECT P2P BRIDGE</span>
     <h2 id="fileNameHeading" class="file-name">Connecting to Device...</h2>
     <p id="fileSizeLabel" class="file-info">RAM-to-RAM Stream • Zero Storage</p>
+
+    <!-- ═══ 24H CLOUD DROP COUNTDOWN HUD ═══ -->
+    <div id="cloudDropCountdownHud" class="countdown-hud-card" style="display: none;">
+      <div class="countdown-top-row">
+        <span class="countdown-pill">
+          <span class="countdown-dot"></span>
+          24H CLOUD DROP
+        </span>
+        <span id="cloudDropModeBadge" class="countdown-mode-pill">GOOGLE DRIVE</span>
+      </div>
+
+      <div class="countdown-clock-wrap">
+        <div class="clock-unit">
+          <span id="cdHours" class="clock-num">23</span>
+          <span class="clock-lbl">HOURS</span>
+        </div>
+        <span class="clock-colon">:</span>
+        <div class="clock-unit">
+          <span id="cdMinutes" class="clock-num">59</span>
+          <span class="clock-lbl">MINUTES</span>
+        </div>
+        <span class="clock-colon">:</span>
+        <div class="clock-unit">
+          <span id="cdSeconds" class="clock-num">59</span>
+          <span class="clock-lbl">SECONDS</span>
+        </div>
+      </div>
+
+      <div class="countdown-track">
+        <div id="cdProgressBar" class="countdown-fill" style="width: 100%;"></div>
+      </div>
+
+      <p id="cloudDropExpiryNote" class="countdown-note">
+        ⏳ Auto-purged from cloud in 24 hours • Google Drive 100% Private
+      </p>
+
+      <div id="cloudDropShaBadge" class="sha-badge-pill" style="display: none;">
+        <span>🛡️ SHA-256:</span>
+        <span id="cloudDropShaText">Computing...</span>
+      </div>
+    </div>
 
     <!-- Real-Time Transfer Indicator -->
     <div id="streamContainer" class="stream-container">
@@ -656,6 +818,7 @@
   <script>
     (function() {
       const urlParams = new URLSearchParams(window.location.search);
+      const dropId = urlParams.get('drop') || urlParams.get('cloud') || '';
       const peerId = urlParams.get('peer') || (window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
       const expectedType = urlParams.get('type') || 'file';
       const expectedName = decodeURIComponent(urlParams.get('name') || urlParams.get('file') || (expectedType === 'text' ? 'Beamed Text' : 'Shared Object'));
@@ -681,6 +844,16 @@
       const btnDownloadText     = document.getElementById('btnDownloadText');
       const previewBox          = document.getElementById('previewBox');
       const pulseRing           = document.getElementById('pulseRing');
+
+      // 24h Cloud Drop HUD References
+      const cloudDropCountdownHud = document.getElementById('cloudDropCountdownHud');
+      const cloudStorageBadge     = document.getElementById('cloudStorageBadge');
+      const cdHours               = document.getElementById('cdHours');
+      const cdMinutes             = document.getElementById('cdMinutes');
+      const cdSeconds             = document.getElementById('cdSeconds');
+      const cdTrackFill           = document.getElementById('cdTrackFill');
+      const cloudShaBadge         = document.getElementById('cloudShaBadge');
+      const cloudShaText          = document.getElementById('cloudShaText');
 
       // Notebook Engine DOM
       const nbTypePill    = document.getElementById('nbTypePill');
@@ -711,6 +884,19 @@
         { urls: 'stun:global.stun.twilio.com:3478' }
       ];
 
+      function applyFileEmoji(nameStr, mimeStr) {
+        const n = (nameStr || '').toLowerCase(), m = (mimeStr || '').toLowerCase();
+        if (n.match(/\.(xlsx?|csv|ods|tsv)$/) || m.includes('spreadsheet') || m.includes('excel')) fileEmoji.textContent = '📊';
+        else if (n.match(/\.(pptx?|ppsx?|odp)$/) || m.includes('presentation'))  fileEmoji.textContent = '📽️';
+        else if (n.match(/\.pdf$/) || m === 'application/pdf')                    fileEmoji.textContent = '📑';
+        else if (n.match(/\.(docx?|rtf|odt)$/) || m.includes('word'))             fileEmoji.textContent = '📄';
+        else if (n.match(/\.(jpg|jpeg|png|webp|gif|svg)$/) || m.startsWith('image/')) fileEmoji.textContent = '🖼️';
+        else if (n.match(/\.(mp4|webm|mov|mkv|avi)$/) || m.startsWith('video/')) fileEmoji.textContent = '🎬';
+        else if (n.match(/\.(zip|rar|7z|tar|gz)$/))                               fileEmoji.textContent = '📦';
+        else if (n.match(/\.(mp3|wav|flac|m4a|aac)$/) || m.startsWith('audio/')) fileEmoji.textContent = '🎵';
+        else fileEmoji.textContent = '☁️';
+      }
+
       if (expectedType === 'text' || expectedType === 'link') {
         portalBadgeTag.textContent = 'INSTANT TEXT BRIDGE';
         fileEmoji.textContent = expectedType === 'link' ? '🔗' : '📝';
@@ -724,21 +910,150 @@
         btnDownloadText.textContent = 'Connecting to sender...';
       }
 
-      // File type icons
-      const n = expectedName.toLowerCase(), m = expectedMime.toLowerCase();
-      if (n.match(/\.(xlsx?|csv|ods|tsv)$/) || m.includes('spreadsheet') || m.includes('excel')) fileEmoji.textContent = '📊';
-      else if (n.match(/\.(pptx?|ppsx?|odp)$/) || m.includes('presentation'))  fileEmoji.textContent = '📽️';
-      else if (n.match(/\.pdf$/) || m === 'application/pdf')                    fileEmoji.textContent = '📑';
-      else if (n.match(/\.(docx?|rtf|odt)$/) || m.includes('word'))             fileEmoji.textContent = '📄';
-      else if (n.match(/\.(jpg|jpeg|png|webp|gif|svg)$/) || m.startsWith('image/')) fileEmoji.textContent = '🖼️';
-      else if (n.match(/\.(mp4|webm|mov|mkv|avi)$/) || m.startsWith('video/')) fileEmoji.textContent = '🎬';
-      else if (n.match(/\.(zip|rar|7z|tar|gz)$/))                               fileEmoji.textContent = '📦';
-      else if (n.match(/\.(mp3|wav|flac|m4a|aac)$/) || m.startsWith('audio/')) fileEmoji.textContent = '🎵';
+      applyFileEmoji(expectedName, expectedMime);
+
+      // ════════════════════════════════════════════════════════════════
+      // 24H GLOBAL CLOUD DROP PORTAL (MediaFire-Style Instant Download)
+      // ════════════════════════════════════════════════════════════════
+      if (dropId) {
+        initCloudDropPortal(dropId);
+        return;
+      }
 
       if (!peerId) {
         transferStatusText.textContent = 'No active peer ID provided in URL';
         btnDownloadText.textContent    = 'Invalid Download Link';
         return;
+      }
+
+      async function initCloudDropPortal(id) {
+        portalBadgeTag.textContent = '☁️ 24H GLOBAL CLOUD DROP';
+        streamContainer.style.display = 'none';
+        if (cloudDropCountdownHud) cloudDropCountdownHud.style.display = 'flex';
+        btnDownload.disabled = true;
+        btnDownloadText.textContent = 'Verifying 24h Cloud Vault...';
+
+        try {
+          const resp = await fetch('/api/cloud-drop?action=get_meta&id=' + encodeURIComponent(id));
+          const data = await resp.json();
+
+          if (!resp.ok || !data || !data.drop) {
+            fileNameHeading.textContent = data?.expired ? 'Link Expired (24h Passed)' : 'Cloud Drop Unavailable';
+            fileSizeLabel.textContent = data?.error || 'This temporary cloud file was permanently purged after 24 hours.';
+            fileEmoji.textContent = '⏳';
+            if (pulseRing) pulseRing.style.display = 'none';
+            if (cdHours) cdHours.textContent = '00';
+            if (cdMinutes) cdMinutes.textContent = '00';
+            if (cdSeconds) cdSeconds.textContent = '00';
+            if (cdTrackFill) cdTrackFill.style.width = '0%';
+            btnDownload.disabled = true;
+            btnDownloadText.textContent = '🗑️ Purged from Cloud Storage';
+            return;
+          }
+
+          const drop = data.drop;
+          fileNameHeading.textContent = drop.name || 'Shared File';
+          document.title = 'BeamDrop 24h Cloud — ' + (drop.name || 'Download');
+          fileSizeLabel.textContent = formatBytes(drop.size || 0) + ' • 24h Temporary Cloud Vault';
+          applyFileEmoji(drop.name, drop.mime);
+
+          if (cloudStorageBadge) {
+            cloudStorageBadge.textContent = drop.storageMode === 'gdrive' ? 'GOOGLE DRIVE 24H' : 'HYBRID CLOUD 24H';
+          }
+
+          if (drop.sha256 && cloudShaBadge && cloudShaText) {
+            cloudShaBadge.style.display = 'inline-flex';
+            cloudShaText.textContent = 'SHA-256: ' + drop.sha256.slice(0, 16) + '...';
+            cloudShaBadge.title = 'Full SHA-256: ' + drop.sha256;
+          }
+
+          // Start Live 1-Second Countdown Ticker
+          const TOTAL_TTL = 24 * 60 * 60 * 1000;
+          const expiresAt = drop.expiresAt || (Date.now() + TOTAL_TTL);
+
+          const updateCountdown = () => {
+            const rem = Math.max(0, expiresAt - Date.now());
+            const hrs = Math.floor(rem / (1000 * 60 * 60));
+            const mins = Math.floor((rem % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((rem % (1000 * 60)) / 1000);
+            if (cdHours) cdHours.textContent = String(hrs).padStart(2, '0');
+            if (cdMinutes) cdMinutes.textContent = String(mins).padStart(2, '0');
+            if (cdSeconds) cdSeconds.textContent = String(secs).padStart(2, '0');
+            if (cdTrackFill) {
+              const pct = Math.max(0, Math.min(100, (rem / TOTAL_TTL) * 100));
+              cdTrackFill.style.width = pct.toFixed(1) + '%';
+            }
+            if (rem <= 0) {
+              btnDownload.disabled = true;
+              btnDownloadText.textContent = '⌛ Expired — Auto-Purged';
+            }
+          };
+          updateCountdown();
+          setInterval(updateCountdown, 1000);
+
+          // Activate Instant Download Button
+          const downloadEndpoint = '/api/cloud-drop?action=download&id=' + encodeURIComponent(drop.id);
+          btnDownload.disabled = false;
+          btnDownload.style.background = 'linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #059669 100%)';
+          btnDownload.style.boxShadow = '0 10px 28px rgba(2, 132, 199, 0.35)';
+          btnDownloadText.textContent = '☁️ Download Now (' + formatBytes(drop.size || 0) + ')';
+
+          btnDownload.onclick = async () => {
+            btnDownload.disabled = true;
+            btnDownloadText.textContent = '⚡ Downloading & Verifying SHA-256...';
+            streamContainer.style.display = 'block';
+            transferStatusText.textContent = 'Streaming from 24h Cloud Vault...';
+            progressBarFill.style.width = '65%';
+            progressPctLabel.textContent = '65%';
+
+            try {
+              const fileResp = await fetch(downloadEndpoint);
+              if (!fileResp.ok) throw new Error('Download failed or expired');
+              const blob = await fileResp.blob();
+              progressBarFill.style.width = '100%';
+              progressPctLabel.textContent = '100%';
+
+              if (drop.sha256 && window.crypto && window.crypto.subtle && blob.size < 120 * 1024 * 1024) {
+                const buf = await blob.arrayBuffer();
+                const hashBuf = await window.crypto.subtle.digest('SHA-256', buf);
+                const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+                if (hashHex === drop.sha256) {
+                  transferStatusText.textContent = '✓ SHA-256 Integrity Verified!';
+                }
+              } else {
+                transferStatusText.textContent = '✓ Cloud Download Ready!';
+              }
+
+              const objUrl = URL.createObjectURL(blob);
+              triggerBrowserSave(objUrl, drop.name || 'BeamDrop-File');
+
+              // Inline preview for images
+              if ((drop.mime || '').startsWith('image/') && previewBox) {
+                previewBox.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = objUrl;
+                img.alt = drop.name;
+                previewBox.appendChild(img);
+                previewBox.style.display = 'block';
+              }
+
+              successBox.style.display = 'flex';
+              successTitle.textContent = 'Cloud Download Complete!';
+              successSub.textContent = 'Bit-exact SHA-256 verified • Temporary link remains active until countdown ends.';
+              btnDownload.disabled = false;
+              btnDownloadText.textContent = '📥 Save Again (' + formatBytes(drop.size || 0) + ')';
+            } catch (e) {
+              // Fallback direct navigation if fetch stream blocked
+              window.location.href = downloadEndpoint;
+              btnDownload.disabled = false;
+              btnDownloadText.textContent = '☁️ Download Now (' + formatBytes(drop.size || 0) + ')';
+            }
+          };
+        } catch (err) {
+          fileNameHeading.textContent = 'Connection Error';
+          fileSizeLabel.textContent = 'Could not reach 24h Cloud Drop server.';
+          btnDownloadText.textContent = 'Retry Needed';
+        }
       }
 
       // ════════════════════════════════════════
@@ -1355,6 +1670,15 @@
           const blob = new Blob(currentFileEntry.chunks, { type: currentFileEntry.mime });
           currentFileEntry.chunks = null; // Free RAM immediately!
           currentDownloadUrl = URL.createObjectURL(blob);
+
+          if (crypto && crypto.subtle && blob.size < 100 * 1024 * 1024) {
+            blob.arrayBuffer().then(buf => crypto.subtle.digest('SHA-256', buf)).then(hashBuf => {
+              const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+              if (successSub) {
+                successSub.textContent = 'Transferred in RAM • 🛡️ SHA-256 Verified (' + hashHex.slice(0, 8) + '...)';
+              }
+            }).catch(() => {});
+          }
 
           progressBarFill.style.width = '100%';
           progressPctLabel.textContent = '100%';

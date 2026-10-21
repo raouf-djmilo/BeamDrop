@@ -23,13 +23,27 @@ import { playChime } from '../utils/audio';
 
 interface DirectDownloadPortalProps {
   peerId: string;
+  dropId?: string;
   expectedFileName?: string;
   expectedFileSize?: number;
   expectedFileMime?: string;
 }
 
+interface CloudDropMeta {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  sha256?: string;
+  createdAt: number;
+  expiresAt: number;
+  remainingMs: number;
+  storageMode: 'gdrive' | 'hybrid';
+}
+
 export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   peerId,
+  dropId = '',
   expectedFileName = '',
   expectedFileSize = 0,
   expectedFileMime = ''
@@ -44,6 +58,12 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const [isTransitFetching, setIsTransitFetching] = useState<boolean>(false);
   const [streamTelemetry, setStreamTelemetry] = useState<import('../utils/streamDiskSink').StreamTelemetry | null>(null);
 
+  // 24h Cloud Drop State
+  const [cloudMeta, setCloudMeta] = useState<CloudDropMeta | null>(null);
+  const [cloudRemainingMs, setCloudRemainingMs] = useState<number>(24 * 60 * 60 * 1000);
+  const [isCloudDownloading, setIsCloudDownloading] = useState<boolean>(false);
+  const [cloudExpired, setCloudExpired] = useState<boolean>(false);
+
   const transferManagerRef = useRef<P2PTransferManager | null>(null);
   if (!transferManagerRef.current) {
     transferManagerRef.current = new P2PTransferManager();
@@ -52,10 +72,10 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const autoTriggeredRef = useRef(false);
   const isConnectingRef = useRef(false);
 
-  // Metadata from URL query or incoming stream
-  const displayName = downloadedFile?.name || currentFile?.name || expectedFileName || 'Shared File';
-  const displaySize = downloadedFile?.size || currentFile?.size || expectedFileSize || 0;
-  const displayMime = downloadedFile?.type || currentFile?.type || expectedFileMime || 'application/octet-stream';
+  // Metadata from URL query, 24h Cloud Drop, or incoming stream
+  const displayName = cloudMeta?.name || downloadedFile?.name || currentFile?.name || expectedFileName || 'Shared File';
+  const displaySize = cloudMeta?.size || downloadedFile?.size || currentFile?.size || expectedFileSize || 0;
+  const displayMime = cloudMeta?.mime || downloadedFile?.type || currentFile?.type || expectedFileMime || 'application/octet-stream';
 
   const triggerBrowserDownload = (url: string, filename: string) => {
     const a = document.createElement('a');
@@ -279,7 +299,52 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [peerId]);
+  }, [peerId, dropId]);
+
+  // 24h Global Cloud Drop Metadata & Live Countdown Ticker
+  useEffect(() => {
+    if (!dropId) return;
+    let isMounted = true;
+    let timerId: any = null;
+
+    setConnectionStatus('connecting');
+    fetch(`/api/cloud-drop?action=get_meta&id=${encodeURIComponent(dropId)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!isMounted) return;
+        if (!res.ok || !data?.drop) {
+          setCloudExpired(Boolean(data?.expired));
+          setConnectionStatus('error');
+          setErrorMessage(data?.error || 'This 24h Cloud Drop link has expired and was permanently purged.');
+          return;
+        }
+        const meta: CloudDropMeta = data.drop;
+        setCloudMeta(meta);
+        setConnectionStatus('connected');
+        setCloudRemainingMs(Math.max(0, meta.expiresAt - Date.now()));
+
+        timerId = setInterval(() => {
+          const rem = Math.max(0, meta.expiresAt - Date.now());
+          setCloudRemainingMs(rem);
+          if (rem <= 0) {
+            setCloudExpired(true);
+            setConnectionStatus('error');
+            setErrorMessage('24-hour window elapsed. File permanently purged from Cloud Storage.');
+            clearInterval(timerId);
+          }
+        }, 1000);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setConnectionStatus('error');
+        setErrorMessage('Could not reach 24h Global Cloud Drop service.');
+      });
+
+    return () => {
+      isMounted = false;
+      if (timerId) clearInterval(timerId);
+    };
+  }, [dropId]);
 
   useEffect(() => {
     return () => {
@@ -287,7 +352,56 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
     };
   }, []);
 
+  const handleCloudDropDownload = async () => {
+    if (!dropId || !cloudMeta || isCloudDownloading || cloudExpired) return;
+    setIsCloudDownloading(true);
+    const dlUrl = `/api/cloud-drop?action=download&id=${encodeURIComponent(dropId)}`;
+    try {
+      const res = await fetch(dlUrl);
+      if (!res.ok) throw new Error('Cloud drop expired or unavailable');
+      const blob = await res.blob();
+      let computedSha = cloudMeta.sha256 || '';
+      if (window.crypto?.subtle && blob.size < 120 * 1024 * 1024) {
+        const buf = await blob.arrayBuffer();
+        const hashBuf = await window.crypto.subtle.digest('SHA-256', buf);
+        computedSha = Array.from(new Uint8Array(hashBuf))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const completed: TransferFile = {
+        id: cloudMeta.id,
+        name: cloudMeta.name,
+        size: blob.size || cloudMeta.size,
+        type: cloudMeta.mime || blob.type || 'application/octet-stream',
+        progress: 100,
+        speed: blob.size,
+        status: 'completed',
+        direction: 'receive',
+        blob,
+        checksum: computedSha,
+        downloadUrl: objectUrl,
+        previewUrl: (cloudMeta.mime || '').startsWith('image/') ? objectUrl : undefined
+      };
+      setDownloadedFile(completed);
+      playChime('complete');
+      triggerBrowserDownload(objectUrl, cloudMeta.name);
+    } catch (_) {
+      window.location.href = dlUrl;
+    } finally {
+      setIsCloudDownloading(false);
+    }
+  };
+
   const handleManualDownloadClick = () => {
+    if (dropId) {
+      if (downloadedFile && downloadedFile.downloadUrl) {
+        triggerBrowserDownload(downloadedFile.downloadUrl, downloadedFile.name);
+      } else {
+        handleCloudDropDownload();
+      }
+      return;
+    }
     if (downloadedFile && downloadedFile.downloadUrl) {
       triggerBrowserDownload(downloadedFile.downloadUrl, downloadedFile.name);
     } else {
@@ -359,6 +473,11 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
   const isVideo = displayMime.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(displayName);
   const fileMeta = getFileTypeMeta(displayMime, displayName);
 
+  const cdHours = String(Math.floor(cloudRemainingMs / (1000 * 60 * 60))).padStart(2, '0');
+  const cdMinutes = String(Math.floor((cloudRemainingMs % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+  const cdSeconds = String(Math.floor((cloudRemainingMs % (1000 * 60)) / 1000)).padStart(2, '0');
+  const cdProgressPct = Math.max(0, Math.min(100, (cloudRemainingMs / (24 * 60 * 60 * 1000)) * 100));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-50 to-blue-100 text-slate-900 flex flex-col items-center justify-center p-4 sm:p-6 font-sans selection:bg-sky-500 selection:text-white relative overflow-hidden">
       {/* Background Soft Ambient Light Spheres */}
@@ -393,7 +512,7 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
                 {fileMeta.badgeLabel}
               </span>
               <span className="text-[10px] font-mono uppercase tracking-widest text-sky-700 font-bold px-2 py-0.5 rounded-full bg-sky-100 border border-sky-300">
-                Direct Download
+                {dropId ? '☁️ 24h Cloud Drop' : 'Direct Download'}
               </span>
               {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('token') && (
                 <span className="text-[10px] font-mono text-emerald-700 font-bold px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300">
@@ -409,10 +528,56 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
               {displaySize > 0 && <span>•</span>}
               <span className="text-emerald-700 font-semibold flex items-center space-x-1">
                 <ShieldCheck className="w-3.5 h-3.5 inline text-emerald-600" />
-                <span>Encrypted P2P Link</span>
+                <span>{dropId ? 'SHA-256 Verified 24h Vault' : 'Encrypted P2P Link'}</span>
               </span>
             </div>
           </div>
+
+          {/* 24h Cloud Drop Live Countdown Clock HUD */}
+          {dropId && cloudMeta && !cloudExpired && (
+            <div className="bg-gradient-to-br from-sky-50/95 to-blue-50/90 border border-sky-300/80 rounded-2xl p-4 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-wider">
+                <span className="text-sky-800 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Auto-Purge Countdown</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  {cloudMeta.storageMode === 'gdrive' ? 'GOOGLE DRIVE 24H' : 'HYBRID CLOUD 24H'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 font-mono">
+                <div className="bg-slate-900 text-sky-400 px-3 py-2 rounded-xl min-w-[60px] text-center shadow-inner">
+                  <div className="text-lg font-extrabold leading-none">{cdHours}</div>
+                  <div className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Hours</div>
+                </div>
+                <span className="text-slate-700 font-black text-base">:</span>
+                <div className="bg-slate-900 text-sky-400 px-3 py-2 rounded-xl min-w-[60px] text-center shadow-inner">
+                  <div className="text-lg font-extrabold leading-none">{cdMinutes}</div>
+                  <div className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Mins</div>
+                </div>
+                <span className="text-slate-700 font-black text-base">:</span>
+                <div className="bg-slate-900 text-sky-400 px-3 py-2 rounded-xl min-w-[60px] text-center shadow-inner">
+                  <div className="text-lg font-extrabold leading-none">{cdSeconds}</div>
+                  <div className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Secs</div>
+                </div>
+              </div>
+
+              <div className="w-full h-1.5 bg-sky-200/80 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-500 transition-all duration-1000"
+                  style={{ width: `${cdProgressPct.toFixed(1)}%` }}
+                />
+              </div>
+
+              {cloudMeta.sha256 && (
+                <div className="text-[10px] font-mono text-emerald-800 bg-emerald-100/80 border border-emerald-300/70 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>SHA-256: {cloudMeta.sha256.slice(0, 16)}...</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Real-time Streaming Progress Bar */}
           {currentFile && (
@@ -444,13 +609,15 @@ export const DirectDownloadPortal: React.FC<DirectDownloadPortalProps> = ({
           )}
 
           {/* Waiting for stream connection state */}
-          {!currentFile && !downloadedFile && connectionStatus !== 'error' && (
+          {!currentFile && !downloadedFile && !cloudMeta && connectionStatus !== 'error' && (
             <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 text-center space-y-2">
               <div className="w-8 h-8 mx-auto rounded-full bg-sky-100 border border-sky-300 flex items-center justify-center text-sky-600">
                 <RefreshCw className="w-4 h-4 animate-spin" />
               </div>
               <p className="text-xs text-slate-600 font-medium">
-                {connectionStatus === 'connected'
+                {dropId
+                  ? 'Verifying 24h Cloud Drop Vault...'
+                  : connectionStatus === 'connected'
                   ? 'Connected! Starting direct file download...'
                   : 'Establishing direct device-to-device connection...'}
               </p>

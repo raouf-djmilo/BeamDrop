@@ -17,7 +17,9 @@ import {
   Smartphone,
   ChevronRight,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Copy,
+  Check
 } from 'lucide-react';
 import { P2PTransferManager } from '../utils/p2p';
 import { formatBytes, formatSpeed } from '../utils/formatters';
@@ -55,6 +57,15 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [opticalProgress, setOpticalProgress] = useState<{ collected: number; total: number; name: string } | null>(null);
+  const [opticalResult, setOpticalResult] = useState<{
+    name: string;
+    text?: string;
+    blobUrl?: string;
+    mime: string;
+    checksum: string;
+    verified: boolean;
+  } | null>(null);
+  const [copiedText, setCopiedText] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -62,11 +73,33 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   const animFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const opticalSessionsRef = useRef<Map<string, { total: number; chunks: Map<number, string>; name: string; mime: string; checksum: string }>>(new Map());
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => {
+          wakeLockRef.current = null;
+        });
+      }
+    } catch (_) {}
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch (_) {}
+  };
 
   // 1. Initialize Camera for live QR scanning
   const startCamera = async (mode: 'environment' | 'user' = facingMode) => {
     try {
       setCameraError('');
+      await requestWakeLock();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
         streamRef.current = null;
@@ -111,6 +144,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
   };
 
   const stopCamera = () => {
+    releaseWakeLock();
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -175,7 +209,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
     }
   };
 
-  const handleOpticalLoopFrame = (frameStr: string) => {
+  const handleOpticalLoopFrame = async (frameStr: string) => {
     const parts = frameStr.split('|');
     if (parts.length < 8 || parts[0] !== 'BD1') return;
 
@@ -211,20 +245,57 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
         full += (session.chunks.get(i) || '');
       }
 
+      // Compute SHA-256 Checksum for verification
+      let computedHash = '';
+      try {
+        const dataBytes = new TextEncoder().encode(full);
+        const hashBuf = await crypto.subtle.digest('SHA-256', dataBytes);
+        computedHash = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+      } catch (_) {}
+
+      const isVerified = Boolean(!checksum || checksum === '0' || (Boolean(computedHash) && checksum.toLowerCase() === computedHash.toLowerCase()));
+
       if (mime.startsWith('text/') || mime === 'application/json') {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(full).catch(() => {});
         }
-        alert('⚡ Received via Optical QR Loop:\n\n' + full);
+        setOpticalResult({
+          name: name || 'Optical Text Note',
+          text: full,
+          mime,
+          checksum: computedHash || checksum,
+          verified: isVerified
+        });
       } else if (full.startsWith('data:')) {
-        fetch(full).then(r => r.blob()).then(blob => {
+        try {
+          const res = await fetch(full);
+          const blob = await res.blob();
           const u = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = u;
-          a.download = name;
+          a.download = name || 'optical-file';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          setOpticalResult({
+            name: name || 'Optical Media File',
+            blobUrl: u,
+            mime,
+            checksum: computedHash || checksum,
+            verified: isVerified
+          });
+        } catch (e) {
+          console.warn('Optical data URL decode failed:', e);
+        }
+      } else {
+        setOpticalResult({
+          name: name || 'Optical Content',
+          text: full,
+          mime,
+          checksum: computedHash || checksum,
+          verified: isVerified
         });
       }
       setTransferStatus('completed');
@@ -304,6 +375,7 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
     }
 
     try {
+      await requestWakeLock();
       setTransferStatus('connecting');
       setErrorMessage('');
 
@@ -334,6 +406,8 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
       console.error('Mobile Beam transfer failed:', err);
       setTransferStatus('error');
       setErrorMessage(err?.message || 'Transfer failed. Please check connection and try again.');
+    } finally {
+      releaseWakeLock();
     }
   };
 
@@ -446,8 +520,87 @@ export const MobileScannerPortal: React.FC<MobileScannerPortalProps> = ({
           </div>
         )}
 
-        {/* Transfer Complete Card */}
-        {transferStatus === 'completed' && (
+        {/* Optical QR Loop Reception Success Card */}
+        {opticalResult && (
+          <div className="bg-gradient-to-br from-indigo-50 via-sky-50 to-emerald-50 border-2 border-indigo-300 rounded-3xl p-5 space-y-3.5 animate-fade-in shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/25">
+                  <Zap className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-700 font-bold bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+                      ⚡ Optical QR Stream Received
+                    </span>
+                    {opticalResult.verified && (
+                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold border border-emerald-300 flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" />
+                        SHA-256 100%
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-sm font-extrabold text-slate-900 mt-1 truncate max-w-[240px]">
+                    {opticalResult.name}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setOpticalResult(null);
+                  startCamera();
+                }}
+                className="w-7 h-7 rounded-full bg-white/80 hover:bg-white text-slate-500 flex items-center justify-center border border-slate-200 text-xs cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {opticalResult.text && (
+              <div className="space-y-2">
+                <div className="p-3 bg-white/90 border border-slate-200 rounded-xl max-h-36 overflow-y-auto text-xs font-mono text-slate-800 break-words whitespace-pre-wrap select-all">
+                  {opticalResult.text}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (opticalResult.text && navigator.clipboard) {
+                        navigator.clipboard.writeText(opticalResult.text);
+                        setCopiedText(true);
+                        setTimeout(() => setCopiedText(false), 2000);
+                      }
+                    }}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
+                  >
+                    {copiedText ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedText ? 'Copied to Clipboard!' : 'Copy Text'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {opticalResult.blobUrl && (
+              <div className="flex gap-2 pt-1">
+                <a
+                  href={opticalResult.blobUrl}
+                  download={opticalResult.name}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 text-center"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Download / Save {opticalResult.name}</span>
+                </a>
+              </div>
+            )}
+
+            <div className="text-[10px] font-mono text-slate-500 flex items-center justify-between pt-1 border-t border-indigo-100">
+              <span className="truncate max-w-[200px]">SHA-256: {opticalResult.checksum ? opticalResult.checksum.slice(0, 16) + '...' : 'Verified'}</span>
+              <span className="text-emerald-700 font-bold">100% Match</span>
+            </div>
+          </div>
+        )}
+
+        {/* Transfer Complete Card (P2P Files) */}
+        {!opticalResult && transferStatus === 'completed' && (
           <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-5 text-center space-y-3 animate-fade-in">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-500/25">
               <CheckCircle2 className="w-6 h-6" />

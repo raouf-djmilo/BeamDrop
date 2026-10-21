@@ -73,6 +73,18 @@ export const SenderView: React.FC<SenderViewProps> = ({
   const [remotePhoneStatus, setRemotePhoneStatus] = useState<PhoneStatusPayload | null>(null);
   const [active10MinPortal, setActive10MinPortal] = useState<EphemeralPortalSession | null>(null);
   const [copiedPortalLink, setCopiedPortalLink] = useState(false);
+  const [activeCloudDrop, setActiveCloudDrop] = useState<{
+    id: string;
+    name: string;
+    size: number;
+    shareUrl: string;
+    expiresAt: number;
+    storageMode: 'gdrive' | 'hybrid';
+    sha256: string;
+  } | null>(null);
+  const [isUploadingCloudDrop, setIsUploadingCloudDrop] = useState<boolean>(false);
+  const [cloudDropCountdown, setCloudDropCountdown] = useState<string>('24:00:00');
+  const [copiedCloudDropLink, setCopiedCloudDropLink] = useState<boolean>(false);
   const [currentTargetPeer, setCurrentTargetPeer] = useState<any>(targetedPeer || null);
   const [isConnectingTarget, setIsConnectingTarget] = useState<boolean>(false);
 
@@ -217,7 +229,9 @@ export const SenderView: React.FC<SenderViewProps> = ({
     ? `${targetBaseUrl}/download?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&nonce=${qrSessionNonce}${fileParams}${e2eeHashFragment}`
     : `${targetBaseUrl}/notebook.html?peer=${transferManager.myPeerId}&token=${qrSessionNonce}&type=text${e2eeHashFragment}`;
 
-  const qrValue = directQrMode && textPayload.trim() && textPayload.length < 500
+  const qrValue = activeCloudDrop
+    ? activeCloudDrop.shareUrl
+    : directQrMode && textPayload.trim() && textPayload.length < 500
     ? textPayload.trim()
     : receiverUrl;
 
@@ -566,6 +580,148 @@ export const SenderView: React.FC<SenderViewProps> = ({
       notifyInfo('Link Copied', 'Portal link copied to clipboard.');
       setTimeout(() => setCopiedPortalLink(false), 2000);
     }
+  };
+
+  // Live 24h Cloud Drop Countdown Ticker
+  useEffect(() => {
+    if (!activeCloudDrop) return;
+    const updateTicker = () => {
+      const rem = Math.max(0, activeCloudDrop.expiresAt - Date.now());
+      if (rem <= 0) {
+        setActiveCloudDrop(null);
+        return;
+      }
+      const h = String(Math.floor(rem / (1000 * 60 * 60))).padStart(2, '0');
+      const m = String(Math.floor((rem % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+      const s = String(Math.floor((rem % (1000 * 60)) / 1000)).padStart(2, '0');
+      setCloudDropCountdown(`${h}:${m}:${s}`);
+    };
+    updateTicker();
+    const timer = setInterval(updateTicker, 1000);
+    return () => clearInterval(timer);
+  }, [activeCloudDrop]);
+
+  const handleCreate24hCloudDrop = async () => {
+    if (!firstFile || isUploadingCloudDrop) return;
+    setIsUploadingCloudDrop(true);
+    try {
+      // 1. Compute SHA-256 fingerprint
+      let sha256 = '';
+      if (window.crypto?.subtle && firstFile.size < 100 * 1024 * 1024) {
+        const buf = await firstFile.arrayBuffer();
+        const hashBuf = await window.crypto.subtle.digest('SHA-256', buf);
+        sha256 = Array.from(new Uint8Array(hashBuf))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      }
+
+      // 2. Request 24h Cloud Drop session
+      const sessionRes = await fetch('/api/cloud-drop?action=create_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: firstFile.name,
+          size: firstFile.size,
+          mime: firstFile.type || 'application/octet-stream',
+          sha256
+        })
+      });
+      const sessionData = await sessionRes.json();
+      if (!sessionRes.ok || !sessionData?.id) {
+        throw new Error(sessionData?.error || 'Could not initialize 24h Cloud Drop');
+      }
+
+      const dropId = sessionData.id;
+      let storageMode: 'gdrive' | 'hybrid' = sessionData.mode === 'gdrive' ? 'gdrive' : 'hybrid';
+
+      if (storageMode === 'gdrive' && sessionData.uploadUrl) {
+        // Direct Resumable Upload to Google Drive
+        const putRes = await fetch(sessionData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': firstFile.type || 'application/octet-stream' },
+          body: firstFile
+        });
+        if (!putRes.ok) throw new Error('Google Drive direct upload failed');
+        const gdriveMeta = await putRes.json();
+        await fetch('/api/cloud-drop?action=finalize_upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: dropId,
+            gdriveFileId: gdriveMeta.id,
+            sha256
+          })
+        });
+      } else {
+        // Hybrid Cloud Vault Upload (Base64 payload)
+        const arrayBuf = await firstFile.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuf);
+        let binary = '';
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+        }
+        const base64Data = btoa(binary);
+        const upRes = await fetch('/api/cloud-drop?action=upload_hybrid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: dropId,
+            name: firstFile.name,
+            size: firstFile.size,
+            mime: firstFile.type || 'application/octet-stream',
+            sha256,
+            base64Data
+          })
+        });
+        if (!upRes.ok) {
+          const errJson = await upRes.json().catch(() => ({}));
+          throw new Error(errJson?.error || 'Hybrid cloud upload failed');
+        }
+      }
+
+      const shareUrl = `${window.location.origin}/download.html?drop=${dropId}`;
+      setActiveCloudDrop({
+        id: dropId,
+        name: firstFile.name,
+        size: firstFile.size,
+        shareUrl,
+        expiresAt: sessionData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
+        storageMode,
+        sha256
+      });
+      playChime('complete');
+      notifySuccess(
+        '☁️ 24h Cloud Drop Active!',
+        'Anyone can download this file for the next 24 hours — even if you close your device.'
+      );
+    } catch (err: any) {
+      notifyError('Cloud Drop Error', err?.message || 'Could not upload to 24h Cloud Vault.');
+    } finally {
+      setIsUploadingCloudDrop(false);
+    }
+  };
+
+  const handleDeleteCloudDrop = async () => {
+    if (!activeCloudDrop) return;
+    const dropId = activeCloudDrop.id;
+    try {
+      await fetch(`/api/cloud-drop?action=delete&id=${encodeURIComponent(dropId)}`, {
+        method: 'POST'
+      });
+      setActiveCloudDrop(null);
+      notifyInfo('🗑️ Cloud Drop Purged', 'File was permanently deleted from 24h Cloud Storage.');
+    } catch (_) {
+      setActiveCloudDrop(null);
+    }
+  };
+
+  const copyCloudDropLink = () => {
+    if (!activeCloudDrop) return;
+    navigator.clipboard.writeText(activeCloudDrop.shareUrl);
+    setCopiedCloudDropLink(true);
+    notifyInfo('24h Cloud Link Copied', 'Share this link anywhere — valid for 24 hours.');
+    setTimeout(() => setCopiedCloudDropLink(false), 2000);
   };
 
   const copyPairLink = () => {
@@ -1144,6 +1300,89 @@ export const SenderView: React.FC<SenderViewProps> = ({
               showControls={true}
             />
           </div>
+
+          {/* 24-Hour Global Cloud Drop (Google Drive / Hybrid 24h Vault) */}
+          {(firstFile || activeCloudDrop) && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-50/95 via-blue-50/90 to-emerald-50/80 border border-sky-300/90 text-left space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <UploadCloud className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>☁️ 24h Global Cloud Drop</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        AUTO-PURGE
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-slate-600">
+                      Upload once • Share link worldwide for 24h (PC can close)
+                    </p>
+                  </div>
+                </div>
+                {!activeCloudDrop ? (
+                  <button
+                    type="button"
+                    onClick={handleCreate24hCloudDrop}
+                    disabled={isUploadingCloudDrop || !firstFile}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-xs transition-all cursor-pointer shadow-sm shrink-0"
+                  >
+                    {isUploadingCloudDrop ? 'Uploading...' : '☁️ Upload 24h'}
+                  </button>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-slate-900 text-sky-400 font-mono text-[10px] font-extrabold tracking-wider shrink-0 shadow-xs">
+                    ⏱️ {cloudDropCountdown}
+                  </span>
+                )}
+              </div>
+
+              {activeCloudDrop && (
+                <div className="space-y-2 pt-2 border-t border-sky-200/80">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={activeCloudDrop.shareUrl}
+                      className="bg-white border border-sky-300 text-[11px] text-slate-800 font-mono rounded-lg px-2.5 py-1.5 flex-1 select-all focus:outline-none shadow-2xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={copyCloudDropLink}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 shrink-0 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedCloudDropLink ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteCloudDrop}
+                      className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-300 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer"
+                      title="Delete immediately from Cloud Vault before 24h"
+                    >
+                      🗑️ Delete Now
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-600 font-mono">
+                    <span className="flex items-center gap-1 text-emerald-800 font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>
+                        {activeCloudDrop.storageMode === 'gdrive' ? 'Google Drive 24h Vault' : 'Hybrid 24h Vault'} • SHA-256 Verified
+                      </span>
+                    </span>
+                    <a
+                      href={activeCloudDrop.shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-700 hover:underline font-bold"
+                    >
+                      Preview Page ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 10-Minute Ephemeral Drop Portal Generator */}
           {firstFile && (
