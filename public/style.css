@@ -3578,3 +3578,331 @@ body {
   background: #38bdf8;
   box-shadow: 0 0 4px #38bdf8;
 }
+
+/* ==========================================================================
+   FULL PRODUCTION QR STUDIO IN EXTENSION (Clean, Direct, Zero-Clutter)
+   ========================================================================== */
+.ext-qr-topbar {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(186, 230, 253, 0.85);
+  border-radius: 12px;
+  padding: 5px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.05);
+}
+
+.ext-qr-engine-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.ext-qr-engine-btn {
+  padding: 4px 7px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.ext-qr-engine-btn:hover {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.ext-qr-engine-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.ext-qr-dynamic-btn {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: background 0.12s ease;
+}
+
+.ext-qr-dynamic-btn:hover {
+  background: #1e293b;
+}
+
+.ext-qr-input-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(186, 230, 253, 0.85);
+  border-radius: 14px;
+  padding: 10px 11px;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.05);
+}
+
+.ext-qr-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ext-qr-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ext-qr-sublabel {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 3px;
+}
+
+.ext-qr-mini-btn {
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+  background: #f0f9ff;
+  color: #0284c7;
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.ext-qr-mini-btn:hover {
+  background: #e0f2fe;
+}
+
+.ext-qr-mini-btn.primary {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.ext-qr-mini-btn.danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.ext-qr-input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ext-qr-input:focus,
+.ext-qr-textarea:focus {
+  border-color: #0284c7;
+  background: #ffffff;
+}
+
+.ext-qr-input.mono {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.ext-qr-textarea {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 11px;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+}
+
+.ext-qr-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+}
+
+.ext-qr-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.ext-qr-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.ext-qr-seg-btn {
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ext-qr-seg-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.ext-qr-custom-drawer {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(186, 230, 253, 0.85);
+  border-radius: 13px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.04);
+}
+
+.ext-qr-custom-toggle {
+  width: 100%;
+  padding: 8px 11px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.ext-qr-custom-toggle:hover {
+  background: #f0f9ff;
+}
+
+.ext-qr-preset-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.ext-qr-preset-chip {
+  padding: 4px 2px;
+  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ext-qr-preset-chip.active {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.ext-qr-cust-tab {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ext-qr-cust-tab.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.ext-qr-color-input {
+  width: 100%;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 1px;
+  cursor: pointer;
+}
+
+.ext-qr-preview-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+.ext-qr-export-btn {
+  padding: 7px 6px;
+  border-radius: 9px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s ease;
+}
+
+.ext-qr-export-btn:hover {
+  background: #334155;
+}
+
+.ext-qr-export-btn.primary {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.ext-qr-export-btn.primary:hover {
+  background: #0369a1;
+}
+
+.ext-qr-print-card-btn {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: #f59e0b;
+  color: #0f172a;
+  font-size: 10.5px;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+}
+
+.ext-qr-print-card-btn:hover {
+  background: #fbbf24;
+}
+

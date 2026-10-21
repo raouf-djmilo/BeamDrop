@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import QRCode from 'qrcode';
 import {
   Globe,
+  Type,
   UserCheck,
   Wifi,
   FileText,
@@ -26,26 +27,46 @@ import {
   QrCode as QrIcon,
   Phone,
   Mail,
-  MapPin,
   MessageCircle,
   CreditCard,
+  ChevronDown,
+  ChevronUp,
+  ClipboardPaste,
   Sparkles,
-  Linkedin,
-  Github,
-  Instagram,
-  Twitter
+  ShieldCheck,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { formatBytes } from '../utils/formatters';
 
-export type QrEngineType = 'url' | 'vcard' | 'wifi' | 'pdf' | 'applink' | 'analytics';
-export type QrBodyShape = 'square' | 'rounded' | 'dots' | 'classy';
+export type QrEngineType = 'url' | 'text' | 'wifi' | 'vcard' | 'pdf' | 'applink' | 'analytics';
+export type QrBodyShape =
+  | 'square'
+  | 'rounded'
+  | 'dots'
+  | 'classy'
+  | 'liquid'
+  | 'star'
+  | 'diamond'
+  | 'heart'
+  | 'bars';
 export type QrOuterEyeShape = 'square' | 'rounded' | 'circle' | 'leaf';
 export type QrInnerEyeShape = 'square' | 'rounded' | 'circle' | 'diamond' | 'leaf';
 export type QrGradientMode = 'none' | 'linear-diag' | 'linear-horiz' | 'linear-vert' | 'radial';
-export type QrFrameStyle = 'none' | 'bottom-banner' | 'top-banner' | 'wifi-badge' | 'menu-badge';
+export type QrFrameStyle =
+  | 'none'
+  | 'bottom-banner'
+  | 'top-banner'
+  | 'polaroid'
+  | 'vip-ticket'
+  | 'manga-panel'
+  | 'retro-arcade'
+  | 'wifi-badge';
 export type QrLogoPreset = 'beamdrop' | 'globe' | 'vcard' | 'wifi' | 'pdf' | 'app' | 'custom' | 'none';
 export type QrLogoMask = 'circle' | 'rounded' | 'square';
+export type QrArtPresetId = 'none' | 'cyber-anime' | 'sakura-spirit' | 'mecha-neon' | 'cosmic-galaxy' | 'custom';
+export type QrArtBlendMode = 'halftone' | 'texture';
 export type VcardThemeId = 'liquid-glass' | 'titanium-dark' | 'creator-aurora' | 'swiss-minimal';
 
 interface DynamicQrItem {
@@ -72,7 +93,7 @@ interface QrStudioViewProps {
 interface DesignerPreset {
   id: string;
   name: string;
-  badge: string;
+  badge?: string;
   fgColor: string;
   fgColor2: string;
   gradientMode: QrGradientMode;
@@ -85,191 +106,379 @@ interface DesignerPreset {
   innerEyeColor: string;
   frameStyle: QrFrameStyle;
   frameColor: string;
+  frameText?: string;
+  artPreset?: QrArtPresetId;
+  artBlendMode?: QrArtBlendMode;
+  fx3d?: boolean;
+  fxNeon?: boolean;
 }
 
 const DESIGNER_PRESETS: DesignerPreset[] = [
   {
-    id: 'liquid-cyan',
-    name: 'BeamDrop Liquid Cyan',
-    badge: 'Signature',
-    fgColor: '#0284c7',
-    fgColor2: '#2563eb',
-    gradientMode: 'linear-diag',
+    id: 'classic-clean',
+    name: 'Classic',
+    fgColor: '#0f172a',
+    fgColor2: '#1e293b',
+    gradientMode: 'none',
     bgColor: '#ffffff',
     bodyShape: 'rounded',
-    outerEyeShape: 'rounded',
-    innerEyeShape: 'circle',
-    customEyeColor: true,
-    outerEyeColor: '#0369a1',
-    innerEyeColor: '#0284c7',
-    frameStyle: 'bottom-banner',
-    frameColor: '#0284c7'
-  },
-  {
-    id: 'obsidian-gold',
-    name: 'Obsidian Gold',
-    badge: 'VIP Luxury',
-    fgColor: '#0f172a',
-    fgColor2: '#b45309',
-    gradientMode: 'linear-diag',
-    bgColor: '#ffffff',
-    bodyShape: 'dots',
-    outerEyeShape: 'circle',
-    innerEyeShape: 'diamond',
-    customEyeColor: true,
-    outerEyeColor: '#0f172a',
-    innerEyeColor: '#d97706',
-    frameStyle: 'bottom-banner',
-    frameColor: '#0f172a'
-  },
-  {
-    id: 'executive-slate',
-    name: 'Executive Corporate',
-    badge: 'Business',
-    fgColor: '#0f172a',
-    fgColor2: '#334155',
-    gradientMode: 'linear-vert',
-    bgColor: '#ffffff',
-    bodyShape: 'square',
     outerEyeShape: 'rounded',
     innerEyeShape: 'rounded',
     customEyeColor: false,
     outerEyeColor: '#0f172a',
     innerEyeColor: '#0f172a',
-    frameStyle: 'bottom-banner',
-    frameColor: '#1e293b'
+    frameStyle: 'none',
+    frameColor: '#0f172a',
+    artPreset: 'none',
+    fx3d: false,
+    fxNeon: false
   },
   {
-    id: 'emerald-matrix',
-    name: 'Emerald Matrix',
-    badge: 'WiFi & Tech',
-    fgColor: '#059669',
-    fgColor2: '#0d9488',
-    gradientMode: 'radial',
-    bgColor: '#ffffff',
-    bodyShape: 'rounded',
-    outerEyeShape: 'leaf',
-    innerEyeShape: 'circle',
-    customEyeColor: true,
-    outerEyeColor: '#065f46',
-    innerEyeColor: '#10b981',
-    frameStyle: 'bottom-banner',
-    frameColor: '#059669'
-  },
-  {
-    id: 'neon-cyber',
-    name: 'Neon Cyber',
-    badge: 'Creator',
-    fgColor: '#6d28d9',
-    fgColor2: '#db2777',
+    id: 'liquid-cyan',
+    name: 'Liquid Flow',
+    badge: 'NEW',
+    fgColor: '#0284c7',
+    fgColor2: '#2563eb',
     gradientMode: 'linear-diag',
     bgColor: '#ffffff',
-    bodyShape: 'dots',
-    outerEyeShape: 'leaf',
-    innerEyeShape: 'leaf',
-    customEyeColor: true,
-    outerEyeColor: '#5b21b6',
-    innerEyeColor: '#ec4899',
-    frameStyle: 'bottom-banner',
-    frameColor: '#6d28d9'
-  },
-  {
-    id: 'sunset-gradient',
-    name: 'Sunset Gradient',
-    badge: 'Hospitality',
-    fgColor: '#ea580c',
-    fgColor2: '#e11d48',
-    gradientMode: 'radial',
-    bgColor: '#ffffff',
-    bodyShape: 'classy',
+    bodyShape: 'liquid',
     outerEyeShape: 'circle',
     innerEyeShape: 'circle',
     customEyeColor: true,
-    outerEyeColor: '#c2410c',
-    innerEyeColor: '#e11d48',
+    outerEyeColor: '#0369a1',
+    innerEyeColor: '#0284c7',
     frameStyle: 'bottom-banner',
-    frameColor: '#e11d48'
+    frameColor: '#0284c7',
+    artPreset: 'none',
+    fx3d: false,
+    fxNeon: false
+  },
+  {
+    id: 'anime-cyber',
+    name: 'Cyber Anime',
+    badge: 'ART',
+    fgColor: '#311042',
+    fgColor2: '#0f172a',
+    gradientMode: 'linear-diag',
+    bgColor: '#ffffff',
+    bodyShape: 'liquid',
+    outerEyeShape: 'leaf',
+    innerEyeShape: 'diamond',
+    customEyeColor: true,
+    outerEyeColor: '#701a75',
+    innerEyeColor: '#db2777',
+    frameStyle: 'polaroid',
+    frameColor: '#701a75',
+    frameText: 'CYBER DROP',
+    artPreset: 'cyber-anime',
+    artBlendMode: 'halftone',
+    fx3d: false,
+    fxNeon: true
+  },
+  {
+    id: 'sakura-art',
+    name: 'Sakura Heart',
+    badge: 'ART',
+    fgColor: '#881337',
+    fgColor2: '#9d174d',
+    gradientMode: 'radial',
+    bgColor: '#fff1f2',
+    bodyShape: 'heart',
+    outerEyeShape: 'circle',
+    innerEyeShape: 'circle',
+    customEyeColor: true,
+    outerEyeColor: '#881337',
+    innerEyeColor: '#e11d48',
+    frameStyle: 'polaroid',
+    frameColor: '#be123c',
+    frameText: 'SAKURA EDITION',
+    artPreset: 'sakura-spirit',
+    artBlendMode: 'halftone',
+    fx3d: false,
+    fxNeon: false
+  },
+  {
+    id: 'manga-panel',
+    name: 'Manga Ink',
+    badge: 'ART',
+    fgColor: '#090d16',
+    fgColor2: '#1e293b',
+    gradientMode: 'none',
+    bgColor: '#ffffff',
+    bodyShape: 'star',
+    outerEyeShape: 'square',
+    innerEyeShape: 'diamond',
+    customEyeColor: true,
+    outerEyeColor: '#090d16',
+    innerEyeColor: '#e11d48',
+    frameStyle: 'manga-panel',
+    frameColor: '#090d16',
+    frameText: 'SCAN!! ドドド',
+    artPreset: 'none',
+    fx3d: true,
+    fxNeon: false
+  },
+  {
+    id: 'obsidian-3d',
+    name: '3D Gold Pop',
+    badge: '3D',
+    fgColor: '#0f172a',
+    fgColor2: '#b45309',
+    gradientMode: 'linear-diag',
+    bgColor: '#ffffff',
+    bodyShape: 'diamond',
+    outerEyeShape: 'rounded',
+    innerEyeShape: 'diamond',
+    customEyeColor: true,
+    outerEyeColor: '#0f172a',
+    innerEyeColor: '#d97706',
+    frameStyle: 'vip-ticket',
+    frameColor: '#0f172a',
+    frameText: 'VIP ACCESS PASS',
+    artPreset: 'none',
+    fx3d: true,
+    fxNeon: false
+  },
+  {
+    id: 'retro-arcade',
+    name: 'Arcade 8-Bit',
+    badge: 'NEW',
+    fgColor: '#1e1b4b',
+    fgColor2: '#4338ca',
+    gradientMode: 'linear-vert',
+    bgColor: '#f8fafc',
+    bodyShape: 'bars',
+    outerEyeShape: 'square',
+    innerEyeShape: 'square',
+    customEyeColor: true,
+    outerEyeColor: '#1e1b4b',
+    innerEyeColor: '#7c3aed',
+    frameStyle: 'retro-arcade',
+    frameColor: '#312e81',
+    frameText: 'INSERT COIN • SCAN',
+    artPreset: 'mecha-neon',
+    artBlendMode: 'halftone',
+    fx3d: true,
+    fxNeon: false
+  },
+  {
+    id: 'emerald-matrix',
+    name: 'Emerald',
+    fgColor: '#065f46',
+    fgColor2: '#0d9488',
+    gradientMode: 'radial',
+    bgColor: '#ffffff',
+    bodyShape: 'liquid',
+    outerEyeShape: 'leaf',
+    innerEyeShape: 'circle',
+    customEyeColor: true,
+    outerEyeColor: '#064e3b',
+    innerEyeColor: '#059669',
+    frameStyle: 'bottom-banner',
+    frameColor: '#059669',
+    artPreset: 'none',
+    fx3d: false,
+    fxNeon: false
   }
 ];
 
 const VCARD_THEMES: Array<{
   id: VcardThemeId;
   name: string;
-  subtitle: string;
   swatch: string;
 }> = [
   {
     id: 'liquid-glass',
-    name: 'Liquid Glass (Light)',
-    subtitle: 'Frosted translucent layers',
+    name: 'Liquid Glass',
     swatch: 'linear-gradient(135deg, #e0f2fe 0%, #38bdf8 50%, #2563eb 100%)'
   },
   {
     id: 'titanium-dark',
-    name: 'Titanium Executive (Dark)',
-    subtitle: 'Matte obsidian & gold accents',
+    name: 'Titanium Dark',
     swatch: 'linear-gradient(135deg, #090d16 0%, #1e293b 60%, #d97706 100%)'
   },
   {
     id: 'creator-aurora',
-    name: 'Creator Aurora',
-    subtitle: 'Vibrant mesh gradient header',
+    name: 'Aurora',
     swatch: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #ec4899 100%)'
   },
   {
     id: 'swiss-minimal',
-    name: 'Swiss Minimal',
-    subtitle: 'High-contrast architectural grid',
+    name: 'Minimal',
     swatch: 'linear-gradient(135deg, #0f172a 0%, #475569 50%, #f8fafc 100%)'
   }
 ];
 
+// Built-in procedural anime/art illustration generator onto an offscreen canvas (100% offline & instant)
+function createBuiltInArtCanvas(preset: QrArtPresetId, size = 400): HTMLCanvasElement | null {
+  if (preset === 'none' || preset === 'custom') return null;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+
+  if (preset === 'cyber-anime') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#fbcfe8');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#bae6fd');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    // Neon anime sun & grid horizon
+    const sunGrad = ctx.createLinearGradient(0, size * 0.15, 0, size * 0.75);
+    sunGrad.addColorStop(0, '#f472b6');
+    sunGrad.addColorStop(1, '#fbbf24');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(size / 2, size * 0.46, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Horizon stripes across sun
+    ctx.fillStyle = '#e0e7ff';
+    for (let y = size * 0.48; y < size * 0.78; y += 16) {
+      ctx.fillRect(size * 0.15, y, size * 0.7, 5);
+    }
+
+    // Anime silhouette character / visor geometric motif in center
+    ctx.fillStyle = 'rgba(244, 114, 182, 0.28)';
+    for (let i = 0; i < 12; i++) {
+      ctx.beginPath();
+      ctx.arc(
+        (size * ((i * 37) % 100)) / 100,
+        (size * ((i * 53) % 100)) / 100,
+        8 + (i % 4) * 6,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+  } else if (preset === 'sakura-spirit') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#ffe4e6');
+    g.addColorStop(0.6, '#fecdd3');
+    g.addColorStop(1, '#fda4af');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    // Floating Sakura petals
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
+    const petals = [
+      [0.2, 0.25],
+      [0.75, 0.2],
+      [0.5, 0.5],
+      [0.3, 0.75],
+      [0.8, 0.7],
+      [0.15, 0.6],
+      [0.6, 0.35],
+      [0.42, 0.2]
+    ];
+    petals.forEach(([px, py], idx) => {
+      ctx.save();
+      ctx.translate(px * size, py * size);
+      ctx.rotate((idx * Math.PI) / 4);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 26, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  } else if (preset === 'mecha-neon') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#dbeafe');
+    g.addColorStop(0.5, '#ede9fe');
+    g.addColorStop(1, '#cffafe');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    // Mecha hex/circuit lines
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+    ctx.lineWidth = 5;
+    for (let i = 40; i < size; i += 60) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(size - i, size);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (preset === 'cosmic-galaxy') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#f3e8ff');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#fae8ff');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.32)';
+    ctx.beginPath();
+    ctx.arc(size * 0.38, size * 0.42, size * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.28)';
+    ctx.beginPath();
+    ctx.arc(size * 0.65, size * 0.58, size * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return c;
+}
+
+function hexToLuminance(hex: string): number {
+  const clean = hex.replace('#', '');
+  const num = parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
+  if (Number.isNaN(num)) return 0;
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
 export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) => {
   const { notifyInfo, notifySuccess, notifyError } = useNotification();
 
-  // Active Engine Mode
+  // Active QR Mode
   const [engineType, setEngineType] = useState<QrEngineType>('url');
 
-  // Preview Mode in Right Sticky Dock ('qr' vs 'iphone' for vCard Plus)
+  // Optional Customization Drawer State (Collapsed by default for clean, simple UX)
+  const [isCustomizing, setIsCustomizing] = useState<boolean>(false);
+
+  // Preview Mode in Right Sticky Dock ('qr' vs 'iphone' for vCard)
   const [previewTab, setPreviewTab] = useState<'qr' | 'iphone'>('qr');
 
-  // 1. Website URL State
-  const [websiteUrl, setWebsiteUrl] = useState<string>('https://beam-drop-mu.vercel.app');
-  const [websiteTitle, setWebsiteTitle] = useState<string>('BeamDrop Official Website');
+  // 1. Link (URL) State
+  const [websiteUrl, setWebsiteUrl] = useState<string>('');
+  const [websiteTitle, setWebsiteTitle] = useState<string>('');
   const [activeDynamicCode, setActiveDynamicCode] = useState<string>('');
 
-  // 2. Digital Business Card (vCard Plus) State
-  const [vcardOutputMode, setVcardOutputMode] = useState<'offline' | 'dynamic'>('offline');
-  const [vcardTheme, setVcardTheme] = useState<VcardThemeId>('titanium-dark');
-  const [vcardAvatarDataUrl, setVcardAvatarDataUrl] = useState<string | null>(null);
-  const [vcardFullName, setVcardFullName] = useState<string>('Abderraouf Djemel');
-  const [vcardJobTitle, setVcardJobTitle] = useState<string>('Founder & Principal Architect');
-  const [vcardOrg, setVcardOrg] = useState<string>('BeamDrop Universal OS');
-  const [vcardBio, setVcardBio] = useState<string>('Building zero-latency P2P file streaming & cloud identity infrastructure.');
-  const [vcardPhone, setVcardPhone] = useState<string>('+213 555 12 34 56');
-  const [vcardWhatsapp, setVcardWhatsapp] = useState<string>('+213555123456');
-  const [vcardEmail, setVcardEmail] = useState<string>('raouf@beamdrop.io');
-  const [vcardWebsite, setVcardWebsite] = useState<string>('https://beam-drop-mu.vercel.app');
-  const [vcardAddress, setVcardAddress] = useState<string>('Algiers · Paris · Global');
-  const [vcardLinkedin, setVcardLinkedin] = useState<string>('https://linkedin.com/in/beamdrop');
-  const [vcardGithub, setVcardGithub] = useState<string>('https://github.com/raouf-djmilo');
-  const [vcardInstagram, setVcardInstagram] = useState<string>('');
-  const [vcardTwitter, setVcardTwitter] = useState<string>('');
-  const vcardAvatarInputRef = useRef<HTMLInputElement | null>(null);
+  // 2. Text to QR State
+  const [plainTextPayload, setPlainTextPayload] = useState<string>('');
 
-  // 3. WiFi Direct Connect State
-  const [wifiSsid, setWifiSsid] = useState<string>('BeamDrop_5G_Fiber');
-  const [wifiPassword, setWifiPassword] = useState<string>('BeamDrop2026!');
+  // 3. Wi-Fi State
+  const [wifiSsid, setWifiSsid] = useState<string>('');
+  const [wifiPassword, setWifiPassword] = useState<string>('');
   const [wifiEncryption, setWifiEncryption] = useState<'WPA' | 'WEP' | 'nopass'>('WPA');
   const [wifiHidden, setWifiHidden] = useState<boolean>(false);
   const [showWifiPassword, setShowWifiPassword] = useState<boolean>(false);
 
-  // 4. PDF & Document Showcase State (Integrated with 24h Cloud Drop)
-  const [pdfTitle, setPdfTitle] = useState<string>('Product Architecture Whitepaper.pdf');
-  const [pdfAuthor, setPdfAuthor] = useState<string>('BeamDrop Engineering');
-  const [pdfDescription, setPdfDescription] = useState<string>(
-    'Scan to view or download the verified PDF document directly on your phone.'
-  );
+  // 4. vCard (Digital Business Card) State
+  const [vcardOutputMode, setVcardOutputMode] = useState<'offline' | 'dynamic'>('offline');
+  const [vcardTheme, setVcardTheme] = useState<VcardThemeId>('titanium-dark');
+  const [vcardAvatarDataUrl, setVcardAvatarDataUrl] = useState<string | null>(null);
+  const [vcardFullName, setVcardFullName] = useState<string>('');
+  const [vcardJobTitle, setVcardJobTitle] = useState<string>('');
+  const [vcardOrg, setVcardOrg] = useState<string>('');
+  const [vcardPhone, setVcardPhone] = useState<string>('');
+  const [vcardWhatsapp, setVcardWhatsapp] = useState<string>('');
+  const [vcardEmail, setVcardEmail] = useState<string>('');
+  const [vcardWebsite, setVcardWebsite] = useState<string>('');
+  const [vcardAddress, setVcardAddress] = useState<string>('');
+  const vcardAvatarInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 5. PDF State
+  const [pdfTitle, setPdfTitle] = useState<string>('');
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [isUploadingPdf, setIsUploadingPdf] = useState<boolean>(false);
   const [uploadedPdfMeta, setUploadedPdfMeta] = useState<{
@@ -281,16 +490,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   } | null>(null);
   const pdfFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 5. Multi-Store App Link State
-  const [appName, setAppName] = useState<string>('BeamDrop Mobile Companion');
-  const [appSubtitle, setAppSubtitle] = useState<string>('Universal P2P Transfer & QR Scanner');
-  const [appIosUrl, setAppIosUrl] = useState<string>('https://apps.apple.com/app/id123456789');
-  const [appAndroidUrl, setAppAndroidUrl] = useState<string>(
-    'https://play.google.com/store/apps/details?id=io.beamdrop.app'
-  );
-  const [appFallbackUrl, setAppFallbackUrl] = useState<string>('https://beam-drop-mu.vercel.app');
+  // 6. App Store Link State
+  const [appName, setAppName] = useState<string>('');
+  const [appIosUrl, setAppIosUrl] = useState<string>('');
+  const [appAndroidUrl, setAppAndroidUrl] = useState<string>('');
 
-  // 6. Dynamic QR Manager & Analytics State
+  // 7. Saved Dynamic QRs State
   const [dynamicQrs, setDynamicQrs] = useState<DynamicQrItem[]>(() => {
     try {
       const saved = localStorage.getItem('beamdrop_dynamic_qrs_v1');
@@ -305,25 +510,33 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   const [isCreatingDynamic, setIsCreatingDynamic] = useState<boolean>(false);
   const [isRefreshingAnalytics, setIsRefreshingAnalytics] = useState<boolean>(false);
 
-  // Next-Gen Visual Studio Customization State
-  const [activePresetId, setActivePresetId] = useState<string>('liquid-cyan');
-  const [activeCustTab, setActiveCustTab] = useState<'shapes' | 'colors' | 'frame' | 'logo'>('shapes');
+  // Optional Visual Customization State (Clean defaults)
+  const [activePresetId, setActivePresetId] = useState<string>('classic-clean');
+  const [activeCustTab, setActiveCustTab] = useState<'art' | 'shapes' | 'colors' | 'frame' | 'logo'>('art');
   const [bodyShape, setBodyShape] = useState<QrBodyShape>('rounded');
   const [outerEyeShape, setOuterEyeShape] = useState<QrOuterEyeShape>('rounded');
-  const [innerEyeShape, setInnerEyeShape] = useState<QrInnerEyeShape>('circle');
-  const [fgColor, setFgColor] = useState<string>('#0284c7');
-  const [fgColor2, setFgColor2] = useState<string>('#2563eb');
-  const [gradientMode, setGradientMode] = useState<QrGradientMode>('linear-diag');
+  const [innerEyeShape, setInnerEyeShape] = useState<QrInnerEyeShape>('rounded');
+  const [fgColor, setFgColor] = useState<string>('#0f172a');
+  const [fgColor2, setFgColor2] = useState<string>('#0284c7');
+  const [gradientMode, setGradientMode] = useState<QrGradientMode>('none');
   const [bgColor, setBgColor] = useState<string>('#ffffff');
-  const [customEyeColor, setCustomEyeColor] = useState<boolean>(true);
-  const [outerEyeColor, setOuterEyeColor] = useState<string>('#0369a1');
+  const [customEyeColor, setCustomEyeColor] = useState<boolean>(false);
+  const [outerEyeColor, setOuterEyeColor] = useState<string>('#0f172a');
   const [innerEyeColor, setInnerEyeColor] = useState<string>('#0284c7');
-  const [frameStyle, setFrameStyle] = useState<QrFrameStyle>('bottom-banner');
+  const [frameStyle, setFrameStyle] = useState<QrFrameStyle>('none');
   const [frameText, setFrameText] = useState<string>('SCAN ME');
-  const [frameColor, setFrameColor] = useState<string>('#0284c7');
+  const [frameColor, setFrameColor] = useState<string>('#0f172a');
+
+  // Artistic QR State (Photo/Anime Blend + 3D Pop + Neon Glow)
+  const [artPreset, setArtPreset] = useState<QrArtPresetId>('none');
+  const [customArtDataUrl, setCustomArtDataUrl] = useState<string | null>(null);
+  const [artBlendMode, setArtBlendMode] = useState<QrArtBlendMode>('halftone');
+  const [fx3d, setFx3d] = useState<boolean>(false);
+  const [fxNeon, setFxNeon] = useState<boolean>(false);
+  const artFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Logo & Masking State
-  const [logoPreset, setLogoPreset] = useState<QrLogoPreset>('beamdrop');
+  const [logoPreset, setLogoPreset] = useState<QrLogoPreset>('none');
   const [customLogoDataUrl, setCustomLogoDataUrl] = useState<string | null>(null);
   const [logoMask, setLogoMask] = useState<QrLogoMask>('circle');
   const [logoQuietZonePad, setLogoQuietZonePad] = useState<number>(8);
@@ -333,9 +546,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const miniMockupQrRef = useRef<HTMLCanvasElement | null>(null);
   const [copiedQrImage, setCopiedQrImage] = useState<boolean>(false);
-  const [copiedPayloadText, setCopiedPayloadText] = useState<boolean>(false);
 
-  // Apply 1-Click Designer Preset
   const applyDesignerPreset = (preset: DesignerPreset) => {
     setActivePresetId(preset.id);
     setFgColor(preset.fgColor);
@@ -350,42 +561,54 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     setInnerEyeColor(preset.innerEyeColor);
     setFrameStyle(preset.frameStyle);
     setFrameColor(preset.frameColor);
+    if (preset.frameText) setFrameText(preset.frameText);
+    setArtPreset(preset.artPreset || 'none');
+    if (preset.artBlendMode) setArtBlendMode(preset.artBlendMode);
+    setFx3d(Boolean(preset.fx3d));
+    setFxNeon(Boolean(preset.fxNeon));
   };
 
-  // Auto-update default CTA Frame Text & Logo when switching engines
+  // Live Scannability Score (Contrast & Quiet Zone check)
+  const scanSafety = useMemo(() => {
+    const lumFg = hexToLuminance(fgColor);
+    const lumBg = hexToLuminance(bgColor);
+    const brightest = Math.max(lumFg, lumBg);
+    const darkest = Math.min(lumFg, lumBg);
+    const ratio = (brightest + 0.05) / (darkest + 0.05);
+    const isInverted = lumFg > lumBg;
+    if (isInverted || ratio < 2.8) {
+      return {
+        ok: false,
+        label: isInverted ? 'Inverted Colors (Hard to Scan)' : 'Low Contrast',
+        ratio: ratio.toFixed(1)
+      };
+    }
+    return {
+      ok: true,
+      label: '100% Scan Ready',
+      ratio: ratio.toFixed(1)
+    };
+  }, [fgColor, bgColor]);
+
+  const handleAutoFixContrast = () => {
+    setFgColor('#0f172a');
+    setBgColor('#ffffff');
+    setOuterEyeColor('#0f172a');
+  };
+
   useEffect(() => {
-    if (engineType === 'url') {
-      setFrameText('SCAN ME');
-      setPreviewTab('qr');
-      if (logoPreset !== 'custom' && logoPreset !== 'none') setLogoPreset('globe');
-    } else if (engineType === 'vcard') {
-      setFrameText('SAVE CONTACT');
-      if (logoPreset !== 'custom' && logoPreset !== 'none') setLogoPreset('vcard');
-    } else if (engineType === 'wifi') {
-      setFrameText(`WIFI: ${wifiSsid.slice(0, 14) || 'JOIN'}`);
-      setPreviewTab('qr');
-      if (logoPreset !== 'custom' && logoPreset !== 'none') setLogoPreset('wifi');
-    } else if (engineType === 'pdf') {
-      setFrameText('SCAN FOR PDF');
-      setPreviewTab('qr');
-      if (logoPreset !== 'custom' && logoPreset !== 'none') setLogoPreset('pdf');
-    } else if (engineType === 'applink') {
-      setFrameText('GET THE APP');
-      setPreviewTab('qr');
-      if (logoPreset !== 'custom' && logoPreset !== 'none') setLogoPreset('app');
-    } else {
+    if (engineType !== 'vcard') {
       setPreviewTab('qr');
     }
   }, [engineType]);
 
-  // Save dynamicQrs to localStorage whenever updated
   useEffect(() => {
     try {
       localStorage.setItem('beamdrop_dynamic_qrs_v1', JSON.stringify(dynamicQrs));
     } catch (_) {}
   }, [dynamicQrs]);
 
-  // Compute the effective QR payload string for the active engine
+  // Compute effective QR payload string
   const qrPayload = useMemo(() => {
     const cleanBase = receiverBaseUrl.replace(/\/$/, '');
 
@@ -397,9 +620,20 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       return websiteUrl.trim() || cleanBase;
     }
 
+    if (engineType === 'text') {
+      return plainTextPayload.trim() || 'BeamDrop QR Text';
+    }
+
+    if (engineType === 'wifi') {
+      const escapeWifi = (str: string) => str.replace(/([\\;,:])/g, '\\$1');
+      const s = escapeWifi(wifiSsid.trim() || 'WiFi');
+      const p = wifiEncryption === 'nopass' ? '' : escapeWifi(wifiPassword);
+      const h = wifiHidden ? 'true' : 'false';
+      return `WIFI:T:${wifiEncryption};S:${s};P:${p};H:${h};;`;
+    }
+
     if (engineType === 'vcard') {
       if (vcardOutputMode === 'dynamic') {
-        // Encode lightweight interactive digital card URL parameters if not yet registered as shortlink
         const params = new URLSearchParams();
         params.set('q', 'vcard-live');
         if (vcardFullName) params.set('fn', vcardFullName);
@@ -424,18 +658,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         vcardEmail.trim() ? `EMAIL;TYPE=INTERNET:${vcardEmail.trim()}` : '',
         vcardWebsite.trim() ? `URL:${vcardWebsite.trim()}` : '',
         vcardAddress.trim() ? `ADR;TYPE=WORK:;;${vcardAddress.trim()};;;;` : '',
-        vcardBio.trim() ? `NOTE:${vcardBio.trim()}` : '',
         'END:VCARD'
       ].filter(Boolean);
       return lines.join('\n');
-    }
-
-    if (engineType === 'wifi') {
-      const escapeWifi = (str: string) => str.replace(/([\\;,:])/g, '\\$1');
-      const s = escapeWifi(wifiSsid.trim() || 'Network');
-      const p = wifiEncryption === 'nopass' ? '' : escapeWifi(wifiPassword);
-      const h = wifiHidden ? 'true' : 'false';
-      return `WIFI:T:${wifiEncryption};S:${s};P:${p};H:${h};;`;
     }
 
     if (engineType === 'pdf') {
@@ -445,7 +670,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
 
     if (engineType === 'applink') {
-      return appIosUrl.trim() || appAndroidUrl.trim() || appFallbackUrl.trim() || cleanBase;
+      return appIosUrl.trim() || appAndroidUrl.trim() || cleanBase;
     }
 
     return cleanBase;
@@ -454,29 +679,27 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     activeDynamicCode,
     engineType,
     websiteUrl,
+    plainTextPayload,
+    wifiSsid,
+    wifiPassword,
+    wifiEncryption,
+    wifiHidden,
     vcardOutputMode,
     vcardTheme,
     vcardFullName,
     vcardOrg,
     vcardJobTitle,
-    vcardBio,
     vcardPhone,
     vcardWhatsapp,
     vcardEmail,
     vcardWebsite,
     vcardAddress,
-    wifiSsid,
-    wifiPassword,
-    wifiEncryption,
-    wifiHidden,
     uploadedPdfMeta,
     pdfUrl,
     appIosUrl,
-    appAndroidUrl,
-    appFallbackUrl
+    appAndroidUrl
   ]);
 
-  // Helper: Check if module (r, c) belongs to one of the 3 7x7 finder patterns
   const isFinderModule = (r: number, c: number, count: number): boolean => {
     if (r < 7 && c < 7) return true;
     if (r < 7 && c >= count - 7) return true;
@@ -484,7 +707,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     return false;
   };
 
-  // Helper: Draw a custom eye shape (square, rounded, circle, diamond, leaf/tear-drop)
   const traceEyeShapePath = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -499,8 +721,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     } else if (shape === 'rounded') {
       ctx.roundRect(x, y, size, size, radiusBase);
     } else if (shape === 'leaf') {
-      // Asymmetric tear-drop / leaf corners
-      ctx.roundRect(x, y, size, size, [radiusBase * 1.6, radiusBase * 0.25, radiusBase * 1.6, radiusBase * 0.25]);
+      ctx.roundRect(x, y, size, size, [
+        radiusBase * 1.6,
+        radiusBase * 0.25,
+        radiusBase * 1.6,
+        radiusBase * 0.25
+      ]);
     } else if (shape === 'diamond') {
       const half = size / 2;
       ctx.moveTo(x + half, y);
@@ -513,7 +739,131 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
   };
 
-  // Draw custom QRCG-style QR Canvas (supports high-res export scale)
+  const drawCustomModuleShape = (
+    ctx: CanvasRenderingContext2D,
+    shape: QrBodyShape,
+    x: number,
+    y: number,
+    cellSize: number,
+    r: number,
+    c: number,
+    isDarkNeighbor: (nr: number, nc: number) => boolean
+  ) => {
+    const cx = x + cellSize / 2;
+    const cy = y + cellSize / 2;
+
+    if (shape === 'liquid') {
+      const top = isDarkNeighbor(r - 1, c);
+      const bottom = isDarkNeighbor(r + 1, c);
+      const left = isDarkNeighbor(r, c - 1);
+      const right = isDarkNeighbor(r, c + 1);
+      const maxRad = cellSize * 0.48;
+      const tl = !top && !left ? maxRad : 0;
+      const tr = !top && !right ? maxRad : 0;
+      const br = !bottom && !right ? maxRad : 0;
+      const bl = !bottom && !left ? maxRad : 0;
+      ctx.beginPath();
+      ctx.roundRect(x - 0.35, y - 0.35, cellSize + 0.7, cellSize + 0.7, [tl, tr, br, bl]);
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'star') {
+      const outerR = cellSize * 0.54;
+      const innerR = cellSize * 0.22;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const rad = i % 2 === 0 ? outerR : innerR;
+        const angle = (i * Math.PI) / 4;
+        const px = cx + Math.cos(angle) * rad;
+        const py = cy + Math.sin(angle) * rad;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'diamond') {
+      const rad = cellSize * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - rad);
+      ctx.lineTo(cx + rad, cy);
+      ctx.lineTo(cx, cy + rad);
+      ctx.lineTo(cx - rad, cy);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'heart') {
+      const w = cellSize * 0.92;
+      const h = cellSize * 0.92;
+      const hx = cx;
+      const hy = cy - h * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy + h * 0.65);
+      ctx.bezierCurveTo(hx - w * 0.55, hy + h * 0.3, hx - w * 0.5, hy - h * 0.25, hx, hy + h * 0.05);
+      ctx.bezierCurveTo(hx + w * 0.5, hy - h * 0.25, hx + w * 0.55, hy + h * 0.3, hx, hy + h * 0.65);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'bars') {
+      const top = isDarkNeighbor(r - 1, c);
+      const bottom = isDarkNeighbor(r + 1, c);
+      const barW = cellSize * 0.76;
+      const bx = cx - barW / 2;
+      const rad = barW / 2;
+      ctx.beginPath();
+      ctx.roundRect(
+        bx,
+        top ? y - 0.5 : y + cellSize * 0.08,
+        barW,
+        cellSize + (top ? 0.5 : -cellSize * 0.08) + (bottom ? 0.5 : -cellSize * 0.08),
+        [top ? 0 : rad, top ? 0 : rad, bottom ? 0 : rad, bottom ? 0 : rad]
+      );
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'dots') {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (cellSize / 2) * 0.86, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'rounded') {
+      ctx.beginPath();
+      ctx.roundRect(
+        x + cellSize * 0.05,
+        y + cellSize * 0.05,
+        cellSize * 0.9,
+        cellSize * 0.9,
+        cellSize * 0.35
+      );
+      ctx.fill();
+      return;
+    }
+
+    if (shape === 'classy') {
+      ctx.beginPath();
+      ctx.roundRect(x, y, cellSize * 0.94, cellSize * 0.94, [
+        cellSize * 0.45,
+        0,
+        cellSize * 0.45,
+        0
+      ]);
+      ctx.fill();
+      return;
+    }
+
+    ctx.fillRect(x, y, Math.ceil(cellSize), Math.ceil(cellSize));
+  };
+
   const renderStyledQrCanvas = useCallback(
     async (targetCanvas: HTMLCanvasElement, scaleFactor = 1) => {
       const payloadToDraw = qrPayload || 'https://beam-drop-mu.vercel.app';
@@ -521,12 +871,18 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       const modules = qrObj.modules;
       const count = modules.size;
 
-      const baseWidth = 340 * scaleFactor;
+      const baseWidth = 320 * scaleFactor;
       const hasBottomFrame =
-        frameStyle === 'bottom-banner' || frameStyle === 'wifi-badge' || frameStyle === 'menu-badge';
-      const hasTopFrame = frameStyle === 'top-banner';
-      const extraHeight = (hasBottomFrame || hasTopFrame ? 62 : 0) * scaleFactor;
-      const baseHeight = baseWidth + extraHeight;
+        frameStyle === 'bottom-banner' ||
+        frameStyle === 'wifi-badge' ||
+        frameStyle === 'polaroid' ||
+        frameStyle === 'vip-ticket' ||
+        frameStyle === 'manga-panel' ||
+        frameStyle === 'retro-arcade';
+      const hasTopFrame = frameStyle === 'top-banner' || frameStyle === 'vip-ticket' || frameStyle === 'retro-arcade';
+      const bottomExtra = frameStyle === 'polaroid' ? 68 : hasBottomFrame ? 54 : 0;
+      const topExtra = hasTopFrame ? 46 : 0;
+      const baseHeight = baseWidth + (bottomExtra + topExtra) * scaleFactor;
 
       targetCanvas.width = baseWidth;
       targetCanvas.height = baseHeight;
@@ -535,19 +891,115 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
 
       ctx.clearRect(0, 0, baseWidth, baseHeight);
 
-      // 1. Draw Outer Frame Background if active
-      const qrOffsetY = hasTopFrame ? 56 * scaleFactor : 0;
-      if (frameStyle !== 'none') {
+      const qrOffsetY = topExtra * scaleFactor;
+      const ctaText =
+        frameStyle === 'wifi-badge'
+          ? `WI-FI: ${(wifiSsid || 'JOIN').toUpperCase()}`
+          : (frameText || 'SCAN ME').toUpperCase();
+
+      // 1. Draw Frame & Card Background
+      if (frameStyle === 'polaroid') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, baseWidth, baseHeight, 22 * scaleFactor);
+        ctx.fill();
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 3 * scaleFactor;
+        ctx.stroke();
+
+        // Inner photo well border
+        const pad = 14 * scaleFactor;
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(pad, pad, baseWidth - pad * 2, baseWidth - pad * 2, 12 * scaleFactor);
+        ctx.fill();
+
+        // Polaroid signature caption bar
+        ctx.fillStyle = frameColor;
+        ctx.font = `900 ${16 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ctaText, baseWidth / 2, baseWidth + 32 * scaleFactor);
+      } else if (frameStyle === 'manga-panel') {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+        // Bold double comic book border
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = 6 * scaleFactor;
+        ctx.strokeRect(4 * scaleFactor, 4 * scaleFactor, baseWidth - 8 * scaleFactor, baseHeight - 8 * scaleFactor);
+        ctx.lineWidth = 2 * scaleFactor;
+        ctx.strokeRect(10 * scaleFactor, 10 * scaleFactor, baseWidth - 20 * scaleFactor, baseWidth - 20 * scaleFactor);
+
+        // Corner speed-lines accent
+        ctx.fillStyle = frameColor;
+        ctx.fillRect(10 * scaleFactor, baseWidth - 4 * scaleFactor, baseWidth - 20 * scaleFactor, 46 * scaleFactor);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `900 italic ${16 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ctaText, baseWidth / 2, baseWidth + 19 * scaleFactor);
+      } else if (frameStyle === 'vip-ticket') {
+        const frameGrad = ctx.createLinearGradient(0, 0, baseWidth, baseHeight);
+        frameGrad.addColorStop(0, frameColor);
+        frameGrad.addColorStop(1, gradientMode !== 'none' ? fgColor2 : '#1e293b');
+        ctx.fillStyle = frameGrad;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, baseWidth, baseHeight, 24 * scaleFactor);
+        ctx.fill();
+
+        // Ticket side notches
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(0, qrOffsetY, 12 * scaleFactor, 0, Math.PI * 2);
+        ctx.arc(baseWidth, qrOffsetY, 12 * scaleFactor, 0, Math.PI * 2);
+        ctx.fill();
+
+        const pad = 12 * scaleFactor;
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(pad, qrOffsetY + pad, baseWidth - pad * 2, baseWidth - pad * 2, 16 * scaleFactor);
+        ctx.fill();
+
+        // Top & Bottom VIP labels
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = `800 ${11 * scaleFactor}px ui-monospace, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('★ BEAMDROP OFFICIAL PASS ★', baseWidth / 2, 24 * scaleFactor);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `900 ${15 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+        ctx.fillText(ctaText, baseWidth / 2, qrOffsetY + baseWidth + 24 * scaleFactor);
+      } else if (frameStyle === 'retro-arcade') {
+        ctx.fillStyle = frameColor;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, baseWidth, baseHeight, 18 * scaleFactor);
+        ctx.fill();
+
+        const pad = 12 * scaleFactor;
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(pad, qrOffsetY + pad, baseWidth - pad * 2, baseWidth - pad * 2);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `900 ${11 * scaleFactor}px ui-monospace, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('HIGH SCORE • P2P READY', baseWidth / 2, 24 * scaleFactor);
+
+        ctx.fillStyle = '#facc15';
+        ctx.font = `900 ${14 * scaleFactor}px ui-monospace, monospace`;
+        ctx.fillText(ctaText, baseWidth / 2, qrOffsetY + baseWidth + 24 * scaleFactor);
+      } else if (frameStyle !== 'none') {
         const frameGrad = ctx.createLinearGradient(0, 0, baseWidth, baseHeight);
         frameGrad.addColorStop(0, frameColor);
         frameGrad.addColorStop(1, gradientMode !== 'none' ? fgColor2 : frameColor);
         ctx.fillStyle = frameGrad;
         ctx.beginPath();
-        ctx.roundRect(0, 0, baseWidth, baseHeight, 26 * scaleFactor);
+        ctx.roundRect(0, 0, baseWidth, baseHeight, 24 * scaleFactor);
         ctx.fill();
 
-        // Inner white card for QR
-        const pad = 11 * scaleFactor;
+        const pad = 10 * scaleFactor;
         ctx.fillStyle = bgColor;
         ctx.beginPath();
         ctx.roundRect(
@@ -555,44 +1007,78 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           qrOffsetY + pad,
           baseWidth - pad * 2,
           baseWidth - pad * 2,
-          18 * scaleFactor
+          16 * scaleFactor
         );
         ctx.fill();
 
-        // Frame CTA Text Badge
         ctx.fillStyle = '#ffffff';
-        ctx.font = `800 ${16 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+        ctx.font = `800 ${15 * scaleFactor}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const ctaText =
-          frameStyle === 'wifi-badge'
-            ? `WI-FI: ${(wifiSsid || 'JOIN NETWORK').toUpperCase()}`
-            : frameStyle === 'menu-badge'
-            ? 'SCAN FOR DIGITAL MENU'
-            : (frameText || 'SCAN ME').toUpperCase();
-
         if (hasTopFrame) {
-          ctx.fillText(ctaText, baseWidth / 2, 29 * scaleFactor);
+          ctx.fillText(ctaText, baseWidth / 2, 25 * scaleFactor);
         } else {
-          ctx.fillText(ctaText, baseWidth / 2, baseWidth + 29 * scaleFactor);
+          ctx.fillText(ctaText, baseWidth / 2, baseWidth + 24 * scaleFactor);
         }
       } else {
         ctx.fillStyle = bgColor;
         ctx.beginPath();
-        ctx.roundRect(0, 0, baseWidth, baseHeight, 24 * scaleFactor);
+        ctx.roundRect(0, 0, baseWidth, baseHeight, 22 * scaleFactor);
         ctx.fill();
       }
 
-      // 2. Setup QR Foreground Fill (Solid, Linear, or Radial Gradient)
-      const qrPadding = 28 * scaleFactor;
+      const qrPadding = 24 * scaleFactor;
       const qrDrawArea = baseWidth - qrPadding * 2;
       const cellSize = qrDrawArea / count;
       const startX = qrPadding;
       const startY = qrOffsetY + qrPadding;
 
-      let mainFill: string | CanvasGradient = fgColor;
-      if (gradientMode === 'linear-diag') {
-        const grad = ctx.createLinearGradient(startX, startY, startX + qrDrawArea, startY + qrDrawArea);
+      // 2. Load Art / Photo Canvas if enabled
+      let artSourceCanvas: HTMLCanvasElement | HTMLImageElement | null = null;
+      if (artPreset === 'custom' && customArtDataUrl) {
+        artSourceCanvas = await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = customArtDataUrl;
+        });
+      } else if (artPreset !== 'none') {
+        artSourceCanvas = createBuiltInArtCanvas(artPreset, Math.round(qrDrawArea));
+      }
+
+      // If Halftone Art Blend mode is active, draw the art backdrop softly inside the QR area
+      if (artSourceCanvas && artBlendMode === 'halftone') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(startX - 4 * scaleFactor, startY - 4 * scaleFactor, qrDrawArea + 8 * scaleFactor, qrDrawArea + 8 * scaleFactor, 12 * scaleFactor);
+        ctx.clip();
+        ctx.globalAlpha = 0.82;
+        ctx.drawImage(artSourceCanvas, startX - 4 * scaleFactor, startY - 4 * scaleFactor, qrDrawArea + 8 * scaleFactor, qrDrawArea + 8 * scaleFactor);
+        ctx.restore();
+      }
+
+      let mainFill: string | CanvasGradient | CanvasPattern = fgColor;
+      if (artSourceCanvas && artBlendMode === 'texture') {
+        // Create darkened high-contrast pattern from the art so modules stay scannable
+        const patCanvas = document.createElement('canvas');
+        patCanvas.width = Math.ceil(qrDrawArea);
+        patCanvas.height = Math.ceil(qrDrawArea);
+        const pCtx = patCanvas.getContext('2d');
+        if (pCtx) {
+          pCtx.drawImage(artSourceCanvas, 0, 0, patCanvas.width, patCanvas.height);
+          pCtx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+          pCtx.fillRect(0, 0, patCanvas.width, patCanvas.height);
+          const pat = ctx.createPattern(patCanvas, 'no-repeat');
+          if (pat) mainFill = pat;
+        }
+      } else if (gradientMode === 'linear-diag') {
+        const grad = ctx.createLinearGradient(
+          startX,
+          startY,
+          startX + qrDrawArea,
+          startY + qrDrawArea
+        );
         grad.addColorStop(0, fgColor);
         grad.addColorStop(1, fgColor2);
         mainFill = grad;
@@ -609,76 +1095,104 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       } else if (gradientMode === 'radial') {
         const cx = startX + qrDrawArea / 2;
         const cy = startY + qrDrawArea / 2;
-        const grad = ctx.createRadialGradient(cx, cy, qrDrawArea * 0.05, cx, cy, qrDrawArea * 0.65);
+        const grad = ctx.createRadialGradient(
+          cx,
+          cy,
+          qrDrawArea * 0.05,
+          cx,
+          cy,
+          qrDrawArea * 0.65
+        );
         grad.addColorStop(0, fgColor);
         grad.addColorStop(1, fgColor2);
         mainFill = grad;
       }
 
-      // Center logo exclusion zone (dynamically sized to include Quiet Zone padding so modules never touch logo)
       const hasLogo = logoPreset !== 'none';
-      const logoBoxSize = 58 * scaleFactor;
+      const logoBoxSize = 54 * scaleFactor;
       const quietPadPx = logoQuietZonePad * scaleFactor;
       const totalLogoRadiusPx = logoBoxSize / 2 + quietPadPx + cellSize * 0.45;
       const centerCoordX = startX + qrDrawArea / 2;
       const centerCoordY = startY + qrDrawArea / 2;
 
-      // 3. Draw Data Modules
-      ctx.fillStyle = mainFill;
+      const isSkippedForLogo = (r: number, c: number) => {
+        if (!hasLogo) return false;
+        const modCenterX = startX + (c + 0.5) * cellSize;
+        const modCenterY = startY + (r + 0.5) * cellSize;
+        if (logoMask === 'circle') {
+          return Math.hypot(modCenterX - centerCoordX, modCenterY - centerCoordY) < totalLogoRadiusPx;
+        }
+        return (
+          Math.abs(modCenterX - centerCoordX) < totalLogoRadiusPx &&
+          Math.abs(modCenterY - centerCoordY) < totalLogoRadiusPx
+        );
+      };
+
+      const isDarkNeighbor = (nr: number, nc: number): boolean => {
+        if (nr < 0 || nc < 0 || nr >= count || nc >= count) return false;
+        if (isFinderModule(nr, nc, count)) return false;
+        if (isSkippedForLogo(nr, nc)) return false;
+        return Boolean(modules.get(nr, nc));
+      };
+
+      // 3. Draw QR Data Modules (with Halftone Light Anchors if art backdrop is enabled)
+      ctx.save();
+      if (fxNeon) {
+        ctx.shadowColor = gradientMode !== 'none' ? fgColor2 : fgColor;
+        ctx.shadowBlur = 6 * scaleFactor;
+      }
+
       for (let r = 0; r < count; r++) {
         for (let c = 0; c < count; c++) {
-          if (!modules.get(r, c)) continue;
           if (isFinderModule(r, c, count)) continue;
+          if (isSkippedForLogo(r, c)) continue;
 
           const x = startX + c * cellSize;
           const y = startY + r * cellSize;
-          const modCenterX = x + cellSize / 2;
-          const modCenterY = y + cellSize / 2;
+          const isDark = Boolean(modules.get(r, c));
 
-          if (hasLogo) {
-            if (logoMask === 'circle') {
-              const dist = Math.hypot(modCenterX - centerCoordX, modCenterY - centerCoordY);
-              if (dist < totalLogoRadiusPx) continue;
-            } else {
-              if (
-                Math.abs(modCenterX - centerCoordX) < totalLogoRadiusPx &&
-                Math.abs(modCenterY - centerCoordY) < totalLogoRadiusPx
-              ) {
-                continue;
-              }
+          if (!isDark) {
+            // In Halftone Art mode, draw subtle crisp white micro-dots on light modules so scanners read 100% reliably
+            if (artSourceCanvas && artBlendMode === 'halftone') {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.86)';
+              ctx.beginPath();
+              ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.28, 0, Math.PI * 2);
+              ctx.fill();
             }
+            continue;
           }
 
-          if (bodyShape === 'dots') {
-            ctx.beginPath();
-            ctx.arc(modCenterX, modCenterY, (cellSize / 2) * 0.86, 0, Math.PI * 2);
-            ctx.fill();
-          } else if (bodyShape === 'rounded') {
-            ctx.beginPath();
-            ctx.roundRect(
-              x + cellSize * 0.05,
-              y + cellSize * 0.05,
-              cellSize * 0.9,
-              cellSize * 0.9,
-              cellSize * 0.35
+          // Optional 3D Pop Isometric extrude shadow
+          if (fx3d) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.28)';
+            drawCustomModuleShape(
+              ctx,
+              bodyShape,
+              x + 1.6 * scaleFactor,
+              y + 1.8 * scaleFactor,
+              cellSize,
+              r,
+              c,
+              isDarkNeighbor
             );
-            ctx.fill();
-          } else if (bodyShape === 'classy') {
-            ctx.beginPath();
-            ctx.roundRect(x, y, cellSize * 0.94, cellSize * 0.94, [
-              cellSize * 0.45,
-              0,
-              cellSize * 0.45,
-              0
-            ]);
-            ctx.fill();
-          } else {
-            ctx.fillRect(x, y, Math.ceil(cellSize), Math.ceil(cellSize));
           }
+
+          ctx.fillStyle = mainFill;
+          drawCustomModuleShape(
+            ctx,
+            bodyShape,
+            artSourceCanvas && artBlendMode === 'halftone' ? x + cellSize * 0.06 : x,
+            artSourceCanvas && artBlendMode === 'halftone' ? y + cellSize * 0.06 : y,
+            artSourceCanvas && artBlendMode === 'halftone' ? cellSize * 0.88 : cellSize,
+            r,
+            c,
+            isDarkNeighbor
+          );
         }
       }
+      ctx.restore();
 
-      // 4. Draw Independent 3 Corner Finder Eyes (7x7 outer ring + 3x3 inner ball)
+      // 4. Draw Finder Eyes (Protected Quiet Zones for 100% Scannability)
       const drawFinderEye = (rowOffset: number, colOffset: number) => {
         const ex = startX + colOffset * cellSize;
         const ey = startY + rowOffset * cellSize;
@@ -686,19 +1200,56 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         const innerWhiteSize = 5 * cellSize;
         const ballSize = 3 * cellSize;
 
-        // Outer Frame
+        if (artSourceCanvas) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+          ctx.beginPath();
+          ctx.roundRect(
+            ex - cellSize * 0.5,
+            ey - cellSize * 0.5,
+            outerSize + cellSize,
+            outerSize + cellSize,
+            cellSize * 1.5
+          );
+          ctx.fill();
+        }
+
+        if (fx3d) {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+          traceEyeShapePath(
+            ctx,
+            ex + 2 * scaleFactor,
+            ey + 2.2 * scaleFactor,
+            outerSize,
+            outerEyeShape,
+            cellSize * 1.8
+          );
+          ctx.fill();
+        }
+
         ctx.fillStyle = customEyeColor ? outerEyeColor : mainFill;
         traceEyeShapePath(ctx, ex, ey, outerSize, outerEyeShape, cellSize * 1.8);
         ctx.fill();
 
-        // Inner White Cutout
         ctx.fillStyle = bgColor;
-        traceEyeShapePath(ctx, ex + cellSize, ey + cellSize, innerWhiteSize, outerEyeShape, cellSize * 1.25);
+        traceEyeShapePath(
+          ctx,
+          ex + cellSize,
+          ey + cellSize,
+          innerWhiteSize,
+          outerEyeShape,
+          cellSize * 1.25
+        );
         ctx.fill();
 
-        // Inner Eye Ball
         ctx.fillStyle = customEyeColor ? innerEyeColor : mainFill;
-        traceEyeShapePath(ctx, ex + cellSize * 2, ey + cellSize * 2, ballSize, innerEyeShape, cellSize * 0.85);
+        traceEyeShapePath(
+          ctx,
+          ex + cellSize * 2,
+          ey + cellSize * 2,
+          ballSize,
+          innerEyeShape,
+          cellSize * 0.85
+        );
         ctx.fill();
       };
 
@@ -706,7 +1257,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       drawFinderEye(0, count - 7);
       drawFinderEye(count - 7, 0);
 
-      // 5. Draw Center Logo Emblem with Quiet-Zone Border & Shape Mask (Circle / Rounded / Square)
+      // 5. Draw Center Logo / Avatar
       if (hasLogo) {
         const cx = centerCoordX;
         const cy = centerCoordY;
@@ -727,11 +1278,10 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         ctx.save();
         if (logoShadow) {
           ctx.shadowColor = 'rgba(15, 23, 42, 0.18)';
-          ctx.shadowBlur = 14 * scaleFactor;
-          ctx.shadowOffsetY = 3 * scaleFactor;
+          ctx.shadowBlur = 12 * scaleFactor;
+          ctx.shadowOffsetY = 2 * scaleFactor;
         }
 
-        // Draw Quiet-Zone White Cushion Pad
         ctx.fillStyle = bgColor;
         ctx.beginPath();
         if (logoMask === 'circle') {
@@ -748,7 +1298,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         ctx.fill();
         ctx.restore();
 
-        // Clip inner logo to selected mask (Circle Avatar Mask or Smooth Rounded Square)
         ctx.save();
         ctx.beginPath();
         if (logoMask === 'circle') {
@@ -776,7 +1325,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
-              // Cover center crop so rectangular photos fit cleanly inside circle/rounded mask
               const minDim = Math.min(img.width, img.height);
               const sx = (img.width - minDim) / 2;
               const sy = (img.height - minDim) / 2;
@@ -801,7 +1349,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           ctx.fillRect(cx - logoBoxSize / 2, cy - logoBoxSize / 2, logoBoxSize, logoBoxSize);
 
           ctx.fillStyle = '#ffffff';
-          ctx.font = `900 ${17 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+          ctx.font = `900 ${16 * scaleFactor}px system-ui, -apple-system, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
@@ -838,6 +1386,11 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       frameText,
       frameColor,
       wifiSsid,
+      artPreset,
+      customArtDataUrl,
+      artBlendMode,
+      fx3d,
+      fxNeon,
       logoPreset,
       customLogoDataUrl,
       vcardAvatarDataUrl,
@@ -848,7 +1401,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     ]
   );
 
-  // Re-render live preview canvas and mini iPhone mockup QR canvas
   useEffect(() => {
     if (previewCanvasRef.current && previewTab === 'qr') {
       renderStyledQrCanvas(previewCanvasRef.current, 1);
@@ -858,7 +1410,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
   }, [renderStyledQrCanvas, previewTab]);
 
-  // Export High-Resolution Print PNG (4x Retina — 1360px+)
   const handleDownloadPng = async () => {
     try {
       const offscreen = document.createElement('canvas');
@@ -870,13 +1421,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      notifySuccess('High-Res PNG Exported', 'Downloaded 4x print-ready QR code PNG.');
+      notifySuccess('PNG Downloaded', 'High-resolution QR code saved.');
     } catch (_) {
-      notifyError('Export Failed', 'Could not generate PNG file.');
+      notifyError('Export Failed', 'Could not generate PNG.');
     }
   };
 
-  // Export Printable Horizontal Physical / NFC Business Card (1050x600px — 85mm x 55mm Standard)
   const handleDownloadPrintableBusinessCard = async () => {
     try {
       const canvas = document.createElement('canvas');
@@ -887,7 +1437,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. Background based on selected vCard Theme
       if (vcardTheme === 'titanium-dark') {
         const bg = ctx.createLinearGradient(0, 0, W, H);
         bg.addColorStop(0, '#090d16');
@@ -918,11 +1467,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       const secondaryText = isDarkCard ? '#38bdf8' : '#0284c7';
       const mutedText = isDarkCard ? '#94a3b8' : '#475569';
 
-      // Subtle decorative accent bar on left edge
       ctx.fillStyle = vcardTheme === 'titanium-dark' ? '#d97706' : '#0284c7';
       ctx.fillRect(0, 0, 14, H);
 
-      // 2. Left Column: Avatar + Identity + Contact Info
       let textStartX = 64;
       if (vcardAvatarDataUrl) {
         await new Promise<void>((resolve) => {
@@ -961,13 +1508,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
 
       ctx.fillStyle = vcardTheme === 'titanium-dark' ? '#fbbf24' : secondaryText;
       ctx.font = '700 21px system-ui, -apple-system, sans-serif';
-      ctx.fillText(vcardJobTitle || 'Executive Title', textStartX, 152);
+      ctx.fillText(vcardJobTitle || 'Title', textStartX, 152);
 
       ctx.fillStyle = mutedText;
       ctx.font = '600 18px system-ui, -apple-system, sans-serif';
-      ctx.fillText(vcardOrg || 'Organization', textStartX, 182);
+      ctx.fillText(vcardOrg || '', textStartX, 182);
 
-      // Contact Details List
       const detailsYStart = 265;
       const details = [
         vcardPhone ? `TEL   ${vcardPhone}` : '',
@@ -982,12 +1528,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         ctx.fillText(line, 64, detailsYStart + idx * 46);
       });
 
-      // Bottom NFC / Digital Identity Footer
-      ctx.fillStyle = mutedText;
-      ctx.font = '700 14px system-ui, -apple-system, sans-serif';
-      ctx.fillText('SCAN QR TO SAVE CONTACT TO PHONE · BEAMDROP DIGITAL ID', 64, H - 48);
-
-      // 3. Right Column: Custom Styled QR Code
       const qrOffscreen = document.createElement('canvas');
       await renderStyledQrCanvas(qrOffscreen, 1.25);
       const qrW = 360;
@@ -997,17 +1537,16 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       const a = document.createElement('a');
       a.href = dataUrl;
-      a.download = `beamdrop-business-card-${(vcardFullName || 'card').replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
+      a.download = `beamdrop-card-${(vcardFullName || 'vcard').replace(/[^a-zA-Z0-9_-]/g, '_')}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      notifySuccess('Printable Business Card Ready', 'Downloaded 1050x600px print-ready business card PNG.');
+      notifySuccess('Card Downloaded', 'Saved 1050×600px business card.');
     } catch (_) {
-      notifyError('Card Export Failed', 'Could not render printable business card.');
+      notifyError('Export Failed', 'Could not render business card.');
     }
   };
 
-  // Export Pure Vector SVG for Print & Graphic Design
   const handleDownloadSvg = () => {
     try {
       const payloadToDraw = qrPayload || 'https://beam-drop-mu.vercel.app';
@@ -1018,22 +1557,43 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
       const pad = 32;
       const cell = (size - pad * 2) / count;
 
-      const rects: string[] = [];
+      const shapes: string[] = [];
       for (let r = 0; r < count; r++) {
         for (let c = 0; c < count; c++) {
           if (!modules.get(r, c)) continue;
-          const x = (pad + c * cell).toFixed(2);
-          const y = (pad + r * cell).toFixed(2);
-          const w = cell.toFixed(2);
-          const rx =
-            bodyShape === 'dots'
-              ? (cell / 2).toFixed(2)
-              : bodyShape === 'rounded'
-              ? (cell * 0.32).toFixed(2)
-              : '0';
-          rects.push(
-            `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="${rx}" fill="url(#qrGrad)" />`
-          );
+          const x = pad + c * cell;
+          const y = pad + r * cell;
+          const cx = x + cell / 2;
+          const cy = y + cell / 2;
+
+          if (bodyShape === 'diamond') {
+            const rad = cell * 0.5;
+            shapes.push(
+              `<polygon points="${cx.toFixed(2)},${(cy - rad).toFixed(2)} ${(cx + rad).toFixed(2)},${cy.toFixed(2)} ${cx.toFixed(2)},${(cy + rad).toFixed(2)} ${(cx - rad).toFixed(2)},${cy.toFixed(2)}" fill="url(#qrGrad)" />`
+            );
+          } else if (bodyShape === 'star') {
+            const outerR = cell * 0.54;
+            const innerR = cell * 0.22;
+            const pts: string[] = [];
+            for (let i = 0; i < 8; i++) {
+              const rad = i % 2 === 0 ? outerR : innerR;
+              const angle = (i * Math.PI) / 4;
+              pts.push(
+                `${(cx + Math.cos(angle) * rad).toFixed(2)},${(cy + Math.sin(angle) * rad).toFixed(2)}`
+              );
+            }
+            shapes.push(`<polygon points="${pts.join(' ')}" fill="url(#qrGrad)" />`);
+          } else {
+            const rx =
+              bodyShape === 'dots'
+                ? (cell / 2).toFixed(2)
+                : bodyShape === 'rounded' || bodyShape === 'liquid' || bodyShape === 'bars'
+                ? (cell * 0.34).toFixed(2)
+                : '0';
+            shapes.push(
+              `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" rx="${rx}" fill="url(#qrGrad)" />`
+            );
+          }
         }
       }
 
@@ -1047,25 +1607,24 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     </linearGradient>
   </defs>
   <rect width="${size}" height="${size}" rx="24" fill="${bgColor}" />
-  ${rects.join('\n  ')}
+  ${shapes.join('\n  ')}
 </svg>`;
 
       const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `beamdrop-qr-${engineType}-vector.svg`;
+      a.download = `beamdrop-qr-${engineType}.svg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      notifySuccess('Vector SVG Exported', 'Downloaded scalable vector SVG QR code.');
+      notifySuccess('SVG Downloaded', 'Vector SVG saved.');
     } catch (_) {
-      notifyError('SVG Export Failed', 'Could not generate vector SVG.');
+      notifyError('SVG Failed', 'Could not generate SVG.');
     }
   };
 
-  // Copy QR Image to Clipboard
   const handleCopyQrImage = async () => {
     try {
       const offscreen = document.createElement('canvas');
@@ -1075,17 +1634,16 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
           setCopiedQrImage(true);
-          notifyInfo('QR Image Copied', 'Copied customized QR card to clipboard.');
+          notifyInfo('Copied', 'QR image copied to clipboard.');
           setTimeout(() => setCopiedQrImage(false), 2000);
         }
       }, 'image/png');
     } catch (_) {
       navigator.clipboard.writeText(qrPayload);
-      notifyInfo('Link Copied', 'Copied QR payload to clipboard.');
+      notifyInfo('Copied', 'QR content copied.');
     }
   };
 
-  // Upload PDF/Document via 24h Cloud Drop API for PDF Showcase QR
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1110,7 +1668,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         })
       });
 
-      if (!createRes.ok) throw new Error('Cloud Drop upload session failed');
+      if (!createRes.ok) throw new Error('Upload session failed');
       const sessionData = await createRes.json();
       const dropId = sessionData.id;
 
@@ -1164,27 +1722,27 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         shareUrl
       });
       setPdfUrl(shareUrl);
-      notifySuccess(
-        'PDF Uploaded to 24h Cloud Vault',
-        'QR code now links directly to your verified PDF showcase.'
-      );
+      notifySuccess('PDF Ready', 'Linked to 24h Cloud Drop.');
     } catch (err: any) {
-      notifyError('PDF Upload Error', err?.message || 'Could not upload PDF.');
+      notifyError('Upload Error', err?.message || 'Could not upload PDF.');
     } finally {
       setIsUploadingPdf(false);
     }
   };
 
-  // Create Dynamic QR (Trackable & Editable Anytime)
   const handleCreateDynamicQr = async () => {
     setIsCreatingDynamic(true);
     try {
-      let title = websiteTitle || 'BeamDrop Dynamic QR';
+      let title = websiteTitle || websiteUrl || 'Dynamic QR';
       let targetUrl = websiteUrl;
       let payload: any = {};
 
-      if (engineType === 'vcard') {
-        title = `${vcardFullName} (vCard Plus)`;
+      if (engineType === 'text') {
+        title = plainTextPayload.slice(0, 32) || 'Text QR';
+        targetUrl = '';
+        payload = { text: plainTextPayload };
+      } else if (engineType === 'vcard') {
+        title = vcardFullName || 'vCard';
         targetUrl = vcardWebsite;
         payload = {
           theme: vcardTheme,
@@ -1192,37 +1750,26 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           fullName: vcardFullName,
           jobTitle: vcardJobTitle,
           organization: vcardOrg,
-          bio: vcardBio,
           phone: vcardPhone,
           whatsapp: vcardWhatsapp,
           email: vcardEmail,
           website: vcardWebsite,
-          address: vcardAddress,
-          linkedin: vcardLinkedin,
-          github: vcardGithub,
-          instagram: vcardInstagram,
-          twitter: vcardTwitter
+          address: vcardAddress
         };
       } else if (engineType === 'applink') {
-        title = `${appName} (Multi-Store Link)`;
-        targetUrl = appFallbackUrl || appIosUrl || appAndroidUrl;
+        title = appName || 'App Link';
+        targetUrl = appIosUrl || appAndroidUrl;
         payload = {
           appName,
-          appSubtitle,
           iosUrl: appIosUrl,
-          androidUrl: appAndroidUrl,
-          fallbackUrl: appFallbackUrl
+          androidUrl: appAndroidUrl
         };
       } else if (engineType === 'pdf') {
-        title = pdfTitle || 'PDF Document Showcase';
+        title = pdfTitle || 'PDF';
         targetUrl = uploadedPdfMeta?.shareUrl || pdfUrl;
-        payload = {
-          docTitle: pdfTitle,
-          docAuthor: pdfAuthor,
-          docDescription: pdfDescription
-        };
+        payload = { docTitle: pdfTitle };
       } else if (engineType === 'wifi') {
-        title = `${wifiSsid} (Wi-Fi Card)`;
+        title = wifiSsid || 'Wi-Fi';
         payload = {
           ssid: wifiSsid,
           password: wifiPassword,
@@ -1241,24 +1788,20 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
         })
       });
 
-      if (!res.ok) throw new Error('Failed to register Dynamic QR');
+      if (!res.ok) throw new Error('Failed to create Dynamic QR');
       const data = await res.json();
       if (data.qr) {
         setActiveDynamicCode(data.qr.code);
         setDynamicQrs((prev) => [data.qr, ...prev.filter((i) => i.code !== data.qr.code)]);
-        notifySuccess(
-          'Dynamic QR Activated',
-          `Shortlink /q/${data.qr.code} is live. You can edit its destination anytime!`
-        );
+        notifySuccess('Dynamic QR Active', `Shortlink /q/${data.qr.code} created.`);
       }
     } catch (err: any) {
-      notifyError('Dynamic QR Error', err?.message || 'Could not create Dynamic QR.');
+      notifyError('Error', err?.message || 'Could not create Dynamic QR.');
     } finally {
       setIsCreatingDynamic(false);
     }
   };
 
-  // Refresh Dynamic QR Scan Analytics from Server
   const handleRefreshAnalytics = async () => {
     if (dynamicQrs.length === 0) return;
     setIsRefreshingAnalytics(true);
@@ -1280,10 +1823,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
   };
 
-  // Save edited destination URL on an existing Dynamic QR without changing its QR code
   const handleSaveDynamicEdit = async (code: string) => {
     try {
-      const res = await fetch('/api/qr-studio?action=update', {
+      await fetch('/api/qr-studio?action=update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1305,15 +1847,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
             : item
         )
       );
-
-      if (res.ok) {
-        notifySuccess(
-          'Dynamic Destination Updated',
-          `QR /q/${code} now redirects to the new link without re-printing!`
-        );
-      } else {
-        notifyInfo('Updated Locally', `Saved new destination for /q/${code}.`);
-      }
+      notifySuccess('Updated', `Destination updated for /q/${code}.`);
       setEditingCode(null);
     } catch (_) {
       setEditingCode(null);
@@ -1322,18 +1856,14 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
 
   const handleDeleteDynamicQr = async (code: string) => {
     setDynamicQrs((prev) => prev.filter((i) => i.code !== code));
-    if (activeDynamicCode === code) {
-      setActiveDynamicCode('');
-    }
+    if (activeDynamicCode === code) setActiveDynamicCode('');
     try {
       await fetch(`/api/qr-studio?action=delete&code=${encodeURIComponent(code)}`, {
         method: 'POST'
       });
     } catch (_) {}
-    notifyInfo('Dynamic QR Removed', `Deleted /q/${code}.`);
   };
 
-  // Direct .vcf download helper for the Live iPhone Mockup preview
   const handleTriggerMockupVcfDownload = () => {
     const lines = [
       'BEGIN:VCARD',
@@ -1356,499 +1886,165 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    notifySuccess('vCard Downloaded', 'Saved .vcf contact file.');
   };
 
+  // Direct, minimal mode tabs (Including Text to QR!)
   const ENGINE_TABS: Array<{
     id: QrEngineType;
     label: string;
-    subtitle: string;
     icon: React.ComponentType<{ className?: string }>;
   }> = [
-    { id: 'url', label: 'Website Link', subtitle: 'Static or Dynamic URL', icon: Globe },
-    { id: 'vcard', label: 'vCard Plus', subtitle: 'Digital Business Card', icon: UserCheck },
-    { id: 'wifi', label: 'Wi-Fi Direct', subtitle: '1-Scan Network Join', icon: Wifi },
-    { id: 'pdf', label: 'PDF Showcase', subtitle: '24h Cloud Document', icon: FileText },
-    { id: 'applink', label: 'App Store Link', subtitle: 'iOS & Android Routing', icon: Smartphone },
-    {
-      id: 'analytics',
-      label: 'Dynamic QRs',
-      subtitle: `Analytics (${dynamicQrs.length})`,
-      icon: BarChart3
-    }
+    { id: 'url', label: 'Link', icon: Globe },
+    { id: 'text', label: 'Text', icon: Type },
+    { id: 'wifi', label: 'Wi-Fi', icon: Wifi },
+    { id: 'vcard', label: 'vCard', icon: UserCheck },
+    { id: 'pdf', label: 'PDF', icon: FileText },
+    { id: 'applink', label: 'App', icon: Smartphone },
+    { id: 'analytics', label: `Saved (${dynamicQrs.length})`, icon: BarChart3 }
   ];
 
   return (
-    <div className="space-y-5 relative">
-      {/* Studio Header Bar */}
-      <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center space-x-2 text-xs text-sky-700 font-semibold">
-            <span>BeamDrop Universal OS</span>
-            <span aria-hidden="true">·</span>
-            <span>Core 2: QR Studio</span>
-            <span aria-hidden="true">·</span>
-            <span>Brand Identity &amp; Dynamic Analytics</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-            QR Code Generator &amp; Digital Business Card Studio
-          </h1>
+    <div className="space-y-4">
+      {/* Clean Minimal Top Bar: Mode Pills + Optional Dynamic Shortlink Button */}
+      <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1">
+          {ENGINE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = engineType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setEngineType(tab.id);
+                  setActiveDynamicCode('');
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-sky-50'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Dynamic QR Quick Status / Create Button */}
+        {/* Optional Dynamic Shortlink Toggle */}
         <div className="flex items-center gap-2">
           {activeDynamicCode ? (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span className="font-mono font-bold text-emerald-900">/q/{activeDynamicCode}</span>
               <button
                 type="button"
                 onClick={() => setActiveDynamicCode('')}
-                className="text-slate-500 hover:text-rose-600 font-semibold ml-1 cursor-pointer"
+                className="text-slate-400 hover:text-rose-600 ml-1 cursor-pointer"
+                title="Reset to static QR"
               >
-                Reset to Static
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleCreateDynamicQr}
-              disabled={isCreatingDynamic}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-2 shadow-sm transition-colors cursor-pointer"
-            >
-              <Zap className="w-3.5 h-3.5 text-sky-400" />
-              <span>
-                {isCreatingDynamic ? 'Creating Shortlink...' : 'Make Dynamic QR (/q/shortlink)'}
-              </span>
-            </button>
+            engineType !== 'analytics' && (
+              <button
+                type="button"
+                onClick={handleCreateDynamicQr}
+                disabled={isCreatingDynamic}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                title="Create editable Dynamic Shortlink QR"
+              >
+                <Zap className="w-3.5 h-3.5 text-sky-400" />
+                <span>{isCreatingDynamic ? 'Saving...' : 'Dynamic Link'}</span>
+              </button>
+            )
           )}
         </div>
       </div>
 
-      {/* 6 QR Generator Engine Selector Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {ENGINE_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = engineType === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setEngineType(tab.id);
-                setActiveDynamicCode('');
-              }}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                isActive
-                  ? 'bg-sky-600 text-white border-sky-600 shadow-md shadow-sky-500/15'
-                  : 'bg-white/85 hover:bg-white text-slate-700 border-sky-100 hover:border-sky-300'
-              }`}
-            >
+      {/* Main 2-Column Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* LEFT COLUMN (7 Cols): Direct Content Input + Optional Collapsible Customizer */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* 1. LINK (URL) */}
+          {engineType === 'url' && (
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-sky-600'}`} />
-                {tab.id === 'analytics' && dynamicQrs.length > 0 && (
-                  <span
-                    className={`text-[10px] font-mono font-bold ${
-                      isActive ? 'text-sky-100' : 'text-sky-600'
-                    }`}
+                <label className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
+                  Website URL
+                </label>
+                {websiteUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setWebsiteUrl('')}
+                    className="text-xs text-slate-400 hover:text-rose-600 font-semibold cursor-pointer"
                   >
-                    {dynamicQrs.length} active
-                  </span>
+                    Clear
+                  </button>
                 )}
               </div>
-              <div className="mt-2">
-                <div className="text-xs font-bold leading-tight">{tab.label}</div>
-                <div
-                  className={`text-[10px] mt-0.5 truncate ${
-                    isActive ? 'text-sky-100' : 'text-slate-400'
-                  }`}
-                >
-                  {tab.subtitle}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Main 2-Column QRCG Studio Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN (7 Cols): Content Input + Next-Gen Visual Customizer */}
-        <div className="lg:col-span-7 space-y-5">
-          {/* ENGINE 1: WEBSITE LINK */}
-          {engineType === 'url' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  1. Enter Website or Destination URL
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Generate a direct QR code for any link, or activate Dynamic QR to track scans and update the destination anytime.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Website URL</label>
-                  <input
-                    type="url"
-                    value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                    placeholder="https://example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-sky-500 focus:outline-none text-sm font-mono text-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Campaign / Label Title (For Dynamic Tracking)
-                  </label>
-                  <input
-                    type="text"
-                    value={websiteTitle}
-                    onChange={(e) => setWebsiteTitle(e.target.value)}
-                    placeholder="e.g. Summer Product Launch Menu"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-sky-500 focus:outline-none text-sm text-slate-900"
-                  />
-                </div>
-              </div>
+              <input
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://example.com"
+                autoFocus
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-sky-500 focus:outline-none text-sm font-mono text-slate-900"
+              />
             </div>
           )}
 
-          {/* ENGINE 2: INTERACTIVE DIGITAL BUSINESS CARD STUDIO (vCard Plus) */}
-          {engineType === 'vcard' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900">
-                    1. Interactive Digital Business Card Studio (vCard Plus)
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Design a themed mobile profile card or direct offline .vcf contact QR, plus export printable NFC business cards.
-                  </p>
-                </div>
-
-                {/* Output Mode Selector: Offline .vcf vs Hosted Digital Profile */}
-                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVcardOutputMode('offline');
-                      setPreviewTab('qr');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      vcardOutputMode === 'offline'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Offline .vcf QR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVcardOutputMode('dynamic');
-                      setPreviewTab('iphone');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      vcardOutputMode === 'dynamic'
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Digital Profile Page
-                  </button>
-                </div>
-              </div>
-
-              {/* 4 Luxury Digital Card Themes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Select Digital Card Theme (Live iPhone Mockup &amp; Printable Card)
+          {/* 2. TEXT TO QR CODE (Direct Text Input) */}
+          {engineType === 'text' && (
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
+                  Text to QR Code
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {VCARD_THEMES.map((theme) => {
-                    const active = vcardTheme === theme.id;
-                    return (
-                      <button
-                        key={theme.id}
-                        type="button"
-                        onClick={() => {
-                          setVcardTheme(theme.id);
-                          setPreviewTab('iphone');
-                        }}
-                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          active
-                            ? 'border-sky-600 bg-sky-50/70 ring-2 ring-sky-500/20'
-                            : 'border-slate-200 hover:border-sky-300 bg-white'
-                        }`}
-                      >
-                        <div
-                          className="w-full h-5 rounded-lg mb-2 border border-black/10"
-                          style={{ background: theme.swatch }}
-                        />
-                        <div className="text-xs font-extrabold text-slate-900 truncate">
-                          {theme.name}
-                        </div>
-                        <div className="text-[10px] text-slate-500 truncate mt-0.5">
-                          {theme.subtitle}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Avatar Upload + Executive Identity Fields */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <input
-                  ref={vcardAvatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const dataUrl = String(reader.result || '');
-                      setVcardAvatarDataUrl(dataUrl);
-                      setCustomLogoDataUrl(dataUrl);
-                      setLogoPreset('custom');
-                      setLogoMask('circle');
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                  className="hidden"
-                />
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center font-black text-lg overflow-hidden shrink-0 border-2 border-white shadow-md">
-                  {vcardAvatarDataUrl ? (
-                    <img
-                      src={vcardAvatarDataUrl}
-                      alt="Profile Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    (vcardFullName || 'B').charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-900">
-                    Profile Photo &amp; Circular QR Center Avatar
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    Automatically masked into a circle with a white quiet-zone border inside the QR code and iPhone profile.
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {plainTextPayload.length} chars
+                  </span>
                   <button
                     type="button"
-                    onClick={() => vcardAvatarInputRef.current?.click()}
-                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                    onClick={async () => {
+                      try {
+                        const clip = await navigator.clipboard.readText();
+                        if (clip) setPlainTextPayload(clip);
+                      } catch (_) {}
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Photo</span>
+                    <ClipboardPaste className="w-3.5 h-3.5" />
+                    <span>Paste</span>
                   </button>
-                  {vcardAvatarDataUrl && (
+                  {plainTextPayload && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setVcardAvatarDataUrl(null);
-                        setCustomLogoDataUrl(null);
-                        setLogoPreset('vcard');
-                      }}
-                      className="px-2.5 py-2 rounded-xl border border-slate-200 hover:bg-rose-50 text-xs font-bold text-rose-600 cursor-pointer"
+                      onClick={() => setPlainTextPayload('')}
+                      className="px-2 py-1 rounded-lg text-slate-400 hover:text-rose-600 text-xs font-bold cursor-pointer"
                     >
                       Clear
                     </button>
                   )}
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    value={vcardFullName}
-                    onChange={(e) => setVcardFullName(e.target.value)}
-                    placeholder="Abderraouf Djemel"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Job Title / Role
-                  </label>
-                  <input
-                    type="text"
-                    value={vcardJobTitle}
-                    onChange={(e) => setVcardJobTitle(e.target.value)}
-                    placeholder="Founder & Principal Architect"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Company / Organization
-                  </label>
-                  <input
-                    type="text"
-                    value={vcardOrg}
-                    onChange={(e) => setVcardOrg(e.target.value)}
-                    placeholder="BeamDrop Inc."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={vcardPhone}
-                    onChange={(e) => setVcardPhone(e.target.value)}
-                    placeholder="+1 555 234 5678"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    WhatsApp Direct Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={vcardWhatsapp}
-                    onChange={(e) => setVcardWhatsapp(e.target.value)}
-                    placeholder="+213555123456"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={vcardEmail}
-                    onChange={(e) => setVcardEmail(e.target.value)}
-                    placeholder="contact@company.com"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Website / Portfolio
-                  </label>
-                  <input
-                    type="url"
-                    value={vcardWebsite}
-                    onChange={(e) => setVcardWebsite(e.target.value)}
-                    placeholder="https://beam-drop-mu.vercel.app"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Location / Office City
-                  </label>
-                  <input
-                    type="text"
-                    value={vcardAddress}
-                    onChange={(e) => setVcardAddress(e.target.value)}
-                    placeholder="Algiers · Paris"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Executive Bio / Tagline
-                  </label>
-                  <input
-                    type="text"
-                    value={vcardBio}
-                    onChange={(e) => setVcardBio(e.target.value)}
-                    placeholder="Short headline displayed on your digital card..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Social Links Row */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Social &amp; Creator Profiles (Optional)
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <input
-                    type="url"
-                    value={vcardLinkedin}
-                    onChange={(e) => setVcardLinkedin(e.target.value)}
-                    placeholder="LinkedIn URL (https://linkedin.com/in/...)"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs text-slate-900"
-                  />
-                  <input
-                    type="url"
-                    value={vcardGithub}
-                    onChange={(e) => setVcardGithub(e.target.value)}
-                    placeholder="GitHub URL (https://github.com/...)"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs text-slate-900"
-                  />
-                  <input
-                    type="url"
-                    value={vcardInstagram}
-                    onChange={(e) => setVcardInstagram(e.target.value)}
-                    placeholder="Instagram URL (https://instagram.com/...)"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs text-slate-900"
-                  />
-                  <input
-                    type="url"
-                    value={vcardTwitter}
-                    onChange={(e) => setVcardTwitter(e.target.value)}
-                    placeholder="X / Twitter URL (https://x.com/...)"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs text-slate-900"
-                  />
-                </div>
-              </div>
-
-              {/* Printable Business Card Export Banner */}
-              <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0">
-                    <CreditCard className="w-5 h-5 text-amber-400" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-extrabold">
-                      Printable NFC &amp; Executive Business Card (1050×600px)
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      Exports your themed horizontal card with contact details + custom QR code ready for print.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadPrintableBusinessCard}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center space-x-1.5 shrink-0 cursor-pointer transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Printable Card (PNG)</span>
-                </button>
-              </div>
+              <textarea
+                rows={4}
+                value={plainTextPayload}
+                onChange={(e) => setPlainTextPayload(e.target.value)}
+                placeholder="Type or paste any text, note, code, or message..."
+                autoFocus
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-sky-500 focus:outline-none text-sm text-slate-900 resize-y"
+              />
             </div>
           )}
 
-          {/* ENGINE 3: WI-FI DIRECT CONNECT */}
+          {/* 3. WI-FI */}
           {engineType === 'wifi' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  1. Wi-Fi Direct Connect Credentials
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Guests, cafés, and offices can join your Wi-Fi network with a single camera scan—no typing required.
-                </p>
-              </div>
-
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1858,15 +2054,13 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                     type="text"
                     value={wifiSsid}
                     onChange={(e) => setWifiSsid(e.target.value)}
-                    placeholder="Office_5G_WiFi"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                    placeholder="My_WiFi_5G"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Security / Encryption
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Security</label>
                   <select
                     value={wifiEncryption}
                     onChange={(e) =>
@@ -1876,22 +2070,20 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   >
                     <option value="WPA">WPA / WPA2 / WPA3</option>
                     <option value="WEP">WEP</option>
-                    <option value="nopass">None (Open Network)</option>
+                    <option value="nopass">Open (No Password)</option>
                   </select>
                 </div>
 
                 {wifiEncryption !== 'nopass' && (
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Wi-Fi Password
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
                     <div className="relative">
                       <input
                         type={showWifiPassword ? 'text' : 'password'}
                         value={wifiPassword}
                         onChange={(e) => setWifiPassword(e.target.value)}
-                        placeholder="Enter Wi-Fi password"
-                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-slate-50/70 text-sm font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
+                        placeholder="Wi-Fi password"
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
                       />
                       <button
                         type="button"
@@ -1907,35 +2099,180 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                     </div>
                   </div>
                 )}
-
-                <div className="sm:col-span-2 flex items-center space-x-2 pt-1">
-                  <input
-                    id="wifiHiddenCheck"
-                    type="checkbox"
-                    checked={wifiHidden}
-                    onChange={(e) => setWifiHidden(e.target.checked)}
-                    className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                  />
-                  <label htmlFor="wifiHiddenCheck" className="text-xs font-medium text-slate-700">
-                    This is a hidden SSID network
-                  </label>
-                </div>
               </div>
             </div>
           )}
 
-          {/* ENGINE 4: PDF & DOCUMENT SHOWCASE */}
-          {engineType === 'pdf' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  1. PDF &amp; Document Showcase (Powered by 24h Cloud Drop)
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Upload any PDF, restaurant menu, brochure, or catalog to generate a verified SHA-256 download QR code.
-                </p>
+          {/* 4. VCARD (DIGITAL BUSINESS CARD) */}
+          {engineType === 'vcard' && (
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+              {/* Top Row: Mode Switcher + Photo Upload */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVcardOutputMode('offline');
+                      setPreviewTab('qr');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                      vcardOutputMode === 'offline'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    Direct .vcf QR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVcardOutputMode('dynamic');
+                      setPreviewTab('iphone');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                      vcardOutputMode === 'dynamic'
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    Mobile Card
+                  </button>
+                </div>
+
+                {/* Photo Upload */}
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={vcardAvatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const dataUrl = String(reader.result || '');
+                        setVcardAvatarDataUrl(dataUrl);
+                        setCustomLogoDataUrl(dataUrl);
+                        setLogoPreset('custom');
+                        setLogoMask('circle');
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => vcardAvatarInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-sky-600" />
+                    <span>{vcardAvatarDataUrl ? 'Change Photo' : 'Add Photo'}</span>
+                  </button>
+                  {vcardAvatarDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVcardAvatarDataUrl(null);
+                        setCustomLogoDataUrl(null);
+                        setLogoPreset('none');
+                      }}
+                      className="text-xs text-rose-600 font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {/* Compact Theme Swatches */}
+              <div className="grid grid-cols-4 gap-2">
+                {VCARD_THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => setVcardTheme(theme.id)}
+                    className={`p-2 rounded-xl border text-center cursor-pointer transition-all ${
+                      vcardTheme === theme.id
+                        ? 'border-sky-600 bg-sky-50/70'
+                        : 'border-slate-200 hover:border-sky-300'
+                    }`}
+                  >
+                    <div
+                      className="w-full h-3.5 rounded-md mb-1"
+                      style={{ background: theme.swatch }}
+                    />
+                    <div className="text-[11px] font-bold text-slate-800 truncate">
+                      {theme.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Direct Contact Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={vcardFullName}
+                  onChange={(e) => setVcardFullName(e.target.value)}
+                  placeholder="Full Name"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={vcardJobTitle}
+                  onChange={(e) => setVcardJobTitle(e.target.value)}
+                  placeholder="Job Title"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={vcardOrg}
+                  onChange={(e) => setVcardOrg(e.target.value)}
+                  placeholder="Company"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  value={vcardPhone}
+                  onChange={(e) => setVcardPhone(e.target.value)}
+                  placeholder="Phone Number"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  value={vcardWhatsapp}
+                  onChange={(e) => setVcardWhatsapp(e.target.value)}
+                  placeholder="WhatsApp Number"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="email"
+                  value={vcardEmail}
+                  onChange={(e) => setVcardEmail(e.target.value)}
+                  placeholder="Email Address"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="url"
+                  value={vcardWebsite}
+                  onChange={(e) => setVcardWebsite(e.target.value)}
+                  placeholder="Website URL"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={vcardAddress}
+                  onChange={(e) => setVcardAddress(e.target.value)}
+                  placeholder="City / Location"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 5. PDF TO QR */}
+          {engineType === 'pdf' && (
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
               <input
                 ref={pdfFileInputRef}
                 type="file"
@@ -1944,243 +2281,127 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                 className="hidden"
               />
 
-              <div className="p-4 rounded-2xl border-2 border-dashed border-sky-300 bg-sky-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">
-                      {uploadedPdfMeta
-                        ? uploadedPdfMeta.name
-                        : 'Upload PDF or Document to 24h Cloud Drop'}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {uploadedPdfMeta
-                        ? `${formatBytes(uploadedPdfMeta.size)} · SHA-256 Verified · Ready to Scan`
-                        : 'Direct Google Drive / Hybrid Cloud Vault with 24-hour auto-expiry'}
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between p-3.5 rounded-xl border border-dashed border-sky-300 bg-sky-50/50">
+                <span className="text-xs font-bold text-slate-800 truncate">
+                  {uploadedPdfMeta
+                    ? `${uploadedPdfMeta.name} (${formatBytes(uploadedPdfMeta.size)})`
+                    : 'Upload PDF / Document (24h Cloud)'}
+                </span>
                 <button
                   type="button"
                   onClick={() => pdfFileInputRef.current?.click()}
                   disabled={isUploadingPdf}
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center space-x-1.5 shrink-0 cursor-pointer transition-colors"
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center space-x-1.5 shrink-0 cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>
-                    {isUploadingPdf
-                      ? 'Uploading...'
-                      : uploadedPdfMeta
-                      ? 'Replace PDF'
-                      : 'Select PDF File'}
-                  </span>
+                  <span>{isUploadingPdf ? 'Uploading...' : 'Choose File'}</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Document Title
-                  </label>
-                  <input
-                    type="text"
-                    value={pdfTitle}
-                    onChange={(e) => setPdfTitle(e.target.value)}
-                    placeholder="Product Catalog 2026.pdf"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Company / Author
-                  </label>
-                  <input
-                    type="text"
-                    value={pdfAuthor}
-                    onChange={(e) => setPdfAuthor(e.target.value)}
-                    placeholder="BeamDrop Labs"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Direct Document URL (Auto-filled when uploading above)
-                  </label>
-                  <input
-                    type="url"
-                    value={pdfUrl}
-                    onChange={(e) => setPdfUrl(e.target.value)}
-                    placeholder="https://beam-drop-mu.vercel.app/download?drop=..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
+              <input
+                type="url"
+                value={pdfUrl}
+                onChange={(e) => setPdfUrl(e.target.value)}
+                placeholder="Or paste direct PDF URL (https://...)"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
             </div>
           )}
 
-          {/* ENGINE 5: MULTI-STORE APP LINK */}
+          {/* 6. APP STORE LINK */}
           {engineType === 'applink' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-4">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  1. Multi-Store Smart App QR (iOS &amp; Android)
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  One unified QR code that routes iPhone users to the Apple App Store and Android users to Google Play.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">App Name</label>
-                  <input
-                    type="text"
-                    value={appName}
-                    onChange={(e) => setAppName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Developer / Tagline
-                  </label>
-                  <input
-                    type="text"
-                    value={appSubtitle}
-                    onChange={(e) => setAppSubtitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Apple App Store URL (iOS / iPadOS)
-                  </label>
-                  <input
-                    type="url"
-                    value={appIosUrl}
-                    onChange={(e) => setAppIosUrl(e.target.value)}
-                    placeholder="https://apps.apple.com/app/..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Google Play Store URL (Android)
-                  </label>
-                  <input
-                    type="url"
-                    value={appAndroidUrl}
-                    onChange={(e) => setAppAndroidUrl(e.target.value)}
-                    placeholder="https://play.google.com/store/apps/details?id=..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={handleCreateDynamicQr}
-                  disabled={isCreatingDynamic}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center space-x-2 cursor-pointer transition-colors"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Generate Smart OS-Routing QR (/q/shortlink)</span>
-                </button>
-              </div>
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
+              <input
+                type="text"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                placeholder="App Name"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
+              <input
+                type="url"
+                value={appIosUrl}
+                onChange={(e) => setAppIosUrl(e.target.value)}
+                placeholder="Apple App Store URL (iOS)"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
+              <input
+                type="url"
+                value={appAndroidUrl}
+                onChange={(e) => setAppAndroidUrl(e.target.value)}
+                placeholder="Google Play Store URL (Android)"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs font-mono text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCreateDynamicQr}
+                disabled={isCreatingDynamic}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center space-x-2 cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Create Smart OS Link</span>
+              </button>
             </div>
           )}
 
-          {/* ENGINE 6: DYNAMIC QR MANAGER & REAL-TIME SCAN ANALYTICS */}
+          {/* 7. SAVED DYNAMIC QRS */}
           {engineType === 'analytics' && (
-            <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900">
-                    Dynamic QR Campaigns &amp; Live Scan Telemetry
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Update any Dynamic QR destination URL in real time without re-printing the physical QR code.
-                  </p>
-                </div>
+                <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
+                  Saved Dynamic QRs
+                </span>
                 <button
                   type="button"
                   onClick={handleRefreshAnalytics}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center space-x-1.5 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center space-x-1 cursor-pointer"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${
                       isRefreshingAnalytics ? 'animate-spin text-sky-600' : ''
                     }`}
                   />
-                  <span>Sync Scans</span>
+                  <span>Refresh</span>
                 </button>
               </div>
 
               {dynamicQrs.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
-                  <BarChart3 className="w-8 h-8 text-slate-400 mx-auto" />
-                  <div className="text-sm font-bold text-slate-700">
-                    No Dynamic QR Codes Created Yet
-                  </div>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    Click &ldquo;Make Dynamic QR (/q/shortlink)&rdquo; on any Website, vCard, PDF, or App Link to track scans and edit destinations anytime.
-                  </p>
+                <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200/60 text-xs text-slate-500">
+                  No dynamic links saved yet.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {dynamicQrs.map((item) => {
                     const shortUrl = `${receiverBaseUrl.replace(/\/$/, '')}/q/${item.code}`;
                     const isEditing = editingCode === item.code;
                     return (
                       <div
                         key={item.code}
-                        className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 hover:bg-white transition-colors space-y-3"
+                        className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2.5"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
                             <div className="flex items-center space-x-2">
-                              <span className="text-sm font-extrabold text-slate-900">
+                              <span className="text-xs font-bold text-slate-900 truncate">
                                 {item.title}
-                              </span>
-                              <span className="text-xs text-slate-400" aria-hidden="true">
-                                ·
                               </span>
                               <span className="text-xs font-mono font-bold text-sky-600">
                                 /q/{item.code}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 font-mono truncate max-w-md mt-0.5">
-                              Target: {item.targetUrl || 'Interactive Digital Card'}
+                            <div className="text-[11px] text-slate-500 font-mono truncate max-w-xs">
+                              {item.targetUrl || item.type}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 text-xs">
-                            <div className="text-right">
-                              <div className="font-extrabold text-slate-900">
-                                {item.scans || 0} Scans
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                iOS {item.osBreakdown?.iOS || 0} · Android{' '}
-                                {item.osBreakdown?.Android || 0} · Web{' '}
-                                {item.osBreakdown?.Desktop || 0}
-                              </div>
-                            </div>
-
+                          <div className="flex items-center gap-2 text-xs shrink-0">
+                            <span className="font-bold text-slate-800">{item.scans || 0} scans</span>
                             <button
                               type="button"
-                              onClick={() => {
-                                setActiveDynamicCode(item.code);
-                                notifyInfo(
-                                  'Loaded in Preview',
-                                  `Previewing Dynamic QR /q/${item.code}`
-                                );
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold cursor-pointer"
+                              onClick={() => setActiveDynamicCode(item.code)}
+                              className="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold cursor-pointer"
                             >
-                              Load QR
+                              View
                             </button>
                             <button
                               type="button"
@@ -2189,8 +2410,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                                 setEditingTitle(item.title);
                                 setEditingTargetUrl(item.targetUrl || '');
                               }}
-                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer"
-                              title="Edit Destination URL Live"
+                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-white text-slate-600 cursor-pointer"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
@@ -2198,8 +2418,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                               href={shortUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600"
-                              title="Test Dynamic Shortlink"
+                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-white text-slate-600"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </a>
@@ -2207,7 +2426,6 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                               type="button"
                               onClick={() => handleDeleteDynamicQr(item.code)}
                               className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 cursor-pointer"
-                              title="Delete Dynamic QR"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2215,38 +2433,21 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         </div>
 
                         {isEditing && (
-                          <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                            <div className="sm:col-span-4">
-                              <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                Campaign Title
-                              </label>
-                              <input
-                                type="text"
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value)}
-                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
-                              />
-                            </div>
-                            <div className="sm:col-span-6">
-                              <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                New Destination URL (Updates live without changing QR)
-                              </label>
-                              <input
-                                type="url"
-                                value={editingTargetUrl}
-                                onChange={(e) => setEditingTargetUrl(e.target.value)}
-                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono"
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <button
-                                type="button"
-                                onClick={() => handleSaveDynamicEdit(item.code)}
-                                className="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
-                              >
-                                Save
-                              </button>
-                            </div>
+                          <div className="pt-2 border-t border-slate-200 flex gap-2">
+                            <input
+                              type="url"
+                              value={editingTargetUrl}
+                              onChange={(e) => setEditingTargetUrl(e.target.value)}
+                              placeholder="New URL..."
+                              className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveDynamicEdit(item.code)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Save
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2257,630 +2458,663 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
             </div>
           )}
 
-          {/* SECTION 2: NEXT-GEN VISUAL DESIGN STUDIO */}
-          <div className="bg-white/90 backdrop-blur-xl border border-sky-200/80 rounded-2xl p-5 shadow-sm space-y-5">
-            {/* 1-Click Designer Presets Bar */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                  1-Click Designer Presets
+          {/* OPTIONAL COLLAPSIBLE DESIGN CUSTOMIZER */}
+          <div className="bg-white/95 border border-sky-200/80 rounded-2xl shadow-xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsCustomizing((prev) => !prev)}
+              className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-sky-50/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center space-x-2.5">
+                <Sparkles className="w-4 h-4 text-sky-600" />
+                <span className="text-xs font-extrabold text-slate-900">
+                  Customize QR & Art Style
                 </span>
-                <span className="text-[11px] text-slate-500">
-                  Instant Color, Eye &amp; Pattern Harmony
-                </span>
+                <span className="text-[11px] text-slate-400 font-medium">(Optional)</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {DESIGNER_PRESETS.map((preset) => {
-                  const isSelected = activePresetId === preset.id;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => applyDesignerPreset(preset)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${
-                        isSelected
-                          ? 'border-sky-600 bg-sky-50/80 ring-2 ring-sky-500/20'
-                          : 'border-slate-200 hover:border-sky-300 bg-white'
-                      }`}
-                    >
-                      <span
-                        className="w-7 h-7 rounded-lg shrink-0 shadow-xs border border-black/10"
-                        style={{
-                          background: `linear-gradient(135deg, ${preset.fgColor}, ${preset.fgColor2})`
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-extrabold text-slate-900 truncate">
-                          {preset.name}
-                        </div>
-                        <div className="text-[10px] text-slate-500 truncate">{preset.badge}</div>
+
+              <div className="flex items-center space-x-3">
+                <div className="hidden sm:flex items-center space-x-1">
+                  {DESIGNER_PRESETS.slice(0, 6).map((p) => (
+                    <span
+                      key={p.id}
+                      className="w-3.5 h-3.5 rounded-full border border-black/10"
+                      style={{
+                        background: `linear-gradient(135deg, ${p.fgColor}, ${p.fgColor2})`
+                      }}
+                    />
+                  ))}
+                </div>
+                {isCustomizing ? (
+                  <ChevronUp className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                )}
+              </div>
+            </button>
+
+            {isCustomizing && (
+              <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
+                {/* 1-Click Art & Style Themes */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">
+                    1-Click Themes
+                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    {DESIGNER_PRESETS.map((preset) => {
+                      const isSelected = activePresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => applyDesignerPreset(preset)}
+                          className={`relative p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-sky-600 bg-sky-50/90 shadow-xs'
+                              : 'border-slate-200 hover:border-sky-300 bg-white'
+                          }`}
+                        >
+                          {preset.badge && (
+                            <span className="absolute -top-1.5 right-1 px-1 py-0.2 rounded text-[8px] font-black bg-sky-600 text-white">
+                              {preset.badge}
+                            </span>
+                          )}
+                          <div
+                            className="w-6 h-6 rounded-lg mx-auto mb-1 border border-black/10"
+                            style={{
+                              background: `linear-gradient(135deg, ${preset.fgColor}, ${preset.fgColor2})`
+                            }}
+                          />
+                          <div className="text-[10px] font-bold text-slate-800 truncate">
+                            {preset.name}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Sub-Tabs: Art & Photo | Shapes | Colors | Frame | Logo */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                  {[
+                    { id: 'art', label: 'Art & FX', icon: Sparkles },
+                    { id: 'shapes', label: 'Shapes', icon: Shapes },
+                    { id: 'colors', label: 'Colors', icon: Palette },
+                    { id: 'frame', label: 'Frame', icon: Frame },
+                    { id: 'logo', label: 'Logo', icon: ImageIcon }
+                  ].map((t) => {
+                    const Icon = t.icon;
+                    const active = activeCustTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setActiveCustTab(t.id as any)}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all cursor-pointer ${
+                          active
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Art & Photo Blend + 3D/Neon FX */}
+                {activeCustTab === 'art' && (
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">
+                          Photo / Anime Art Background
+                        </label>
+                        <input
+                          ref={artFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              setCustomArtDataUrl(String(reader.result || ''));
+                              setArtPreset('custom');
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => artFileInputRef.current?.click()}
+                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold flex items-center space-x-1 cursor-pointer"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>Upload Photo / Anime</span>
+                        </button>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-y border-slate-100 py-3">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  2. Fine-Tune Shapes, Eyes, Gradients &amp; Logo Mask
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Level H (30% error redundancy) guarantees instant scanning with custom logos.
-                </p>
-              </div>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {(
+                          [
+                            { id: 'none', label: 'None' },
+                            { id: 'cyber-anime', label: 'Cyber Sun' },
+                            { id: 'sakura-spirit', label: 'Sakura' },
+                            { id: 'mecha-neon', label: 'Mecha' },
+                            { id: 'cosmic-galaxy', label: 'Galaxy' }
+                          ] as const
+                        ).map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => setArtPreset(a.id)}
+                            className={`py-2 px-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                              artPreset === a.id
+                                ? 'bg-sky-50 border-sky-500 text-sky-900'
+                                : 'border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-              {/* Segmented Customizer Tabs */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
-                {[
-                  { id: 'shapes', label: 'Shapes & Eyes', icon: Shapes },
-                  { id: 'colors', label: 'Gradients', icon: Palette },
-                  { id: 'frame', label: '3D Frame', icon: Frame },
-                  { id: 'logo', label: 'Logo Mask', icon: ImageIcon }
-                ].map((t) => {
-                  const Icon = t.icon;
-                  const active = activeCustTab === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setActiveCustTab(t.id as any)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
-                        active
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{t.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* TAB 1: MODULE & INDEPENDENT EYE SHAPES */}
-            {activeCustTab === 'shapes' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Data Pattern Module Style
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(
-                      [
-                        { id: 'square', label: 'Classic Square' },
-                        { id: 'rounded', label: 'Smooth Rounded' },
-                        { id: 'dots', label: 'Modern Dots' },
-                        { id: 'classy', label: 'Classy Leaf' }
-                      ] as const
-                    ).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setBodyShape(s.id)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                          bodyShape === s.id
-                            ? 'bg-sky-50 border-sky-500 text-sky-900'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">
-                      Outer Eye Frame Shape
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(
-                        [
-                          { id: 'square', label: 'Sharp Square' },
-                          { id: 'rounded', label: 'Soft Rounded' },
-                          { id: 'circle', label: 'Circle Ring' },
-                          { id: 'leaf', label: 'Tear-Drop Leaf' }
-                        ] as const
-                      ).map((e) => (
+                    {artPreset !== 'none' && (
+                      <div className="grid grid-cols-2 gap-2">
                         <button
-                          key={e.id}
                           type="button"
-                          onClick={() => setOuterEyeShape(e.id)}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                            outerEyeShape === e.id
+                          onClick={() => setArtBlendMode('halftone')}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer ${
+                            artBlendMode === 'halftone'
                               ? 'bg-sky-50 border-sky-500 text-sky-900'
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              : 'border-slate-200 text-slate-600'
                           }`}
                         >
-                          {e.label}
+                          Halftone Art Overlay
                         </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">
-                      Inner Eye Center Ball Shape
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(
-                        [
-                          { id: 'square', label: 'Square Dot' },
-                          { id: 'rounded', label: 'Rounded Dot' },
-                          { id: 'circle', label: 'Circle Dot' },
-                          { id: 'diamond', label: 'Diamond Core' },
-                          { id: 'leaf', label: 'Leaf Core' }
-                        ] as const
-                      ).map((e) => (
                         <button
-                          key={e.id}
                           type="button"
-                          onClick={() => setInnerEyeShape(e.id)}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                            innerEyeShape === e.id
+                          onClick={() => setArtBlendMode('texture')}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer ${
+                            artBlendMode === 'texture'
                               ? 'bg-sky-50 border-sky-500 text-sky-900'
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              : 'border-slate-200 text-slate-600'
                           }`}
                         >
-                          {e.label}
+                          Inside QR Modules
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                      </div>
+                    )}
 
-            {/* TAB 2: DUAL-TONE & RADIAL GRADIENTS + INDEPENDENT EYE COLORS */}
-            {activeCustTab === 'colors' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Gradient Direction &amp; Mode
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {(
-                      [
-                        { id: 'linear-diag', label: 'Diagonal 135°' },
-                        { id: 'linear-horiz', label: 'Horizontal' },
-                        { id: 'linear-vert', label: 'Vertical' },
-                        { id: 'radial', label: 'Radial Center' },
-                        { id: 'none', label: 'Solid Color' }
-                      ] as const
-                    ).map((g) => (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
-                        key={g.id}
                         type="button"
-                        onClick={() => setGradientMode(g.id)}
-                        className={`py-2 px-2.5 rounded-xl border text-xs font-bold cursor-pointer ${
-                          gradientMode === g.id
-                            ? 'bg-sky-50 border-sky-500 text-sky-900'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        onClick={() => setFx3d((prev) => !prev)}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer ${
+                          fx3d
+                            ? 'bg-amber-50 border-amber-500 text-amber-900'
+                            : 'border-slate-200 text-slate-600'
                         }`}
                       >
-                        {g.label}
+                        <span>3D Pop Depth</span>
+                        {fx3d && <Check className="w-3.5 h-3.5" />}
                       </button>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Start Color
-                    </label>
-                    <input
-                      type="color"
-                      value={fgColor}
-                      onChange={(e) => setFgColor(e.target.value)}
-                      className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
-                    />
+                      <button
+                        type="button"
+                        onClick={() => setFxNeon((prev) => !prev)}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer ${
+                          fxNeon
+                            ? 'bg-fuchsia-50 border-fuchsia-500 text-fuchsia-900'
+                            : 'border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <span>Neon Glow FX</span>
+                        {fxNeon && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      End Color (Gradient)
-                    </label>
-                    <input
-                      type="color"
-                      value={fgColor2}
-                      onChange={(e) => setFgColor2(e.target.value)}
-                      disabled={gradientMode === 'none'}
-                      className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      QR Background
-                    </label>
-                    <input
-                      type="color"
-                      value={bgColor}
-                      onChange={(e) => setBgColor(e.target.value)}
-                      className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
-                    />
-                  </div>
-                </div>
+                )}
 
-                {/* Independent Corner Eye Colors */}
-                <div className="pt-2 border-t border-slate-100 space-y-2.5">
-                  <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={customEyeColor}
-                      onChange={(e) => setCustomEyeColor(e.target.checked)}
-                      className="rounded text-sky-600"
-                    />
-                    <span>Use Independent Corner Eye Colors (Outer Frame vs Inner Dot)</span>
-                  </label>
+                {/* Shapes */}
+                {activeCustTab === 'shapes' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                        Pattern Style
+                      </label>
+                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                        {(
+                          [
+                            { id: 'rounded', label: 'Rounded' },
+                            { id: 'liquid', label: 'Liquid' },
+                            { id: 'dots', label: 'Dots' },
+                            { id: 'star', label: 'Star' },
+                            { id: 'diamond', label: 'Diamond' },
+                            { id: 'heart', label: 'Heart' },
+                            { id: 'bars', label: 'Bars' },
+                            { id: 'square', label: 'Square' }
+                          ] as const
+                        ).map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setBodyShape(s.id)}
+                            className={`py-2 px-1.5 rounded-xl border text-[11px] font-bold cursor-pointer ${
+                              bodyShape === s.id
+                                ? 'bg-sky-50 border-sky-500 text-sky-900'
+                                : 'border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  {customEyeColor && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                          Corner Ring
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              { id: 'square', label: 'Square' },
+                              { id: 'rounded', label: 'Rounded' },
+                              { id: 'circle', label: 'Circle' },
+                              { id: 'leaf', label: 'Leaf' }
+                            ] as const
+                          ).map((e) => (
+                            <button
+                              key={e.id}
+                              type="button"
+                              onClick={() => setOuterEyeShape(e.id)}
+                              className={`py-1.5 px-2 rounded-lg border text-xs font-bold cursor-pointer ${
+                                outerEyeShape === e.id
+                                  ? 'bg-sky-50 border-sky-500 text-sky-900'
+                                  : 'border-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {e.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                          Corner Dot
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              { id: 'square', label: 'Square' },
+                              { id: 'rounded', label: 'Rounded' },
+                              { id: 'circle', label: 'Circle' },
+                              { id: 'diamond', label: 'Diamond' }
+                            ] as const
+                          ).map((e) => (
+                            <button
+                              key={e.id}
+                              type="button"
+                              onClick={() => setInnerEyeShape(e.id)}
+                              className={`py-1.5 px-2 rounded-lg border text-xs font-bold cursor-pointer ${
+                                innerEyeShape === e.id
+                                  ? 'bg-sky-50 border-sky-500 text-sky-900'
+                                  : 'border-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {e.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Colors */}
+                {activeCustTab === 'colors' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {(
+                        [
+                          { id: 'none', label: 'Solid' },
+                          { id: 'linear-diag', label: 'Diagonal' },
+                          { id: 'linear-horiz', label: 'Horiz' },
+                          { id: 'linear-vert', label: 'Vert' },
+                          { id: 'radial', label: 'Radial' }
+                        ] as const
+                      ).map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setGradientMode(g.id)}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-bold cursor-pointer ${
+                            gradientMode === g.id
+                              ? 'bg-sky-50 border-sky-500 text-sky-900'
+                              : 'border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {g.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Outer Eye Frame Color
+                          Color 1
                         </label>
                         <input
                           type="color"
-                          value={outerEyeColor}
-                          onChange={(e) => setOuterEyeColor(e.target.value)}
+                          value={fgColor}
+                          onChange={(e) => setFgColor(e.target.value)}
                           className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
                         />
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Inner Eye Ball Color
+                          Color 2
                         </label>
                         <input
                           type="color"
-                          value={innerEyeColor}
-                          onChange={(e) => setInnerEyeColor(e.target.value)}
+                          value={fgColor2}
+                          onChange={(e) => setFgColor2(e.target.value)}
+                          disabled={gradientMode === 'none'}
+                          className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Background
+                        </label>
+                        <input
+                          type="color"
+                          value={bgColor}
+                          onChange={(e) => setBgColor(e.target.value)}
                           className="w-full h-9 rounded-lg cursor-pointer border border-slate-200"
                         />
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: FRAMES & PRINT BADGES */}
-            {activeCustTab === 'frame' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Print Badge / Frame Layout
-                  </label>
-                  <select
-                    value={frameStyle}
-                    onChange={(e) => setFrameStyle(e.target.value as QrFrameStyle)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800"
-                  >
-                    <option value="bottom-banner">Bottom CTA Banner</option>
-                    <option value="top-banner">Top Header Banner</option>
-                    <option value="wifi-badge">Wi-Fi Auto-SSID Frame</option>
-                    <option value="menu-badge">Restaurant Menu Badge</option>
-                    <option value="none">Minimal Borderless</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Call-To-Action Text
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={24}
-                    value={frameText}
-                    onChange={(e) => setFrameText(e.target.value)}
-                    placeholder="SCAN ME"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Frame Accent Color
-                  </label>
-                  <input
-                    type="color"
-                    value={frameColor}
-                    onChange={(e) => setFrameColor(e.target.value)}
-                    className="w-full h-9 rounded-xl cursor-pointer border border-slate-200"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 4: CENTER BRAND LOGO WITH AVATAR MASK & QUIET-ZONE BORDER */}
-            {activeCustTab === 'logo' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Center Emblem or Custom Photo
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        { id: 'beamdrop', label: 'BeamDrop Bolt' },
-                        { id: 'globe', label: 'WWW Globe' },
-                        { id: 'vcard', label: 'vCard Badge' },
-                        { id: 'wifi', label: 'Wi-Fi Emblem' },
-                        { id: 'pdf', label: 'PDF Badge' },
-                        { id: 'app', label: 'App Badge' },
-                        { id: 'none', label: 'No Center Logo' }
-                      ] as const
-                    ).map((l) => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        onClick={() => setLogoPreset(l.id)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${
-                          logoPreset === l.id
-                            ? 'bg-sky-50 border-sky-500 text-sky-900'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        {l.label}
-                      </button>
-                    ))}
                   </div>
-                </div>
+                )}
 
-                {/* Logo Shape Mask & Quiet Zone Padding Controls */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">
-                      Logo Shape Mask (Prevents Sharp Photo Corners)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
+                {/* Frame */}
+                {activeCustTab === 'frame' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-4 gap-1.5">
                       {(
                         [
-                          { id: 'circle', label: 'Circle Mask' },
-                          { id: 'rounded', label: 'Smooth Square' },
-                          { id: 'square', label: 'Full Square' }
+                          { id: 'none', label: 'None' },
+                          { id: 'bottom-banner', label: 'Bottom CTA' },
+                          { id: 'top-banner', label: 'Top CTA' },
+                          { id: 'polaroid', label: 'Polaroid' },
+                          { id: 'vip-ticket', label: 'VIP Pass' },
+                          { id: 'manga-panel', label: 'Manga' },
+                          { id: 'retro-arcade', label: 'Arcade' },
+                          { id: 'wifi-badge', label: 'Wi-Fi Tag' }
                         ] as const
-                      ).map((m) => (
+                      ).map((f) => (
                         <button
-                          key={m.id}
+                          key={f.id}
                           type="button"
-                          onClick={() => setLogoMask(m.id)}
-                          className={`py-2 px-2.5 rounded-xl border text-xs font-bold cursor-pointer ${
-                            logoMask === m.id
+                          onClick={() => setFrameStyle(f.id)}
+                          className={`py-2 px-2 rounded-xl border text-xs font-bold cursor-pointer ${
+                            frameStyle === f.id
                               ? 'bg-sky-50 border-sky-500 text-sky-900'
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              : 'border-slate-200 text-slate-600'
                           }`}
                         >
-                          {m.label}
+                          {f.label}
                         </button>
                       ))}
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-slate-700">
-                        Quiet-Zone White Border Pad
-                      </label>
-                      <span className="text-xs font-mono font-bold text-sky-600">
-                        {logoQuietZonePad}px
-                      </span>
+                    {frameStyle !== 'none' && (
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Frame Text
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={22}
+                            value={frameText}
+                            onChange={(e) => setFrameText(e.target.value)}
+                            placeholder="SCAN ME"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Frame Color
+                          </label>
+                          <input
+                            type="color"
+                            value={frameColor}
+                            onChange={(e) => setFrameColor(e.target.value)}
+                            className="w-full h-9 rounded-xl cursor-pointer border border-slate-200"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Logo */}
+                {activeCustTab === 'logo' && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          { id: 'none', label: 'None' },
+                          { id: 'beamdrop', label: 'BeamDrop' },
+                          { id: 'globe', label: 'WWW' },
+                          { id: 'wifi', label: 'Wi-Fi' },
+                          { id: 'vcard', label: 'vCard' },
+                          { id: 'pdf', label: 'PDF' }
+                        ] as const
+                      ).map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => setLogoPreset(l.id)}
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer ${
+                            logoPreset === l.id
+                              ? 'bg-sky-50 border-sky-500 text-sky-900'
+                              : 'border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
                     </div>
-                    <input
-                      type="range"
-                      min={4}
-                      max={16}
-                      value={logoQuietZonePad}
-                      onChange={(e) => setLogoQuietZonePad(Number(e.target.value))}
-                      className="w-full accent-sky-600 cursor-pointer"
-                    />
-                    <label className="flex items-center space-x-2 text-xs text-slate-600 mt-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={logoShadow}
-                        onChange={(e) => setLogoShadow(e.target.checked)}
-                        className="rounded text-sky-600"
-                      />
-                      <span>Soft Depth Shadow around Logo</span>
-                    </label>
-                  </div>
-                </div>
 
-                <div className="pt-1 flex items-center gap-3">
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        setCustomLogoDataUrl(String(reader.result || ''));
-                        setLogoPreset('custom');
-                      };
-                      reader.readAsDataURL(file);
-                    }}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Custom Logo / Avatar</span>
-                  </button>
-                  {customLogoDataUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomLogoDataUrl(null);
-                        setLogoPreset('beamdrop');
-                      }}
-                      className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
-                    >
-                      Remove Custom Logo
-                    </button>
-                  )}
-                </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-1.5">
+                        {(
+                          [
+                            { id: 'circle', label: 'Circle Mask' },
+                            { id: 'rounded', label: 'Rounded' }
+                          ] as const
+                        ).map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setLogoMask(m.id)}
+                            className={`px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer ${
+                              logoMask === m.id
+                                ? 'bg-sky-50 border-sky-500 text-sky-900'
+                                : 'border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              setCustomLogoDataUrl(String(reader.result || ''));
+                              setLogoPreset('custom');
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload Logo</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* RIGHT STICKY COLUMN (5 Cols): Sticky Live Studio Preview & Interactive iPhone Mockup */}
+        {/* RIGHT STICKY COLUMN (5 Cols): Clean QR Preview & Direct Export */}
         <div className="lg:col-span-5 lg:sticky lg:top-6 self-start z-20">
-          <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-800 space-y-5">
-            {/* Top Preview Header + Toggle between QR Matrix & Live iPhone Mockup */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
-              <div>
-                <span className="text-[11px] font-mono uppercase tracking-wider text-sky-400 font-bold">
-                  Live Studio Preview
-                </span>
-                <h3 className="text-sm font-extrabold text-white mt-0.5">
-                  {previewTab === 'iphone'
-                    ? 'Interactive Mobile Profile Card'
-                    : activeDynamicCode
-                    ? `Dynamic QR (/q/${activeDynamicCode})`
-                    : 'High-Density Vector Matrix'}
-                </h3>
+          <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-xl border border-slate-800 space-y-4">
+            {/* Compact Status Bar: Scannability Guard + vCard Toggle */}
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+                  scanSafety.ok
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                }`}
+              >
+                {scanSafety.ok ? (
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>{scanSafety.label}</span>
+                {!scanSafety.ok && (
+                  <button
+                    type="button"
+                    onClick={handleAutoFixContrast}
+                    className="ml-1 px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black cursor-pointer"
+                  >
+                    Fix
+                  </button>
+                )}
               </div>
 
-              {/* Dual Preview Mode Switcher */}
-              <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('qr')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
-                    previewTab === 'qr'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <QrIcon className="w-3 h-3" />
-                  <span>QR Code</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('iphone')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 transition-all cursor-pointer ${
-                    previewTab === 'iphone'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3" />
-                  <span>Mobile Card</span>
-                </button>
-              </div>
+              {engineType === 'vcard' && (
+                <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('qr')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer ${
+                      previewTab === 'qr' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                    }`}
+                  >
+                    <QrIcon className="w-3 h-3" />
+                    <span>QR</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('iphone')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer ${
+                      previewTab === 'iphone' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                    }`}
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    <span>Card</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* VIEW A: HIGH-RES CUSTOM QR CANVAS */}
+            {/* QR Canvas */}
             {previewTab === 'qr' && (
-              <div className="flex flex-col items-center justify-center bg-slate-950/70 rounded-2xl p-4 border border-slate-800/80">
+              <div className="flex items-center justify-center bg-slate-950/70 rounded-2xl p-4 border border-slate-800/80">
                 <canvas
                   ref={previewCanvasRef}
-                  className="max-w-full h-auto rounded-2xl shadow-2xl"
-                  style={{ maxHeight: '340px' }}
+                  className="max-w-full h-auto rounded-2xl shadow-lg"
+                  style={{ maxHeight: '310px' }}
                 />
               </div>
             )}
 
-            {/* VIEW B: LIVE INTERACTIVE IPHONE MOCKUP FOR VCARD PLUS / DIGITAL IDENTITY */}
+            {/* Mobile Card Mockup (vCard) */}
             {previewTab === 'iphone' && (
               <div className="flex justify-center">
-                <div className="w-[292px] rounded-[38px] p-2.5 bg-slate-950 border-[3px] border-slate-700 shadow-2xl relative">
-                  {/* iPhone Dynamic Island Notch */}
-                  <div className="w-24 h-4 bg-black rounded-full mx-auto mb-2 flex items-center justify-end px-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500/80" />
-                  </div>
-
-                  {/* Screen Content Styled by Selected Luxury Theme */}
+                <div className="w-[276px] rounded-[34px] p-2.5 bg-slate-950 border-2 border-slate-700 shadow-2xl">
+                  <div className="w-20 h-3.5 bg-black rounded-full mx-auto mb-2" />
                   <div
-                    className={`rounded-[28px] overflow-hidden p-4 space-y-3.5 transition-all ${
+                    className={`rounded-[24px] overflow-hidden p-4 space-y-3 ${
                       vcardTheme === 'titanium-dark'
-                        ? 'bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white border border-amber-500/30'
+                        ? 'bg-gradient-to-b from-slate-900 to-black text-white border border-amber-500/30'
                         : vcardTheme === 'creator-aurora'
-                        ? 'bg-gradient-to-br from-indigo-950 via-purple-950 to-fuchsia-950 text-white border border-pink-500/30'
+                        ? 'bg-gradient-to-br from-indigo-950 via-purple-950 to-fuchsia-950 text-white'
                         : vcardTheme === 'swiss-minimal'
-                        ? 'bg-white text-slate-950 border border-slate-300'
-                        : 'bg-gradient-to-b from-sky-50 via-white to-blue-50 text-slate-900 border border-sky-200'
+                        ? 'bg-white text-slate-950'
+                        : 'bg-gradient-to-b from-sky-50 to-white text-slate-900'
                     }`}
                   >
-                    {/* Header Banner & Circular Avatar */}
-                    <div className="text-center pt-1">
-                      <div
-                        className={`w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center font-black text-xl overflow-hidden border-2 shadow-lg ${
-                          vcardTheme === 'titanium-dark'
-                            ? 'border-amber-400 bg-slate-800 text-amber-400'
-                            : 'border-white bg-gradient-to-tr from-sky-500 to-indigo-600 text-white'
-                        }`}
-                      >
+                    <div className="text-center">
+                      <div className="w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center font-black text-lg overflow-hidden border-2 border-white bg-sky-600 text-white">
                         {vcardAvatarDataUrl ? (
                           <img
                             src={vcardAvatarDataUrl}
-                            alt={vcardFullName}
+                            alt="Avatar"
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          (vcardFullName || 'B').charAt(0).toUpperCase()
+                          (vcardFullName || 'U').charAt(0).toUpperCase()
                         )}
                       </div>
-                      <div className="font-extrabold text-sm leading-tight truncate">
-                        {vcardFullName || 'Your Name'}
+                      <div className="font-extrabold text-sm truncate">
+                        {vcardFullName || 'Full Name'}
                       </div>
-                      <div
-                        className={`text-[11px] font-semibold mt-0.5 truncate ${
-                          vcardTheme === 'titanium-dark'
-                            ? 'text-amber-400'
-                            : vcardTheme === 'creator-aurora'
-                            ? 'text-pink-300'
-                            : 'text-sky-600'
-                        }`}
-                      >
-                        {vcardJobTitle}
-                      </div>
-                      <div className="text-[10px] opacity-75 truncate">{vcardOrg}</div>
-                      {vcardBio && (
-                        <p className="text-[10px] opacity-75 mt-1.5 line-clamp-2 leading-relaxed">
-                          {vcardBio}
-                        </p>
+                      {vcardJobTitle && (
+                        <div className="text-[11px] opacity-80 truncate">{vcardJobTitle}</div>
+                      )}
+                      {vcardOrg && (
+                        <div className="text-[10px] opacity-60 truncate">{vcardOrg}</div>
                       )}
                     </div>
 
-                    {/* Primary CTA: Save to Contacts (.vcf) */}
                     <button
                       type="button"
                       onClick={handleTriggerMockupVcfDownload}
-                      className={`w-full py-2 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center space-x-1.5 shadow-md cursor-pointer ${
-                        vcardTheme === 'titanium-dark'
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950'
-                          : vcardTheme === 'creator-aurora'
-                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                          : vcardTheme === 'swiss-minimal'
-                          ? 'bg-slate-950 text-white'
-                          : 'bg-sky-600 text-white'
-                      }`}
+                      className="w-full py-2 px-3 rounded-xl bg-sky-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer"
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      <span>Save to Contacts (.vcf)</span>
+                      <span>Save Contact</span>
                     </button>
 
-                    {/* Quick Action Grid: Call, WhatsApp, Email, Website */}
                     <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold">
                       {vcardPhone && (
                         <a
                           href={`tel:${vcardPhone}`}
-                          className={`p-2 rounded-xl flex items-center space-x-1.5 truncate ${
-                            vcardTheme === 'titanium-dark' || vcardTheme === 'creator-aurora'
-                              ? 'bg-white/10 text-white'
-                              : 'bg-slate-100 text-slate-800'
-                          }`}
+                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
                         >
-                          <Phone className="w-3 h-3 shrink-0 text-sky-400" />
-                          <span className="truncate">Call</span>
+                          <Phone className="w-3 h-3 shrink-0" />
+                          <span>Call</span>
                         </a>
                       )}
                       {vcardWhatsapp && (
@@ -2888,27 +3122,19 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                           href={`https://wa.me/${vcardWhatsapp.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`p-2 rounded-xl flex items-center space-x-1.5 truncate ${
-                            vcardTheme === 'titanium-dark' || vcardTheme === 'creator-aurora'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-emerald-50 text-emerald-800'
-                          }`}
+                          className="p-2 rounded-lg bg-emerald-500/20 flex items-center space-x-1 truncate"
                         >
                           <MessageCircle className="w-3 h-3 shrink-0" />
-                          <span className="truncate">WhatsApp</span>
+                          <span>WhatsApp</span>
                         </a>
                       )}
                       {vcardEmail && (
                         <a
                           href={`mailto:${vcardEmail}`}
-                          className={`p-2 rounded-xl flex items-center space-x-1.5 truncate ${
-                            vcardTheme === 'titanium-dark' || vcardTheme === 'creator-aurora'
-                              ? 'bg-white/10 text-white'
-                              : 'bg-slate-100 text-slate-800'
-                          }`}
+                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
                         >
-                          <Mail className="w-3 h-3 shrink-0 text-sky-400" />
-                          <span className="truncate">Email</span>
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span>Email</span>
                         </a>
                       )}
                       {vcardWebsite && (
@@ -2916,75 +3142,19 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                           href={vcardWebsite}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`p-2 rounded-xl flex items-center space-x-1.5 truncate ${
-                            vcardTheme === 'titanium-dark' || vcardTheme === 'creator-aurora'
-                              ? 'bg-white/10 text-white'
-                              : 'bg-slate-100 text-slate-800'
-                          }`}
+                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
                         >
-                          <Globe className="w-3 h-3 shrink-0 text-sky-400" />
-                          <span className="truncate">Website</span>
+                          <Globe className="w-3 h-3 shrink-0" />
+                          <span>Web</span>
                         </a>
                       )}
                     </div>
 
-                    {/* Social Icons Row */}
-                    {(vcardLinkedin || vcardGithub || vcardInstagram || vcardTwitter) && (
-                      <div className="flex items-center justify-center gap-2 pt-0.5">
-                        {vcardLinkedin && (
-                          <a
-                            href={vcardLinkedin}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20"
-                          >
-                            <Linkedin className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                        {vcardGithub && (
-                          <a
-                            href={vcardGithub}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20"
-                          >
-                            <Github className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                        {vcardInstagram && (
-                          <a
-                            href={vcardInstagram}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20"
-                          >
-                            <Instagram className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                        {vcardTwitter && (
-                          <a
-                            href={vcardTwitter}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20"
-                          >
-                            <Twitter className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Mini Embedded QR Badge at bottom of iPhone Card */}
-                    <div className="pt-2 border-t border-current/10 flex items-center justify-between gap-2">
-                      <div className="text-left">
-                        <div className="text-[9px] font-bold uppercase tracking-wider opacity-75">
-                          BeamDrop Digital ID
-                        </div>
-                        <div className="text-[10px] font-semibold">Scan to share contact</div>
-                      </div>
+                    <div className="pt-2 border-t border-current/10 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold opacity-75">QR Card</span>
                       <canvas
                         ref={miniMockupQrRef}
-                        className="w-14 h-14 rounded-lg bg-white p-0.5 shadow-sm shrink-0"
+                        className="w-12 h-12 rounded-lg bg-white p-0.5"
                       />
                     </div>
                   </div>
@@ -2992,52 +3162,37 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               </div>
             )}
 
-            {/* Encoded Payload Inspector */}
-            <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-                  Encoded Target Payload
-                </div>
-                <div className="text-xs font-mono text-sky-300 truncate mt-0.5">
-                  {qrPayload.replace(/\n/g, ' · ')}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(qrPayload);
-                  setCopiedPayloadText(true);
-                  setTimeout(() => setCopiedPayloadText(false), 2000);
-                }}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center space-x-1 shrink-0 cursor-pointer"
-              >
-                {copiedPayloadText ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-                <span>{copiedPayloadText ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-
-            {/* Primary Export Action Buttons */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* Direct Action Buttons */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={handleDownloadPng}
-                className="py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-sky-600/20 cursor-pointer transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
               >
-                <Download className="w-4 h-4" />
-                <span>Download PNG (4x)</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>PNG</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleDownloadSvg}
-                className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 cursor-pointer transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-700 cursor-pointer transition-colors"
               >
-                <Download className="w-4 h-4 text-sky-400" />
-                <span>Vector SVG</span>
+                <Download className="w-3.5 h-3.5 text-sky-400" />
+                <span>SVG</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyQrImage}
+                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-700 cursor-pointer transition-colors"
+              >
+                {copiedQrImage ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span>{copiedQrImage ? 'Copied' : 'Copy'}</span>
               </button>
             </div>
 
@@ -3045,29 +3200,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               <button
                 type="button"
                 onClick={handleDownloadPrintableBusinessCard}
-                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-2 shadow-md cursor-pointer transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Download Printable Business Card (1050×600 PNG)</span>
+                <span>Print Business Card (PNG)</span>
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={handleCopyQrImage}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-800/70 hover:bg-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700/80 cursor-pointer transition-colors"
-            >
-              {copiedQrImage ? (
-                <Check className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <Copy className="w-4 h-4 text-sky-400" />
-              )}
-              <span>
-                {copiedQrImage
-                  ? 'QR Card Copied to Clipboard!'
-                  : 'Copy QR Card Image to Clipboard'}
-              </span>
-            </button>
           </div>
         </div>
       </div>

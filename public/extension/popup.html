@@ -126,7 +126,7 @@
       <button id="btnExtClearTargetedPeer" class="btn-ext-clear-target" type="button" title="Clear targeted device">✕</button>
     </div>
 
-    <!-- Object Mode Switcher: Files vs Text vs Clipboard -->
+    <!-- Object Mode Switcher: Files vs Text vs QR Studio (Clipboard removed) -->
     <div class="bridge-mode-pills">
       <button id="modeBtnFiles" class="bridge-mode-btn active" type="button">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -141,21 +141,14 @@
         </svg>
         <span>Text &amp; Link</span>
       </button>
-      <button id="modeBtnClipboard" class="bridge-mode-btn" type="button" title="Quick beam current system clipboard">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-        </svg>
-        <span>Clipboard</span>
-      </button>
-      <button id="modeBtnQuickQr" class="bridge-mode-btn" type="button" title="Quick QR Generator for active page URL, Wi-Fi, or vCard">
+      <button id="modeBtnQuickQr" class="bridge-mode-btn" type="button" title="QR Studio: Link, Text, Wi-Fi, vCard, PDF, App & Custom Design">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7"></rect>
           <rect x="14" y="3" width="7" height="7"></rect>
           <rect x="14" y="14" width="7" height="7"></rect>
           <rect x="3" y="14" width="7" height="7"></rect>
         </svg>
-        <span>Quick QR</span>
+        <span>QR Studio</span>
       </button>
     </div>
 
@@ -172,43 +165,37 @@
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
         </div>
-        <p class="drop-primary">Choose files, folder, or drop here</p>
-        <p class="drop-secondary">Direct Disk-to-Device RAM Streaming</p>
+        <p class="drop-primary">Drop files or folders here</p>
+        <p class="drop-secondary">Or click to select from device</p>
       </div>
 
       <!-- Action Buttons for Native File System & Folders -->
       <div class="fs-action-row">
-        <button id="btnPickFiles" class="btn-pick-action" type="button" title="Select one or multiple files">
+        <button id="btnPickFiles" class="btn-pick-action" type="button">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-          <span>Pick Files</span>
+          <span>Files</span>
         </button>
-        <button id="btnPickFolder" class="btn-pick-action" type="button" title="Select entire folder from PC">
+        <button id="btnPickFolder" class="btn-pick-action" type="button">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          <span>Pick Folder</span>
+          <span>Folder</span>
         </button>
-        <button id="btnNativeFsPicker" class="btn-pick-action native-fs" type="button" title="Use High-Speed Native File System Access API">
+        <button id="btnNativeFsPicker" class="btn-pick-action native-fs" type="button">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span>Native Disk I/O</span>
+          <span>Disk I/O</span>
         </button>
-        <button id="btnCaptureTabScreenshot" class="btn-pick-action" type="button" title="Capture active browser tab screenshot and beam to phone" style="background: rgba(2,132,199,0.06); border-color: rgba(2,132,199,0.3); color: #0284c7;">
+        <button id="btnCaptureTabScreenshot" class="btn-pick-action" type="button" style="background: rgba(2,132,199,0.06); border-color: rgba(2,132,199,0.3); color: #0284c7;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           <span>Screenshot</span>
         </button>
       </div>
 
-      <div style="display: flex; align-items: center; justify-content: space-between; margin: -2px 0;">
-        <div class="fs-status-pill">
-          <span class="fs-status-dot"></span>
-          <span>Native File System Ready</span>
-        </div>
-        <span id="stagedSummaryPill" style="display: none; font-size: 10px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 7px; border-radius: 999px;">0 files</span>
-      </div>
+      <span id="stagedSummaryPill" style="display: none; align-self: flex-end; font-size: 10px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 999px;">0 files</span>
 
       <!-- Multi-File Staged List (Scrollable) -->
       <div id="stagedFilesContainer" style="display: none; flex-direction: column; gap: 6px;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 10.5px; font-weight: 700; color: #334155;">Staged Files (<span id="stagedCountText">0</span>)</span>
-          <button id="btnClearStagedFiles" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #e11d48; cursor: pointer; padding: 1px 4px;">Clear All</button>
+          <span style="font-size: 10.5px; font-weight: 700; color: #334155;">Staged (<span id="stagedCountText">0</span>)</span>
+          <button id="btnClearStagedFiles" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #e11d48; cursor: pointer; padding: 1px 4px;">Clear</button>
         </div>
         <div id="stagedFilesList" class="staged-files-list"></div>
       </div>
@@ -232,7 +219,7 @@
           <p id="stagedFileSize" class="staged-size">0 KB</p>
           <div id="multiFileSummary" class="multi-file-summary" style="display: none;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-            <span>Bundling into single ZIP archive in RAM</span>
+            <span>ZIP Bundle</span>
           </div>
         </div>
         <button id="btnRemoveFile" class="btn-icon-danger" title="Remove file">
@@ -249,8 +236,8 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           <span>Direct P2P QR</span>
         </button>
-        <button id="btnUpload24hCloud" class="btn-cta-generate" type="button" style="flex: 1; background: linear-gradient(135deg, #0284c7 0%, #2563eb 55%, #059669 100%);" title="Upload to 24h Global Cloud Drop (Google Drive / Hybrid Vault) — link works for 24h even after closing PC" disabled>
-          <span>☁️ 24h Cloud Drop</span>
+        <button id="btnUpload24hCloud" class="btn-cta-generate" type="button" style="flex: 1; background: linear-gradient(135deg, #0284c7 0%, #2563eb 55%, #059669 100%);" disabled>
+          <span>☁️ 24h Cloud</span>
         </button>
       </div>
 
@@ -261,7 +248,7 @@
       </button>
     </div>
 
-    <!-- SUB-VIEW 2: TEXT & LINK COMPOSER (SMART NOTEBOOK ENGINE) -->
+    <!-- SUB-VIEW 2: TEXT & LINK COMPOSER -->
     <div id="viewTextMode" style="display: none; flex-direction: column; gap: 10px;">
       <!-- Content Type Selector Pills -->
       <div class="text-format-pills">
@@ -284,11 +271,11 @@
       </div>
 
       <div class="text-composer-card">
-        <textarea id="textPayloadInput" class="text-composer-area" placeholder="Type or paste any text, notes, code snippet, or website URL link to beam to your phone..."></textarea>
+        <textarea id="textPayloadInput" class="text-composer-area" placeholder="Type or paste text, notes, code, or link..."></textarea>
         <div class="text-composer-toolbar">
           <button id="btnQuickPaste" class="btn-clipboard-paste" type="button">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-            <span>Paste from Clipboard</span>
+            <span>Paste</span>
           </button>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span id="textCharCount" style="color: #64748b; font-family: ui-monospace, monospace; font-size: 10px;">0 chars</span>
@@ -297,48 +284,354 @@
         </div>
       </div>
 
-      <!-- Feature Highlight Banner -->
-      <div class="notebook-banner-info">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
-        <span>Beams directly to Smart Notebook on Phone &amp; PC</span>
-      </div>
-
       <!-- Primary CTA for Text -->
       <div style="display: flex; gap: 6px; width: 100%;">
         <button id="btnGenerateTextQr" class="btn-cta-generate" style="flex: 1;" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span>Beam (Instant QR)</span>
+          <span>Beam QR</span>
         </button>
-        <button id="btnAnimatedQrStream" class="btn-cta-generate" type="button" style="width: auto; padding: 0 12px; background: linear-gradient(135deg, #059669, #0284c7);" title="Optical animated QR sequence for offline air-gapped environments" disabled>
+        <button id="btnAnimatedQrStream" class="btn-cta-generate" type="button" style="width: auto; padding: 0 12px; background: linear-gradient(135deg, #059669, #0284c7);" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           <span>Offline QR</span>
         </button>
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: QUICK QR STUDIO (1-Click Page URL, Wi-Fi & Custom QR) -->
-    <div id="viewQuickQrMode" style="display: none; flex-direction: column; gap: 10px;">
-      <div style="background: #ffffff; border: 1.5px solid #bae6fd; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(2,132,199,0.06);">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <span style="font-size: 11px; font-weight: 800; color: #0f172a;">🎨 Quick QR Studio</span>
-          <button id="btnGrabCurrentTabUrl" type="button" style="padding: 3px 8px; border-radius: 7px; border: 1px solid #bae6fd; background: #f0f9ff; color: #0284c7; font-size: 10px; font-weight: 700; cursor: pointer;">Use Active Tab URL</button>
+    <!-- SUB-VIEW 3: FULL PRODUCTION QR STUDIO (All 7 Modes + Optional Design Customizer) -->
+    <div id="viewQuickQrMode" style="display: none; flex-direction: column; gap: 8px;">
+      <!-- 1. Mode Selector Bar + Dynamic Link Button -->
+      <div class="ext-qr-topbar">
+        <div class="ext-qr-engine-pills">
+          <button type="button" class="ext-qr-engine-btn active" data-engine="url">Link</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="text">Text</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="wifi">Wi-Fi</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="vcard">vCard</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="pdf">PDF</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="applink">App</button>
+          <button type="button" class="ext-qr-engine-btn" data-engine="analytics">Saved</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <div id="extQrActiveDynamicBadge" style="display: none; align-items: center; gap: 4px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 7px; border-radius: 8px; font-size: 10px; font-family: ui-monospace, monospace; font-weight: 800; color: #065f46;">
+            <span id="extQrActiveDynamicText">/q/code</span>
+            <button id="btnExtQrResetDynamic" type="button" style="background: none; border: none; color: #e11d48; font-weight: 800; cursor: pointer; font-size: 10px;">✕</button>
+          </div>
+          <button id="btnExtQrMakeDynamic" type="button" class="ext-qr-dynamic-btn" title="Create editable Dynamic Shortlink QR">
+            <span>⚡ Dynamic</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Direct Input Panels (1 per Engine Mode) -->
+      <div class="ext-qr-input-card">
+        <!-- ENGINE: LINK (URL) -->
+        <div id="extQrPanelUrl" class="ext-qr-panel">
+          <div class="ext-qr-panel-head">
+            <span class="ext-qr-label">Website URL</span>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <button id="btnGrabCurrentTabUrl" type="button" class="ext-qr-mini-btn">Active Tab</button>
+              <button id="btnExtQrClearUrl" type="button" class="ext-qr-mini-btn danger">Clear</button>
+            </div>
+          </div>
+          <input id="quickQrInput" type="url" class="ext-qr-input mono" placeholder="https://example.com">
         </div>
 
-        <input id="quickQrInput" type="text" placeholder="https://example.com or any text..." style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 11px; font-family: ui-monospace, monospace; color: #0f172a; background: #f8fafc;">
+        <!-- ENGINE: TEXT TO QR -->
+        <div id="extQrPanelText" class="ext-qr-panel" style="display: none;">
+          <div class="ext-qr-panel-head">
+            <span class="ext-qr-label">Text to QR Code</span>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span id="extQrTextChars" style="font-size: 9.5px; font-family: ui-monospace, monospace; color: #64748b;">0 chars</span>
+              <button id="btnExtQrPasteText" type="button" class="ext-qr-mini-btn">Paste</button>
+              <button id="btnExtQrClearText" type="button" class="ext-qr-mini-btn danger">Clear</button>
+            </div>
+          </div>
+          <textarea id="extQrTextInput" rows="3" class="ext-qr-textarea" placeholder="Type or paste any text, note, code, or message..."></textarea>
+        </div>
 
-        <div id="quickQrCanvasContainer" style="background: #ffffff; padding: 10px; border-radius: 14px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 170px; min-width: 170px;"></div>
+        <!-- ENGINE: WI-FI -->
+        <div id="extQrPanelWifi" class="ext-qr-panel" style="display: none;">
+          <div class="ext-qr-grid-2">
+            <div>
+              <label class="ext-qr-sublabel">Network Name (SSID)</label>
+              <input id="extQrWifiSsid" type="text" class="ext-qr-input" placeholder="My_WiFi_5G" value="Home_WiFi_5G">
+            </div>
+            <div>
+              <label class="ext-qr-sublabel">Security</label>
+              <select id="extQrWifiEnc" class="ext-qr-input">
+                <option value="WPA">WPA / WPA2 / WPA3</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">Open (No Pass)</option>
+              </select>
+            </div>
+          </div>
+          <div id="extQrWifiPassWrap" style="margin-top: 6px;">
+            <label class="ext-qr-sublabel">Password</label>
+            <div style="display: flex; gap: 5px;">
+              <input id="extQrWifiPass" type="password" class="ext-qr-input mono" placeholder="Wi-Fi password" style="flex: 1;">
+              <button id="btnExtQrToggleWifiPass" type="button" class="ext-qr-mini-btn" style="padding: 0 9px;">Show</button>
+            </div>
+          </div>
+        </div>
 
-        <div style="display: flex; gap: 6px; width: 100%;">
-          <button id="btnDownloadQuickQrPng" type="button" class="btn-cta-generate" style="flex: 1; padding: 8px; font-size: 11px;">
-            <span>⬇ Save QR PNG</span>
+        <!-- ENGINE: VCARD (DIGITAL BUSINESS CARD) -->
+        <div id="extQrPanelVcard" class="ext-qr-panel" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px;">
+            <div style="display: flex; gap: 3px; background: #f1f5f9; padding: 2px; border-radius: 8px;">
+              <button id="btnExtVcardModeOffline" type="button" class="ext-qr-seg-btn active">Direct .vcf</button>
+              <button id="btnExtVcardModeDynamic" type="button" class="ext-qr-seg-btn">Mobile Card</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input id="extVcardPhotoInput" type="file" accept="image/*" style="display: none;">
+              <button id="btnExtVcardPhoto" type="button" class="ext-qr-mini-btn">+ Photo</button>
+              <button id="btnExtVcardClearPhoto" type="button" class="ext-qr-mini-btn danger" style="display: none;">✕</button>
+            </div>
+          </div>
+          <div class="ext-qr-grid-2">
+            <input id="extVcardName" type="text" class="ext-qr-input" placeholder="Full Name" value="Alex Rivera">
+            <input id="extVcardTitle" type="text" class="ext-qr-input" placeholder="Job Title" value="Product Lead">
+            <input id="extVcardOrg" type="text" class="ext-qr-input" placeholder="Company" value="BeamDrop Inc.">
+            <input id="extVcardPhone" type="tel" class="ext-qr-input" placeholder="Phone" value="+1 555 234 5678">
+            <input id="extVcardWhatsapp" type="tel" class="ext-qr-input" placeholder="WhatsApp" value="+15552345678">
+            <input id="extVcardEmail" type="email" class="ext-qr-input" placeholder="Email" value="alex@beamdrop.io">
+            <input id="extVcardWeb" type="url" class="ext-qr-input" placeholder="Website" value="https://beam-drop-mu.vercel.app">
+            <input id="extVcardCity" type="text" class="ext-qr-input" placeholder="City / Location" value="San Francisco, CA">
+          </div>
+        </div>
+
+        <!-- ENGINE: PDF TO QR -->
+        <div id="extQrPanelPdf" class="ext-qr-panel" style="display: none;">
+          <input id="extQrPdfFileInput" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,application/pdf" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; border-radius: 10px; border: 1px dashed #38bdf8; background: #f0f9ff; margin-bottom: 6px;">
+            <span id="extQrPdfStatus" style="font-size: 10.5px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Upload PDF / Doc (24h Cloud)</span>
+            <button id="btnExtQrUploadPdf" type="button" class="ext-qr-mini-btn primary">Choose File</button>
+          </div>
+          <div class="ext-qr-grid-2">
+            <input id="extQrPdfTitle" type="text" class="ext-qr-input" placeholder="Document Title" value="Product Brochure">
+            <input id="extQrPdfUrl" type="url" class="ext-qr-input mono" placeholder="Or direct PDF URL (https://...)">
+          </div>
+        </div>
+
+        <!-- ENGINE: APP STORE LINK -->
+        <div id="extQrPanelApplink" class="ext-qr-panel" style="display: none;">
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <input id="extQrAppName" type="text" class="ext-qr-input" placeholder="App Name" value="BeamDrop Mobile">
+            <input id="extQrAppIos" type="url" class="ext-qr-input mono" placeholder="iOS App Store URL" value="https://apps.apple.com">
+            <input id="extQrAppAndroid" type="url" class="ext-qr-input mono" placeholder="Android Play Store URL" value="https://play.google.com">
+            <button id="btnExtQrCreateAppLink" type="button" class="btn-cta-generate" style="padding: 7px 10px; font-size: 11px;">
+              <span>Create Smart OS Link</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ENGINE: SAVED DYNAMIC QRS -->
+        <div id="extQrPanelAnalytics" class="ext-qr-panel" style="display: none;">
+          <div class="ext-qr-panel-head">
+            <span class="ext-qr-label">Saved Dynamic QRs</span>
+            <button id="btnExtQrRefreshSaved" type="button" class="ext-qr-mini-btn">Refresh</button>
+          </div>
+          <div id="extQrSavedList" style="display: flex; flex-direction: column; gap: 5px; max-height: 120px; overflow-y: auto;"></div>
+        </div>
+      </div>
+
+      <!-- 3. Optional Collapsible Customize QR & Art Style Drawer -->
+      <div class="ext-qr-custom-drawer">
+        <button id="btnExtToggleQrCustom" type="button" class="ext-qr-custom-toggle">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 800; color: #0f172a;">✨ Customize QR & Art Style</span>
+            <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">(Optional)</span>
+          </div>
+          <span id="extQrCustomChevron" style="font-size: 10px; color: #64748b; font-weight: 800;">▼</span>
+        </button>
+
+        <div id="extQrCustomBody" style="display: none; padding: 8px 10px 10px; border-top: 1px solid #f1f5f9; flex-direction: column; gap: 8px;">
+          <!-- 6 1-Click Art & Style Themes -->
+          <div class="ext-qr-preset-row">
+            <button type="button" class="ext-qr-preset-chip active" data-preset="classic-clean">Classic</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="liquid-cyan">Liquid</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="anime-cyber">Anime</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="sakura-art">Sakura</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="manga-panel">Manga</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="obsidian-3d">3D Gold</button>
+          </div>
+
+          <!-- Customizer Sub-Tabs: Art & FX | Shapes | Colors | Frame | Logo -->
+          <div style="display: flex; gap: 2px; background: #f1f5f9; padding: 2px; border-radius: 8px;">
+            <button type="button" class="ext-qr-cust-tab active" data-custtab="art">Art & FX</button>
+            <button type="button" class="ext-qr-cust-tab" data-custtab="shapes">Shapes</button>
+            <button type="button" class="ext-qr-cust-tab" data-custtab="colors">Colors</button>
+            <button type="button" class="ext-qr-cust-tab" data-custtab="frame">Frame</button>
+            <button type="button" class="ext-qr-cust-tab" data-custtab="logo">Logo</button>
+          </div>
+
+          <!-- Sub-Tab: Art & FX -->
+          <div id="extCustSubArt" style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 5px;">
+              <select id="extQrArtPreset" class="ext-qr-input" style="flex: 1;">
+                <option value="none" selected>No Art Background</option>
+                <option value="cyber-anime">🌆 Cyber Anime Sun</option>
+                <option value="sakura-spirit">🌸 Sakura Spirit</option>
+                <option value="mecha-neon">🤖 Mecha Circuit</option>
+                <option value="cosmic-galaxy">🌌 Cosmic Galaxy</option>
+                <option value="custom">🖼️ Custom Photo / Anime</option>
+              </select>
+              <select id="extQrArtBlend" class="ext-qr-input" style="width: 96px;">
+                <option value="halftone" selected>Halftone</option>
+                <option value="texture">Fill Inside</option>
+              </select>
+              <input id="extQrArtFileInput" type="file" accept="image/*" style="display: none;">
+              <button id="btnExtQrUploadArt" type="button" class="ext-qr-mini-btn primary">+ Photo</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+              <button id="btnExtQrFx3d" type="button" class="ext-qr-mini-btn" style="padding: 5px; text-align: center;">🧊 3D Pop Depth: Off</button>
+              <button id="btnExtQrFxNeon" type="button" class="ext-qr-mini-btn" style="padding: 5px; text-align: center;">⚡ Neon Glow: Off</button>
+            </div>
+          </div>
+
+          <!-- Sub-Tab: Shapes -->
+          <div id="extCustSubShapes" style="display: none; flex-direction: column; gap: 6px;">
+            <div class="ext-qr-grid-3">
+              <div>
+                <label class="ext-qr-sublabel">Pattern</label>
+                <select id="extQrBodyShape" class="ext-qr-input">
+                  <option value="rounded" selected>Rounded</option>
+                  <option value="liquid">Liquid Flow</option>
+                  <option value="dots">Dots</option>
+                  <option value="star">Anime Star</option>
+                  <option value="diamond">Diamond</option>
+                  <option value="heart">Heart</option>
+                  <option value="bars">Wave Bars</option>
+                  <option value="classy">Classy</option>
+                  <option value="square">Square</option>
+                </select>
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Corner Ring</label>
+                <select id="extQrOuterEye" class="ext-qr-input">
+                  <option value="rounded" selected>Rounded</option>
+                  <option value="square">Square</option>
+                  <option value="circle">Circle</option>
+                  <option value="leaf">Leaf</option>
+                </select>
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Corner Dot</label>
+                <select id="extQrInnerEye" class="ext-qr-input">
+                  <option value="rounded" selected>Rounded</option>
+                  <option value="square">Square</option>
+                  <option value="circle">Circle</option>
+                  <option value="diamond">Diamond</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Tab: Colors -->
+          <div id="extCustSubColors" style="display: none; flex-direction: column; gap: 6px;">
+            <div class="ext-qr-grid-4">
+              <div>
+                <label class="ext-qr-sublabel">Gradient</label>
+                <select id="extQrGradMode" class="ext-qr-input">
+                  <option value="none">Solid</option>
+                  <option value="linear-diag" selected>Diag</option>
+                  <option value="linear-horiz">Horiz</option>
+                  <option value="linear-vert">Vert</option>
+                  <option value="radial">Radial</option>
+                </select>
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Color 1</label>
+                <input id="extQrFg1" type="color" value="#0f172a" class="ext-qr-color-input">
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Color 2</label>
+                <input id="extQrFg2" type="color" value="#0284c7" class="ext-qr-color-input">
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Back</label>
+                <input id="extQrBg" type="color" value="#ffffff" class="ext-qr-color-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Tab: Frame -->
+          <div id="extCustSubFrame" style="display: none; flex-direction: column; gap: 6px;">
+            <div class="ext-qr-grid-3">
+              <div>
+                <label class="ext-qr-sublabel">Frame</label>
+                <select id="extQrFrameStyle" class="ext-qr-input">
+                  <option value="none" selected>No Frame</option>
+                  <option value="bottom-banner">Bottom CTA</option>
+                  <option value="top-banner">Top CTA</option>
+                  <option value="polaroid">Polaroid</option>
+                  <option value="vip-ticket">VIP Pass</option>
+                  <option value="manga-panel">Manga Panel</option>
+                  <option value="retro-arcade">Retro Arcade</option>
+                  <option value="wifi-badge">Wi-Fi Tag</option>
+                </select>
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Label</label>
+                <input id="extQrFrameText" type="text" maxlength="20" value="SCAN ME" class="ext-qr-input">
+              </div>
+              <div>
+                <label class="ext-qr-sublabel">Color</label>
+                <input id="extQrFrameColor" type="color" value="#0284c7" class="ext-qr-color-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Tab: Logo -->
+          <div id="extCustSubLogo" style="display: none; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <select id="extQrLogoPreset" class="ext-qr-input" style="flex: 1;">
+                <option value="none" selected>No Logo</option>
+                <option value="beamdrop">⚡ BeamDrop</option>
+                <option value="globe">🌐 WWW</option>
+                <option value="wifi">📶 Wi-Fi</option>
+                <option value="vcard">👤 vCard</option>
+                <option value="pdf">📄 PDF</option>
+                <option value="custom">🖼️ Custom Logo</option>
+              </select>
+              <select id="extQrLogoMask" class="ext-qr-input" style="width: 90px;">
+                <option value="circle" selected>Circle</option>
+                <option value="rounded">Rounded</option>
+              </select>
+              <input id="extQrLogoFileInput" type="file" accept="image/*" style="display: none;">
+              <button id="btnExtQrUploadLogo" type="button" class="ext-qr-mini-btn primary">Upload</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. High-Contrast Dark Preview Card & Direct Export Bar -->
+      <div class="ext-qr-preview-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 10px;">
+          <span id="extQrScanSafetyBadge" style="background: rgba(16,185,129,0.14); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.35); padding: 2px 8px; border-radius: 99px; font-weight: 800;">✓ 100% Scan Ready</span>
+          <button id="btnExtQrAutoFixContrast" type="button" style="display: none; background: #fbbf24; color: #090d16; border: none; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 900; cursor: pointer;">Auto-Fix Contrast</button>
+        </div>
+
+        <div id="quickQrCanvasContainer" style="background: rgba(2, 6, 23, 0.65); padding: 10px; border-radius: 14px; border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center; width: 100%;">
+          <canvas id="extQrStudioCanvas" style="max-width: 176px; height: auto; border-radius: 12px;"></canvas>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%;">
+          <button id="btnDownloadQuickQrPng" type="button" class="ext-qr-export-btn primary">
+            <span>⬇ PNG</span>
           </button>
-          <button id="btnOpenFullQrStudio" type="button" style="flex: 1; padding: 8px; border-radius: 11px; border: 1px solid #cbd5e1; background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer;">
-            <span>Full QR Studio ↗</span>
+          <button id="btnExtDownloadQrSvg" type="button" class="ext-qr-export-btn">
+            <span>⬇ SVG</span>
+          </button>
+          <button id="btnExtCopyQrImg" type="button" class="ext-qr-export-btn">
+            <span id="extCopyQrImgText">Copy</span>
+          </button>
+          <button id="btnOpenFullQrStudio" type="button" class="ext-qr-export-btn" title="Open Full Web QR Studio">
+            <span>Studio ↗</span>
           </button>
         </div>
+
+        <button id="btnExtPrintBusinessCard" type="button" class="ext-qr-print-card-btn" style="display: none;">
+          <span>🪪 Print Business Card (PNG)</span>
+        </button>
       </div>
     </div>
   </main>

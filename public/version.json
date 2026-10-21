@@ -2,23 +2,17 @@
   "name": "BeamDrop",
   "version": "1.6.2",
   "latestVersion": "1.6.2",
-  "releaseDate": "2026-09-30",
+  "releaseDate": "2026-10-21",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
   "githubUrl": "https://github.com/raouf-djmilo/BeamDrop",
   "updateUrl": "https://beam-drop-mu.vercel.app",
   "highlights": [
-    "🚀 Live Patch: Real-time WebRTC DataChannel speed boost & instant handshake",
-    "🛡️ Eliminated Chrome extension clipboard and bluetooth exceptions",
-    "⚡ High-resolution crisp icon assets for Chrome bar",
-    "🎨 iOS Liquid Glass Visual Overhaul with Specular Refraction",
-    "📁 Native File System 1-Click Folder Unpacker (Zero-ZIP)",
-    "⚡ Streamlined 4-Tab Navigation with Zero Scrollbar",
-    "📡 Stable Real Wi-Fi & Hotspot Device Discovery (Clean Mesh Engine)",
-    "⚡ Zero-latency WebRTC direct LAN file & memory streaming",
-    "🧹 Purged all backend shell loops for 100% lightweight CPU performance",
-    "📱 Automatic screen wake lock on mobile receiver",
-    "⚡ 1-Click Auto Upgrade & Instant Reload directly from extension"
+    "🎨 Full Production QR Studio in Extension (Link, Text, Wi-Fi, vCard, PDF, App & Saved)",
+    "✨ Optional Collapsible QR Design Customizer (Shapes, Gradients, Frames, Logos, PNG/SVG)",
+    "🧹 Streamlined 3-Mode Switcher (Files, Text & Link, QR Studio — Removed redundant Clipboard tab)",
+    "🛡️ Fixed Camera Permission Bridge fallback across desktop & mobile webcams",
+    "☁️ 24h Cloud Drop & Dynamic Shortlink (/q/:code) integration"
   ],
   "changelog": [
     {
@@ -79,9 +73,9 @@
       ]
     }
   ],
-  "buildHash": "31c1ffa",
-  "buildTimestamp": 1792579994,
+  "buildHash": "11bbfd7",
+  "buildTimestamp": 1792586041,
   "patchNotes": "feat(extension): implement 24h cloud drop and quick QR",
-  "commitSha": "31c1ffaa6466f1e74904b1f804f5fa2969ead220",
-  "shortSha": "31c1ffa"
+  "commitSha": "11bbfd70f80978a6ec399b937d02aebe7db139de",
+  "shortSha": "11bbfd7"
 }

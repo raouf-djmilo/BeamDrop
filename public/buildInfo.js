@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.2",
-  commitSha: "31c1ffaa6466f1e74904b1f804f5fa2969ead220",
-  shortSha: "31c1ffa",
-  buildHash: "31c1ffa",
-  buildTimestamp: 1792579994,
+  commitSha: "11bbfd70f80978a6ec399b937d02aebe7db139de",
+  shortSha: "11bbfd7",
+  buildHash: "11bbfd7",
+  buildTimestamp: 1792586041,
   patchNotes: "feat(extension): implement 24h cloud drop and quick QR"
 };

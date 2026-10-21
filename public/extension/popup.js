@@ -2016,106 +2016,1554 @@ async function finalizeOpticalTransfer(session, fullPayload) {
 loadHistoryVault();
 
 // ==========================================
-// BRIDGE OBJECT MODE SWITCHER
+// BRIDGE OBJECT MODE SWITCHER & FULL EXTENSION QR STUDIO
 // ==========================================
 const modeBtnQuickQr = document.getElementById('modeBtnQuickQr');
 const viewQuickQrMode = document.getElementById('viewQuickQrMode');
 const quickQrInput = document.getElementById('quickQrInput');
-const quickQrCanvasContainer = document.getElementById('quickQrCanvasContainer');
+const extQrStudioCanvas = document.getElementById('extQrStudioCanvas');
 const btnGrabCurrentTabUrl = document.getElementById('btnGrabCurrentTabUrl');
+const btnExtQrClearUrl = document.getElementById('btnExtQrClearUrl');
 const btnDownloadQuickQrPng = document.getElementById('btnDownloadQuickQrPng');
+const btnExtDownloadQrSvg = document.getElementById('btnExtDownloadQrSvg');
+const btnExtCopyQrImg = document.getElementById('btnExtCopyQrImg');
+const extCopyQrImgText = document.getElementById('extCopyQrImgText');
 const btnOpenFullQrStudio = document.getElementById('btnOpenFullQrStudio');
+const btnExtPrintBusinessCard = document.getElementById('btnExtPrintBusinessCard');
 
-function renderQuickQrCode(textVal) {
-  if (!quickQrCanvasContainer || typeof QRCode === 'undefined') return;
-  const val = (textVal || '').trim() || 'https://beam-drop-mu.vercel.app';
-  quickQrCanvasContainer.innerHTML = '';
-  new QRCode(quickQrCanvasContainer, {
-    text: val,
-    width: 156,
-    height: 156,
-    colorDark: '#0f172a',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
+// QR Studio Engine Panels & Inputs
+const extQrEngineBtns = document.querySelectorAll('.ext-qr-engine-btn');
+const extQrPanelUrl = document.getElementById('extQrPanelUrl');
+const extQrPanelText = document.getElementById('extQrPanelText');
+const extQrPanelWifi = document.getElementById('extQrPanelWifi');
+const extQrPanelVcard = document.getElementById('extQrPanelVcard');
+const extQrPanelPdf = document.getElementById('extQrPanelPdf');
+const extQrPanelApplink = document.getElementById('extQrPanelApplink');
+const extQrPanelAnalytics = document.getElementById('extQrPanelAnalytics');
+
+const extQrTextInput = document.getElementById('extQrTextInput');
+const extQrTextChars = document.getElementById('extQrTextChars');
+const btnExtQrPasteText = document.getElementById('btnExtQrPasteText');
+const btnExtQrClearText = document.getElementById('btnExtQrClearText');
+
+const extQrWifiSsid = document.getElementById('extQrWifiSsid');
+const extQrWifiEnc = document.getElementById('extQrWifiEnc');
+const extQrWifiPass = document.getElementById('extQrWifiPass');
+const extQrWifiPassWrap = document.getElementById('extQrWifiPassWrap');
+const btnExtQrToggleWifiPass = document.getElementById('btnExtQrToggleWifiPass');
+
+const btnExtVcardModeOffline = document.getElementById('btnExtVcardModeOffline');
+const btnExtVcardModeDynamic = document.getElementById('btnExtVcardModeDynamic');
+const extVcardPhotoInput = document.getElementById('extVcardPhotoInput');
+const btnExtVcardPhoto = document.getElementById('btnExtVcardPhoto');
+const btnExtVcardClearPhoto = document.getElementById('btnExtVcardClearPhoto');
+const extVcardName = document.getElementById('extVcardName');
+const extVcardTitle = document.getElementById('extVcardTitle');
+const extVcardOrg = document.getElementById('extVcardOrg');
+const extVcardPhone = document.getElementById('extVcardPhone');
+const extVcardWhatsapp = document.getElementById('extVcardWhatsapp');
+const extVcardEmail = document.getElementById('extVcardEmail');
+const extVcardWeb = document.getElementById('extVcardWeb');
+const extVcardCity = document.getElementById('extVcardCity');
+
+const extQrPdfFileInput = document.getElementById('extQrPdfFileInput');
+const extQrPdfStatus = document.getElementById('extQrPdfStatus');
+const btnExtQrUploadPdf = document.getElementById('btnExtQrUploadPdf');
+const extQrPdfTitle = document.getElementById('extQrPdfTitle');
+const extQrPdfUrl = document.getElementById('extQrPdfUrl');
+
+const extQrAppName = document.getElementById('extQrAppName');
+const extQrAppIos = document.getElementById('extQrAppIos');
+const extQrAppAndroid = document.getElementById('extQrAppAndroid');
+const btnExtQrCreateAppLink = document.getElementById('btnExtQrCreateAppLink');
+
+const btnExtQrRefreshSaved = document.getElementById('btnExtQrRefreshSaved');
+const extQrSavedList = document.getElementById('extQrSavedList');
+
+const btnExtQrMakeDynamic = document.getElementById('btnExtQrMakeDynamic');
+const extQrActiveDynamicBadge = document.getElementById('extQrActiveDynamicBadge');
+const extQrActiveDynamicText = document.getElementById('extQrActiveDynamicText');
+const btnExtQrResetDynamic = document.getElementById('btnExtQrResetDynamic');
+
+// Optional Customizer Elements
+const btnExtToggleQrCustom = document.getElementById('btnExtToggleQrCustom');
+const extQrCustomBody = document.getElementById('extQrCustomBody');
+const extQrCustomChevron = document.getElementById('extQrCustomChevron');
+const extQrPresetChips = document.querySelectorAll('.ext-qr-preset-chip');
+const extQrCustTabs = document.querySelectorAll('.ext-qr-cust-tab');
+const extCustSubArt = document.getElementById('extCustSubArt');
+const extCustSubShapes = document.getElementById('extCustSubShapes');
+const extCustSubColors = document.getElementById('extCustSubColors');
+const extCustSubFrame = document.getElementById('extCustSubFrame');
+const extCustSubLogo = document.getElementById('extCustSubLogo');
+
+const extQrArtPreset = document.getElementById('extQrArtPreset');
+const extQrArtBlend = document.getElementById('extQrArtBlend');
+const extQrArtFileInput = document.getElementById('extQrArtFileInput');
+const btnExtQrUploadArt = document.getElementById('btnExtQrUploadArt');
+const btnExtQrFx3d = document.getElementById('btnExtQrFx3d');
+const btnExtQrFxNeon = document.getElementById('btnExtQrFxNeon');
+
+const extQrBodyShape = document.getElementById('extQrBodyShape');
+const extQrOuterEye = document.getElementById('extQrOuterEye');
+const extQrInnerEye = document.getElementById('extQrInnerEye');
+const extQrGradMode = document.getElementById('extQrGradMode');
+const extQrFg1 = document.getElementById('extQrFg1');
+const extQrFg2 = document.getElementById('extQrFg2');
+const extQrBg = document.getElementById('extQrBg');
+const extQrFrameStyle = document.getElementById('extQrFrameStyle');
+const extQrFrameText = document.getElementById('extQrFrameText');
+const extQrFrameColor = document.getElementById('extQrFrameColor');
+const extQrLogoPreset = document.getElementById('extQrLogoPreset');
+const extQrLogoMask = document.getElementById('extQrLogoMask');
+const extQrLogoFileInput = document.getElementById('extQrLogoFileInput');
+const btnExtQrUploadLogo = document.getElementById('btnExtQrUploadLogo');
+
+const extQrScanSafetyBadge = document.getElementById('extQrScanSafetyBadge');
+const btnExtQrAutoFixContrast = document.getElementById('btnExtQrAutoFixContrast');
+
+let extQrCurrentEngine = 'url'; // 'url' | 'text' | 'wifi' | 'vcard' | 'pdf' | 'applink' | 'analytics'
+let extQrActiveDynamicCode = '';
+let extQrVcardMode = 'offline'; // 'offline' | 'dynamic'
+let extQrVcardPhotoDataUrl = null;
+let extQrCustomLogoDataUrl = null;
+let extQrCustomArtDataUrl = null;
+let extQrFx3dEnabled = false;
+let extQrFxNeonEnabled = false;
+let extQrUploadedPdfShareUrl = '';
+let extQrSavedDynamicItems = [];
+
+try {
+  const rawSaved = localStorage.getItem('beamdrop_dynamic_qrs');
+  if (rawSaved) extQrSavedDynamicItems = JSON.parse(rawSaved) || [];
+} catch (_) {}
+
+function saveExtDynamicItemsToStorage() {
+  try {
+    localStorage.setItem('beamdrop_dynamic_qrs', JSON.stringify(extQrSavedDynamicItems));
+  } catch (_) {}
+}
+
+const EXT_DESIGNER_PRESETS = {
+  'classic-clean': {
+    fg1: '#0f172a', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
+    body: 'rounded', outerEye: 'rounded', innerEye: 'rounded',
+    frame: 'none', frameColor: '#0f172a', frameText: 'SCAN ME',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'liquid-cyan': {
+    fg1: '#0284c7', fg2: '#2563eb', grad: 'linear-diag', bg: '#ffffff',
+    body: 'liquid', outerEye: 'circle', innerEye: 'circle',
+    frame: 'bottom-banner', frameColor: '#0284c7', frameText: 'SCAN ME',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'anime-cyber': {
+    fg1: '#311042', fg2: '#0f172a', grad: 'linear-diag', bg: '#ffffff',
+    body: 'liquid', outerEye: 'leaf', innerEye: 'diamond',
+    frame: 'polaroid', frameColor: '#701a75', frameText: 'CYBER DROP',
+    art: 'cyber-anime', blend: 'halftone', fx3d: false, fxNeon: true
+  },
+  'sakura-art': {
+    fg1: '#881337', fg2: '#9d174d', grad: 'radial', bg: '#fff1f2',
+    body: 'heart', outerEye: 'circle', innerEye: 'circle',
+    frame: 'polaroid', frameColor: '#be123c', frameText: 'SAKURA EDITION',
+    art: 'sakura-spirit', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'manga-panel': {
+    fg1: '#090d16', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
+    body: 'star', outerEye: 'square', innerEye: 'diamond',
+    frame: 'manga-panel', frameColor: '#090d16', frameText: 'SCAN!! ドドド',
+    art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
+  },
+  'obsidian-3d': {
+    fg1: '#0f172a', fg2: '#b45309', grad: 'linear-diag', bg: '#ffffff',
+    body: 'diamond', outerEye: 'rounded', innerEye: 'diamond',
+    frame: 'vip-ticket', frameColor: '#0f172a', frameText: 'VIP ACCESS PASS',
+    art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
+  }
+};
+
+function createExtBuiltInArtCanvas(preset, size = 300) {
+  if (!preset || preset === 'none' || preset === 'custom') return null;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+
+  if (preset === 'cyber-anime') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#fbcfe8');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#bae6fd');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    const sunGrad = ctx.createLinearGradient(0, size * 0.15, 0, size * 0.75);
+    sunGrad.addColorStop(0, '#f472b6');
+    sunGrad.addColorStop(1, '#fbbf24');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(size / 2, size * 0.46, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#e0e7ff';
+    for (let y = size * 0.48; y < size * 0.78; y += 14) {
+      ctx.fillRect(size * 0.15, y, size * 0.7, 4);
+    }
+  } else if (preset === 'sakura-spirit') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#ffe4e6');
+    g.addColorStop(0.6, '#fecdd3');
+    g.addColorStop(1, '#fda4af');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
+    [[0.2, 0.25], [0.75, 0.2], [0.5, 0.5], [0.3, 0.75], [0.8, 0.7], [0.15, 0.6], [0.6, 0.35]].forEach(([px, py], idx) => {
+      ctx.save();
+      ctx.translate(px * size, py * size);
+      ctx.rotate((idx * Math.PI) / 4);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 22, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  } else if (preset === 'mecha-neon') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#dbeafe');
+    g.addColorStop(0.5, '#ede9fe');
+    g.addColorStop(1, '#cffafe');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+    ctx.lineWidth = 4;
+    for (let i = 30; i < size; i += 50) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(size - i, size);
+      ctx.stroke();
+    }
+  } else if (preset === 'cosmic-galaxy') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#f3e8ff');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#fae8ff');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.32)';
+    ctx.beginPath();
+    ctx.arc(size * 0.4, size * 0.45, size * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return c;
+}
+
+function extHexToLuminance(hex) {
+  const clean = String(hex || '#000000').replace('#', '');
+  const num = parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
+  if (Number.isNaN(num)) return 0;
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  const toLinear = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function updateExtScanSafetyIndicator() {
+  if (!extQrScanSafetyBadge) return;
+  const fg = (extQrFg1 && extQrFg1.value) || '#0f172a';
+  const bg = (extQrBg && extQrBg.value) || '#ffffff';
+  const lumFg = extHexToLuminance(fg);
+  const lumBg = extHexToLuminance(bg);
+  const ratio = (Math.max(lumFg, lumBg) + 0.05) / (Math.min(lumFg, lumBg) + 0.05);
+  const bad = lumFg > lumBg || ratio < 2.8;
+
+  if (bad) {
+    extQrScanSafetyBadge.textContent = lumFg > lumBg ? '⚠️ Inverted Colors' : '⚠️ Low Contrast';
+    extQrScanSafetyBadge.style.background = 'rgba(245, 158, 11, 0.18)';
+    extQrScanSafetyBadge.style.color = '#fcd34d';
+    extQrScanSafetyBadge.style.borderColor = 'rgba(245, 158, 11, 0.45)';
+    if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'inline-block';
+  } else {
+    extQrScanSafetyBadge.textContent = '✓ 100% Scan Ready';
+    extQrScanSafetyBadge.style.background = 'rgba(16, 185, 129, 0.14)';
+    extQrScanSafetyBadge.style.color = '#6ee7b7';
+    extQrScanSafetyBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'none';
+  }
+}
+
+if (btnExtQrAutoFixContrast) {
+  btnExtQrAutoFixContrast.addEventListener('click', () => {
+    if (extQrFg1) extQrFg1.value = '#0f172a';
+    if (extQrBg) extQrBg.value = '#ffffff';
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
   });
+}
+
+function computeExtQrPayload() {
+  const cleanBase = getCleanBaseUrl();
+  if (extQrActiveDynamicCode) {
+    return `${cleanBase}/q/${extQrActiveDynamicCode}`;
+  }
+  if (extQrCurrentEngine === 'url') {
+    return (quickQrInput && quickQrInput.value.trim()) || cleanBase;
+  }
+  if (extQrCurrentEngine === 'text') {
+    return (extQrTextInput && extQrTextInput.value.trim()) || 'BeamDrop QR Text';
+  }
+  if (extQrCurrentEngine === 'wifi') {
+    const esc = (s) => String(s || '').replace(/([\\;,:])/g, '\\$1');
+    const ssid = esc(extQrWifiSsid ? extQrWifiSsid.value.trim() : 'WiFi') || 'WiFi';
+    const enc = extQrWifiEnc ? extQrWifiEnc.value : 'WPA';
+    const pass = enc === 'nopass' ? '' : esc(extQrWifiPass ? extQrWifiPass.value : '');
+    return `WIFI:T:${enc};S:${ssid};P:${pass};H:false;;`;
+  }
+  if (extQrCurrentEngine === 'vcard') {
+    const fn = (extVcardName && extVcardName.value.trim()) || 'Contact';
+    const title = (extVcardTitle && extVcardTitle.value.trim()) || '';
+    const org = (extVcardOrg && extVcardOrg.value.trim()) || '';
+    const tel = (extVcardPhone && extVcardPhone.value.trim()) || '';
+    const wa = (extVcardWhatsapp && extVcardWhatsapp.value.trim()) || '';
+    const email = (extVcardEmail && extVcardEmail.value.trim()) || '';
+    const web = (extVcardWeb && extVcardWeb.value.trim()) || '';
+    const city = (extVcardCity && extVcardCity.value.trim()) || '';
+
+    if (extQrVcardMode === 'dynamic') {
+      const p = new URLSearchParams();
+      p.set('q', 'vcard-live');
+      if (fn) p.set('fn', fn);
+      if (title) p.set('title', title);
+      if (org) p.set('org', org);
+      if (tel) p.set('tel', tel);
+      if (wa) p.set('wa', wa);
+      if (email) p.set('email', email);
+      if (web) p.set('url', web);
+      if (city) p.set('adr', city);
+      return `${cleanBase}/?${p.toString()}`;
+    }
+
+    return [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${fn}`,
+      org ? `ORG:${org}` : '',
+      title ? `TITLE:${title}` : '',
+      tel ? `TEL;TYPE=CELL:${tel}` : '',
+      email ? `EMAIL;TYPE=INTERNET:${email}` : '',
+      web ? `URL:${web}` : '',
+      city ? `ADR;TYPE=WORK:;;${city};;;;` : '',
+      'END:VCARD'
+    ].filter(Boolean).join('\n');
+  }
+  if (extQrCurrentEngine === 'pdf') {
+    if (extQrUploadedPdfShareUrl) return extQrUploadedPdfShareUrl;
+    if (extQrPdfUrl && extQrPdfUrl.value.trim()) return extQrPdfUrl.value.trim();
+    return `${cleanBase}/?tab=qrstudio`;
+  }
+  if (extQrCurrentEngine === 'applink') {
+    return (extQrAppIos && extQrAppIos.value.trim()) || (extQrAppAndroid && extQrAppAndroid.value.trim()) || cleanBase;
+  }
+  return cleanBase;
+}
+
+function isExtFinderModule(r, c, count) {
+  if (r < 7 && c < 7) return true;
+  if (r < 7 && c >= count - 7) return true;
+  if (r >= count - 7 && c < 7) return true;
+  return false;
+}
+
+function traceExtEyeShape(ctx, x, y, size, shape, radiusBase) {
+  ctx.beginPath();
+  if (shape === 'circle') {
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  } else if (shape === 'rounded') {
+    ctx.roundRect(x, y, size, size, radiusBase);
+  } else if (shape === 'leaf') {
+    ctx.roundRect(x, y, size, size, [radiusBase * 1.6, radiusBase * 0.25, radiusBase * 1.6, radiusBase * 0.25]);
+  } else if (shape === 'diamond') {
+    const half = size / 2;
+    ctx.moveTo(x + half, y);
+    ctx.lineTo(x + size, y + half);
+    ctx.lineTo(x + half, y + size);
+    ctx.lineTo(x, y + half);
+    ctx.closePath();
+  } else {
+    ctx.rect(x, y, size, size);
+  }
+}
+
+function drawExtCustomModule(ctx, shape, x, y, cellSize, r, c, isDarkNeighbor) {
+  const cx = x + cellSize / 2;
+  const cy = y + cellSize / 2;
+
+  if (shape === 'liquid') {
+    const top = isDarkNeighbor(r - 1, c);
+    const bottom = isDarkNeighbor(r + 1, c);
+    const left = isDarkNeighbor(r, c - 1);
+    const right = isDarkNeighbor(r, c + 1);
+    const maxRad = cellSize * 0.48;
+    const tl = !top && !left ? maxRad : 0;
+    const tr = !top && !right ? maxRad : 0;
+    const br = !bottom && !right ? maxRad : 0;
+    const bl = !bottom && !left ? maxRad : 0;
+    ctx.beginPath();
+    ctx.roundRect(x - 0.3, y - 0.3, cellSize + 0.6, cellSize + 0.6, [tl, tr, br, bl]);
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'star') {
+    const outerR = cellSize * 0.54;
+    const innerR = cellSize * 0.22;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const rad = i % 2 === 0 ? outerR : innerR;
+      const angle = (i * Math.PI) / 4;
+      const px = cx + Math.cos(angle) * rad;
+      const py = cy + Math.sin(angle) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'diamond') {
+    const rad = cellSize * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - rad);
+    ctx.lineTo(cx + rad, cy);
+    ctx.lineTo(cx, cy + rad);
+    ctx.lineTo(cx - rad, cy);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'heart') {
+    const w = cellSize * 0.92;
+    const h = cellSize * 0.92;
+    const hx = cx;
+    const hy = cy - h * 0.18;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy + h * 0.65);
+    ctx.bezierCurveTo(hx - w * 0.55, hy + h * 0.3, hx - w * 0.5, hy - h * 0.25, hx, hy + h * 0.05);
+    ctx.bezierCurveTo(hx + w * 0.5, hy - h * 0.25, hx + w * 0.55, hy + h * 0.3, hx, hy + h * 0.65);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'bars') {
+    const top = isDarkNeighbor(r - 1, c);
+    const bottom = isDarkNeighbor(r + 1, c);
+    const barW = cellSize * 0.76;
+    const bx = cx - barW / 2;
+    const rad = barW / 2;
+    ctx.beginPath();
+    ctx.roundRect(
+      bx,
+      top ? y - 0.5 : y + cellSize * 0.08,
+      barW,
+      cellSize + (top ? 0.5 : -cellSize * 0.08) + (bottom ? 0.5 : -cellSize * 0.08),
+      [top ? 0 : rad, top ? 0 : rad, bottom ? 0 : rad, bottom ? 0 : rad]
+    );
+    ctx.fill();
+    return;
+  }
+
+  if (bodyShapeOrDots(shape) === 'dots') {
+    ctx.beginPath();
+    ctx.arc(cx, cy, (cellSize / 2) * 0.86, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'rounded') {
+    ctx.beginPath();
+    ctx.roundRect(x + cellSize * 0.05, y + cellSize * 0.05, cellSize * 0.9, cellSize * 0.9, cellSize * 0.35);
+    ctx.fill();
+    return;
+  }
+
+  if (shape === 'classy') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, cellSize * 0.94, cellSize * 0.94, [cellSize * 0.45, 0, cellSize * 0.45, 0]);
+    ctx.fill();
+    return;
+  }
+
+  ctx.fillRect(x, y, Math.ceil(cellSize), Math.ceil(cellSize));
+}
+
+function bodyShapeOrDots(s) {
+  return s === 'dots' ? 'dots' : s;
+}
+
+async function renderStyledExtQrCanvas(targetCanvas, scaleFactor = 1, customPayload = null) {
+  if (!targetCanvas || typeof QRCode === 'undefined' || !QRCode.create) return;
+  updateExtScanSafetyIndicator();
+
+  const payloadToDraw = customPayload || computeExtQrPayload() || 'https://beam-drop-mu.vercel.app';
+  let qrObj;
+  try {
+    qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
+  } catch (_) {
+    qrObj = QRCode.create('https://beam-drop-mu.vercel.app', { errorCorrectionLevel: 'H' });
+  }
+  const modules = qrObj.modules;
+  const count = modules.size;
+
+  const bodyShape = (extQrBodyShape && extQrBodyShape.value) || 'rounded';
+  const outerEyeShape = (extQrOuterEye && extQrOuterEye.value) || 'rounded';
+  const innerEyeShape = (extQrInnerEye && extQrInnerEye.value) || 'rounded';
+  const gradMode = (extQrGradMode && extQrGradMode.value) || 'linear-diag';
+  const fgColor = (extQrFg1 && extQrFg1.value) || '#0f172a';
+  const fgColor2 = (extQrFg2 && extQrFg2.value) || '#0284c7';
+  const bgColor = (extQrBg && extQrBg.value) || '#ffffff';
+  const frameStyle = (extQrFrameStyle && extQrFrameStyle.value) || 'none';
+  const frameText = (extQrFrameText && extQrFrameText.value) || 'SCAN ME';
+  const frameColor = (extQrFrameColor && extQrFrameColor.value) || '#0284c7';
+  const logoPreset = (extQrLogoPreset && extQrLogoPreset.value) || 'none';
+  const logoMask = (extQrLogoMask && extQrLogoMask.value) || 'circle';
+  const artPreset = (extQrArtPreset && extQrArtPreset.value) || 'none';
+  const artBlend = (extQrArtBlend && extQrArtBlend.value) || 'halftone';
+
+  const baseWidth = 280 * scaleFactor;
+  const hasBottomFrame =
+    frameStyle === 'bottom-banner' ||
+    frameStyle === 'wifi-badge' ||
+    frameStyle === 'polaroid' ||
+    frameStyle === 'vip-ticket' ||
+    frameStyle === 'manga-panel' ||
+    frameStyle === 'retro-arcade';
+  const hasTopFrame = frameStyle === 'top-banner' || frameStyle === 'vip-ticket' || frameStyle === 'retro-arcade';
+  const bottomExtra = frameStyle === 'polaroid' ? 56 : hasBottomFrame ? 46 : 0;
+  const topExtra = hasTopFrame ? 40 : 0;
+  const baseHeight = baseWidth + (bottomExtra + topExtra) * scaleFactor;
+
+  targetCanvas.width = baseWidth;
+  targetCanvas.height = baseHeight;
+  const ctx = targetCanvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, baseWidth, baseHeight);
+  const qrOffsetY = topExtra * scaleFactor;
+  const ssidLabel = (extQrWifiSsid && extQrWifiSsid.value.trim()) || 'JOIN';
+  const ctaText = frameStyle === 'wifi-badge'
+    ? `WI-FI: ${ssidLabel.toUpperCase()}`
+    : (frameText || 'SCAN ME').toUpperCase();
+
+  if (frameStyle === 'polaroid') {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, baseWidth, baseHeight, 20 * scaleFactor);
+    ctx.fill();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2.5 * scaleFactor;
+    ctx.stroke();
+
+    const pad = 12 * scaleFactor;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(pad, pad, baseWidth - pad * 2, baseWidth - pad * 2, 10 * scaleFactor);
+    ctx.fill();
+
+    ctx.fillStyle = frameColor;
+    ctx.font = `900 ${14 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ctaText, baseWidth / 2, baseWidth + 26 * scaleFactor);
+  } else if (frameStyle === 'manga-panel') {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    ctx.strokeStyle = frameColor;
+    ctx.lineWidth = 5 * scaleFactor;
+    ctx.strokeRect(3 * scaleFactor, 3 * scaleFactor, baseWidth - 6 * scaleFactor, baseHeight - 6 * scaleFactor);
+    ctx.fillStyle = frameColor;
+    ctx.fillRect(8 * scaleFactor, baseWidth - 2 * scaleFactor, baseWidth - 16 * scaleFactor, 40 * scaleFactor);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 italic ${13.5 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ctaText, baseWidth / 2, baseWidth + 18 * scaleFactor);
+  } else if (frameStyle === 'vip-ticket' || frameStyle === 'retro-arcade') {
+    ctx.fillStyle = frameColor;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, baseWidth, baseHeight, 18 * scaleFactor);
+    ctx.fill();
+
+    const pad = 10 * scaleFactor;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(pad, qrOffsetY + pad, baseWidth - pad * 2, baseWidth - pad * 2, 12 * scaleFactor);
+    ctx.fill();
+
+    ctx.fillStyle = frameStyle === 'vip-ticket' ? '#fbbf24' : '#38bdf8';
+    ctx.font = `900 ${10 * scaleFactor}px ui-monospace, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      frameStyle === 'vip-ticket' ? '★ BEAMDROP OFFICIAL PASS ★' : 'HIGH SCORE • P2P READY',
+      baseWidth / 2,
+      21 * scaleFactor
+    );
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${13 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+    ctx.fillText(ctaText, baseWidth / 2, qrOffsetY + baseWidth + 21 * scaleFactor);
+  } else if (frameStyle !== 'none') {
+    const frameGrad = ctx.createLinearGradient(0, 0, baseWidth, baseHeight);
+    frameGrad.addColorStop(0, frameColor);
+    frameGrad.addColorStop(1, gradMode !== 'none' ? fgColor2 : frameColor);
+    ctx.fillStyle = frameGrad;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, baseWidth, baseHeight, 20 * scaleFactor);
+    ctx.fill();
+
+    const pad = 9 * scaleFactor;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(pad, qrOffsetY + pad, baseWidth - pad * 2, baseWidth - pad * 2, 14 * scaleFactor);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `800 ${13 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (hasTopFrame) {
+      ctx.fillText(ctaText, baseWidth / 2, 21 * scaleFactor);
+    } else {
+      ctx.fillText(ctaText, baseWidth / 2, baseWidth + 21 * scaleFactor);
+    }
+  } else {
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, baseWidth, baseHeight, 18 * scaleFactor);
+    ctx.fill();
+  }
+
+  const qrPadding = 20 * scaleFactor;
+  const qrDrawArea = baseWidth - qrPadding * 2;
+  const cellSize = qrDrawArea / count;
+  const startX = qrPadding;
+  const startY = qrOffsetY + qrPadding;
+
+  let artSource = null;
+  if (artPreset === 'custom' && extQrCustomArtDataUrl) {
+    artSource = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = extQrCustomArtDataUrl;
+    });
+  } else if (artPreset !== 'none') {
+    artSource = createExtBuiltInArtCanvas(artPreset, Math.round(qrDrawArea));
+  }
+
+  if (artSource && artBlend === 'halftone') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(startX - 3 * scaleFactor, startY - 3 * scaleFactor, qrDrawArea + 6 * scaleFactor, qrDrawArea + 6 * scaleFactor, 10 * scaleFactor);
+    ctx.clip();
+    ctx.globalAlpha = 0.82;
+    ctx.drawImage(artSource, startX - 3 * scaleFactor, startY - 3 * scaleFactor, qrDrawArea + 6 * scaleFactor, qrDrawArea + 6 * scaleFactor);
+    ctx.restore();
+  }
+
+  let mainFill = fgColor;
+  if (artSource && artBlend === 'texture') {
+    const patCanvas = document.createElement('canvas');
+    patCanvas.width = Math.ceil(qrDrawArea);
+    patCanvas.height = Math.ceil(qrDrawArea);
+    const pCtx = patCanvas.getContext('2d');
+    if (pCtx) {
+      pCtx.drawImage(artSource, 0, 0, patCanvas.width, patCanvas.height);
+      pCtx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      pCtx.fillRect(0, 0, patCanvas.width, patCanvas.height);
+      const pat = ctx.createPattern(patCanvas, 'no-repeat');
+      if (pat) mainFill = pat;
+    }
+  } else if (gradMode === 'linear-diag') {
+    const grad = ctx.createLinearGradient(startX, startY, startX + qrDrawArea, startY + qrDrawArea);
+    grad.addColorStop(0, fgColor);
+    grad.addColorStop(1, fgColor2);
+    mainFill = grad;
+  } else if (gradMode === 'linear-horiz') {
+    const grad = ctx.createLinearGradient(startX, startY, startX + qrDrawArea, startY);
+    grad.addColorStop(0, fgColor);
+    grad.addColorStop(1, fgColor2);
+    mainFill = grad;
+  } else if (gradMode === 'linear-vert') {
+    const grad = ctx.createLinearGradient(startX, startY, startX, startY + qrDrawArea);
+    grad.addColorStop(0, fgColor);
+    grad.addColorStop(1, fgColor2);
+    mainFill = grad;
+  } else if (gradMode === 'radial') {
+    const cx = startX + qrDrawArea / 2;
+    const cy = startY + qrDrawArea / 2;
+    const grad = ctx.createRadialGradient(cx, cy, qrDrawArea * 0.05, cx, cy, qrDrawArea * 0.65);
+    grad.addColorStop(0, fgColor);
+    grad.addColorStop(1, fgColor2);
+    mainFill = grad;
+  }
+
+  const hasLogo = logoPreset !== 'none';
+  const logoBoxSize = 46 * scaleFactor;
+  const quietPadPx = 6 * scaleFactor;
+  const totalLogoRadiusPx = logoBoxSize / 2 + quietPadPx + cellSize * 0.45;
+  const centerCoordX = startX + qrDrawArea / 2;
+  const centerCoordY = startY + qrDrawArea / 2;
+
+  const isSkippedForLogo = (r, c) => {
+    if (!hasLogo) return false;
+    const modCenterX = startX + (c + 0.5) * cellSize;
+    const modCenterY = startY + (r + 0.5) * cellSize;
+    if (logoMask === 'circle') {
+      return Math.hypot(modCenterX - centerCoordX, modCenterY - centerCoordY) < totalLogoRadiusPx;
+    }
+    return Math.abs(modCenterX - centerCoordX) < totalLogoRadiusPx && Math.abs(modCenterY - centerCoordY) < totalLogoRadiusPx;
+  };
+
+  const isDarkNeighbor = (nr, nc) => {
+    if (nr < 0 || nc < 0 || nr >= count || nc >= count) return false;
+    if (isExtFinderModule(nr, nc, count)) return false;
+    if (isSkippedForLogo(nr, nc)) return false;
+    return Boolean(modules.get(nr, nc));
+  };
+
+  ctx.save();
+  if (extQrFxNeonEnabled) {
+    ctx.shadowColor = gradMode !== 'none' ? fgColor2 : fgColor;
+    ctx.shadowBlur = 5 * scaleFactor;
+  }
+
+  for (let r = 0; r < count; r++) {
+    for (let c = 0; c < count; c++) {
+      if (isExtFinderModule(r, c, count)) continue;
+      if (isSkippedForLogo(r, c)) continue;
+
+      const x = startX + c * cellSize;
+      const y = startY + r * cellSize;
+      const isDark = Boolean(modules.get(r, c));
+
+      if (!isDark) {
+        if (artSource && artBlend === 'halftone') {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.86)';
+          ctx.beginPath();
+          ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.28, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        continue;
+      }
+
+      if (extQrFx3dEnabled) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.28)';
+        drawExtCustomModule(ctx, bodyShape, x + 1.4 * scaleFactor, y + 1.6 * scaleFactor, cellSize, r, c, isDarkNeighbor);
+      }
+
+      ctx.fillStyle = mainFill;
+      drawExtCustomModule(
+        ctx,
+        bodyShape,
+        artSource && artBlend === 'halftone' ? x + cellSize * 0.06 : x,
+        artSource && artBlend === 'halftone' ? y + cellSize * 0.06 : y,
+        artSource && artBlend === 'halftone' ? cellSize * 0.88 : cellSize,
+        r,
+        c,
+        isDarkNeighbor
+      );
+    }
+  }
+  ctx.restore();
+
+  const drawFinderEye = (rowOffset, colOffset) => {
+    const ex = startX + colOffset * cellSize;
+    const ey = startY + rowOffset * cellSize;
+    const outerSize = 7 * cellSize;
+    const innerWhiteSize = 5 * cellSize;
+    const ballSize = 3 * cellSize;
+
+    if (artSource) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect(ex - cellSize * 0.45, ey - cellSize * 0.45, outerSize + cellSize * 0.9, outerSize + cellSize * 0.9, cellSize * 1.4);
+      ctx.fill();
+    }
+
+    if (extQrFx3dEnabled) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+      traceExtEyeShape(ctx, ex + 1.6 * scaleFactor, ey + 1.8 * scaleFactor, outerSize, outerEyeShape, cellSize * 1.8);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = mainFill;
+    traceExtEyeShape(ctx, ex, ey, outerSize, outerEyeShape, cellSize * 1.8);
+    ctx.fill();
+
+    ctx.fillStyle = bgColor;
+    traceExtEyeShape(ctx, ex + cellSize, ey + cellSize, innerWhiteSize, outerEyeShape, cellSize * 1.25);
+    ctx.fill();
+
+    ctx.fillStyle = mainFill;
+    traceExtEyeShape(ctx, ex + cellSize * 2, ey + cellSize * 2, ballSize, innerEyeShape, cellSize * 0.85);
+    ctx.fill();
+  };
+
+  drawFinderEye(0, 0);
+  drawFinderEye(0, count - 7);
+  drawFinderEye(count - 7, 0);
+
+  if (hasLogo) {
+    const cx = centerCoordX;
+    const cy = centerCoordY;
+    const outerBadgeSize = logoBoxSize + quietPadPx * 2;
+    const maskRadius = logoMask === 'circle' ? logoBoxSize / 2 : 12 * scaleFactor;
+    const outerRadius = logoMask === 'circle' ? outerBadgeSize / 2 : 15 * scaleFactor;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.16)';
+    ctx.shadowBlur = 10 * scaleFactor;
+    ctx.shadowOffsetY = 2 * scaleFactor;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    if (logoMask === 'circle') {
+      ctx.arc(cx, cy, outerBadgeSize / 2, 0, Math.PI * 2);
+    } else {
+      ctx.roundRect(cx - outerBadgeSize / 2, cy - outerBadgeSize / 2, outerBadgeSize, outerBadgeSize, outerRadius);
+    }
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    if (logoMask === 'circle') {
+      ctx.arc(cx, cy, logoBoxSize / 2, 0, Math.PI * 2);
+    } else {
+      ctx.roundRect(cx - logoBoxSize / 2, cy - logoBoxSize / 2, logoBoxSize, logoBoxSize, maskRadius);
+    }
+    ctx.clip();
+
+    const customImgSrc = (logoPreset === 'custom' && extQrCustomLogoDataUrl)
+      ? extQrCustomLogoDataUrl
+      : (extQrCurrentEngine === 'vcard' && extQrVcardPhotoDataUrl && logoPreset === 'vcard')
+      ? extQrVcardPhotoDataUrl
+      : null;
+
+    if (customImgSrc) {
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, cx - logoBoxSize / 2, cy - logoBoxSize / 2, logoBoxSize, logoBoxSize);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = customImgSrc;
+      });
+    } else {
+      const badgeGrad = ctx.createLinearGradient(cx - logoBoxSize / 2, cy - logoBoxSize / 2, cx + logoBoxSize / 2, cy + logoBoxSize / 2);
+      badgeGrad.addColorStop(0, fgColor);
+      badgeGrad.addColorStop(1, gradMode !== 'none' ? fgColor2 : '#0284c7');
+      ctx.fillStyle = badgeGrad;
+      ctx.fillRect(cx - logoBoxSize / 2, cy - logoBoxSize / 2, logoBoxSize, logoBoxSize);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 ${17 * scaleFactor}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const symbolMap = { beamdrop: '⚡', globe: 'WWW', vcard: 'ID', wifi: 'WIFI', pdf: 'PDF', custom: '★' };
+      ctx.fillText(symbolMap[logoPreset] || '⚡', cx, cy + 1 * scaleFactor);
+    }
+    ctx.restore();
+  }
+}
+
+function renderQuickQrCode(overrideText) {
+  if (overrideText !== undefined && quickQrInput && extQrCurrentEngine === 'url') {
+    quickQrInput.value = overrideText;
+  }
+  renderStyledExtQrCanvas(extQrStudioCanvas, 1);
 }
 
 function populateActiveTabUrlForQuickQr() {
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeUrl = (tabs && tabs[0] && tabs[0].url) ? tabs[0].url : 'https://beam-drop-mu.vercel.app';
+      const activeUrl = (tabs && tabs[0] && tabs[0].url && !tabs[0].url.startsWith('chrome'))
+        ? tabs[0].url
+        : 'https://beam-drop-mu.vercel.app';
       if (quickQrInput) quickQrInput.value = activeUrl;
-      renderQuickQrCode(activeUrl);
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
     });
   } else {
-    const fallbackUrl = window.location.origin || 'https://beam-drop-mu.vercel.app';
+    const fallbackUrl = 'https://beam-drop-mu.vercel.app';
     if (quickQrInput) quickQrInput.value = fallbackUrl;
-    renderQuickQrCode(fallbackUrl);
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
   }
 }
 
+function switchExtQrEngine(engine) {
+  extQrCurrentEngine = engine;
+  extQrActiveDynamicCode = '';
+  if (extQrActiveDynamicBadge) extQrActiveDynamicBadge.style.display = 'none';
+  if (btnExtQrMakeDynamic) {
+    btnExtQrMakeDynamic.style.display = engine === 'analytics' ? 'none' : 'inline-flex';
+  }
+  extQrEngineBtns.forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-engine') === engine);
+  });
+
+  if (extQrPanelUrl) extQrPanelUrl.style.display = engine === 'url' ? 'block' : 'none';
+  if (extQrPanelText) extQrPanelText.style.display = engine === 'text' ? 'block' : 'none';
+  if (extQrPanelWifi) extQrPanelWifi.style.display = engine === 'wifi' ? 'block' : 'none';
+  if (extQrPanelVcard) extQrPanelVcard.style.display = engine === 'vcard' ? 'block' : 'none';
+  if (extQrPanelPdf) extQrPanelPdf.style.display = engine === 'pdf' ? 'block' : 'none';
+  if (extQrPanelApplink) extQrPanelApplink.style.display = engine === 'applink' ? 'block' : 'none';
+  if (extQrPanelAnalytics) extQrPanelAnalytics.style.display = engine === 'analytics' ? 'block' : 'none';
+
+  if (btnExtPrintBusinessCard) {
+    btnExtPrintBusinessCard.style.display = engine === 'vcard' ? 'block' : 'none';
+  }
+
+  if (engine === 'analytics') {
+    renderExtSavedDynamicList();
+  }
+  renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+}
+
+extQrEngineBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const eng = btn.getAttribute('data-engine') || 'url';
+    switchExtQrEngine(eng);
+  });
+});
+
 function switchBridgeMode(mode) {
   activeBridgeMode = mode;
-  modeBtnFiles.className = mode === 'files' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
-  modeBtnText.className = mode === 'text' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
-  modeBtnClipboard.className = mode === 'clipboard' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  if (modeBtnFiles) modeBtnFiles.className = mode === 'files' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  if (modeBtnText) modeBtnText.className = mode === 'text' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
+  if (modeBtnClipboard) modeBtnClipboard.className = mode === 'clipboard' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
   if (modeBtnQuickQr) {
     modeBtnQuickQr.className = mode === 'quickqr' ? 'bridge-mode-btn active' : 'bridge-mode-btn';
   }
 
   if (mode === 'files') {
-    viewFilesMode.style.display = 'flex';
-    viewTextMode.style.display = 'none';
+    if (viewFilesMode) viewFilesMode.style.display = 'flex';
+    if (viewTextMode) viewTextMode.style.display = 'none';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
   } else if (mode === 'text' || mode === 'clipboard') {
-    viewFilesMode.style.display = 'none';
-    viewTextMode.style.display = 'flex';
+    if (viewFilesMode) viewFilesMode.style.display = 'none';
+    if (viewTextMode) viewTextMode.style.display = 'flex';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
-    // Mode changed to clipboard/text: do NOT auto-read clipboard without direct user click
-    if (mode === 'clipboard') {
-      // Focus input without raising DOMException
-      if (textPayloadInput) textPayloadInput.focus();
-    }
   } else if (mode === 'quickqr') {
-    viewFilesMode.style.display = 'none';
-    viewTextMode.style.display = 'none';
+    if (viewFilesMode) viewFilesMode.style.display = 'none';
+    if (viewTextMode) viewTextMode.style.display = 'none';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'flex';
     if (quickQrInput && !quickQrInput.value.trim()) {
       populateActiveTabUrlForQuickQr();
-    } else if (quickQrInput) {
-      renderQuickQrCode(quickQrInput.value);
+    } else {
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
     }
   }
 }
 
-modeBtnFiles.addEventListener('click', () => switchBridgeMode('files'));
-modeBtnText.addEventListener('click', () => switchBridgeMode('text'));
-modeBtnClipboard.addEventListener('click', () => switchBridgeMode('clipboard'));
-if (modeBtnQuickQr) {
-  modeBtnQuickQr.addEventListener('click', () => switchBridgeMode('quickqr'));
-}
-if (quickQrInput) {
-  quickQrInput.addEventListener('input', (e) => renderQuickQrCode(e.target.value));
-}
+if (modeBtnFiles) modeBtnFiles.addEventListener('click', () => switchBridgeMode('files'));
+if (modeBtnText) modeBtnText.addEventListener('click', () => switchBridgeMode('text'));
+if (modeBtnClipboard) modeBtnClipboard.addEventListener('click', () => switchBridgeMode('text'));
+if (modeBtnQuickQr) modeBtnQuickQr.addEventListener('click', () => switchBridgeMode('quickqr'));
+
+// Wire all QR Studio inputs for live canvas updates
+[
+  quickQrInput, extQrTextInput, extQrWifiSsid, extQrWifiEnc, extQrWifiPass,
+  extVcardName, extVcardTitle, extVcardOrg, extVcardPhone, extVcardWhatsapp, extVcardEmail, extVcardWeb, extVcardCity,
+  extQrPdfTitle, extQrPdfUrl, extQrAppName, extQrAppIos, extQrAppAndroid,
+  extQrArtPreset, extQrArtBlend,
+  extQrBodyShape, extQrOuterEye, extQrInnerEye, extQrGradMode, extQrFg1, extQrFg2, extQrBg,
+  extQrFrameStyle, extQrFrameText, extQrFrameColor, extQrLogoPreset, extQrLogoMask
+].forEach((el) => {
+  if (!el) return;
+  el.addEventListener('input', () => {
+    if (el === extQrTextInput && extQrTextChars) {
+      extQrTextChars.textContent = `${extQrTextInput.value.length} chars`;
+    }
+    if (el === extQrWifiEnc && extQrWifiPassWrap) {
+      extQrWifiPassWrap.style.display = extQrWifiEnc.value === 'nopass' ? 'none' : 'block';
+    }
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+  el.addEventListener('change', () => renderStyledExtQrCanvas(extQrStudioCanvas, 1));
+});
+
 if (btnGrabCurrentTabUrl) {
   btnGrabCurrentTabUrl.addEventListener('click', () => populateActiveTabUrlForQuickQr());
 }
-if (btnDownloadQuickQrPng) {
-  btnDownloadQuickQrPng.addEventListener('click', () => {
-    if (!quickQrCanvasContainer) return;
-    const canvas = quickQrCanvasContainer.querySelector('canvas');
-    const img = quickQrCanvasContainer.querySelector('img');
-    const dataUrl = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
-    if (dataUrl) {
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = 'beamdrop-quick-qr.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+if (btnExtQrClearUrl) {
+  btnExtQrClearUrl.addEventListener('click', () => {
+    if (quickQrInput) quickQrInput.value = '';
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+if (btnExtQrPasteText) {
+  btnExtQrPasteText.addEventListener('click', async () => {
+    try {
+      const clip = await navigator.clipboard.readText();
+      if (clip && extQrTextInput) {
+        extQrTextInput.value = clip;
+        if (extQrTextChars) extQrTextChars.textContent = `${clip.length} chars`;
+        renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+      }
+    } catch (_) {}
+  });
+}
+if (btnExtQrClearText) {
+  btnExtQrClearText.addEventListener('click', () => {
+    if (extQrTextInput) extQrTextInput.value = '';
+    if (extQrTextChars) extQrTextChars.textContent = '0 chars';
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+if (btnExtQrToggleWifiPass && extQrWifiPass) {
+  btnExtQrToggleWifiPass.addEventListener('click', () => {
+    const isHidden = extQrWifiPass.type === 'password';
+    extQrWifiPass.type = isHidden ? 'text' : 'password';
+    btnExtQrToggleWifiPass.textContent = isHidden ? 'Hide' : 'Show';
+  });
+}
+
+// vCard Mode & Photo
+if (btnExtVcardModeOffline && btnExtVcardModeDynamic) {
+  btnExtVcardModeOffline.addEventListener('click', () => {
+    extQrVcardMode = 'offline';
+    btnExtVcardModeOffline.classList.add('active');
+    btnExtVcardModeDynamic.classList.remove('active');
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+  btnExtVcardModeDynamic.addEventListener('click', () => {
+    extQrVcardMode = 'dynamic';
+    btnExtVcardModeDynamic.classList.add('active');
+    btnExtVcardModeOffline.classList.remove('active');
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+if (btnExtVcardPhoto && extVcardPhotoInput) {
+  btnExtVcardPhoto.addEventListener('click', () => extVcardPhotoInput.click());
+  extVcardPhotoInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      extQrVcardPhotoDataUrl = String(reader.result || '');
+      extQrCustomLogoDataUrl = extQrVcardPhotoDataUrl;
+      if (extQrLogoPreset) extQrLogoPreset.value = 'custom';
+      if (btnExtVcardPhoto) btnExtVcardPhoto.textContent = 'Photo ✓';
+      if (btnExtVcardClearPhoto) btnExtVcardClearPhoto.style.display = 'inline-block';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+if (btnExtVcardClearPhoto) {
+  btnExtVcardClearPhoto.addEventListener('click', () => {
+    extQrVcardPhotoDataUrl = null;
+    extQrCustomLogoDataUrl = null;
+    if (extQrLogoPreset) extQrLogoPreset.value = 'none';
+    if (btnExtVcardPhoto) btnExtVcardPhoto.textContent = '+ Photo';
+    btnExtVcardClearPhoto.style.display = 'none';
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+
+// PDF 24h Cloud Drop Upload inside QR Studio
+if (btnExtQrUploadPdf && extQrPdfFileInput) {
+  btnExtQrUploadPdf.addEventListener('click', () => extQrPdfFileInput.click());
+  extQrPdfFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const cleanBase = getCleanBaseUrl();
+    if (extQrPdfStatus) extQrPdfStatus.textContent = `Uploading ${file.name}...`;
+    btnExtQrUploadPdf.disabled = true;
+    try {
+      const sha256 = await computeSha256(file);
+      const sRes = await fetch(`${cleanBase}/api/cloud-drop?action=create_upload_session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name, size: file.size, mime: file.type || 'application/pdf', sha256 })
+      });
+      const sData = await sRes.json();
+      if (!sRes.ok || !sData.id) throw new Error('Upload session failed');
+      const dropId = sData.id;
+      if (sData.mode === 'gdrive' && sData.uploadUrl) {
+        const pRes = await fetch(sData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/pdf' },
+          body: file
+        });
+        const gMeta = await pRes.json();
+        await fetch(`${cleanBase}/api/cloud-drop?action=finalize_upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: dropId, gdriveFileId: gMeta.id, sha256 })
+        });
+      } else {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        }
+        await fetch(`${cleanBase}/api/cloud-drop?action=upload_hybrid`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: dropId, name: file.name, size: file.size,
+            mime: file.type || 'application/pdf', sha256, base64Data: btoa(bin)
+          })
+        });
+      }
+      extQrUploadedPdfShareUrl = `${cleanBase}/download.html?drop=${dropId}`;
+      if (extQrPdfUrl) extQrPdfUrl.value = extQrUploadedPdfShareUrl;
+      if (extQrPdfTitle && !extQrPdfTitle.value) extQrPdfTitle.value = file.name;
+      if (extQrPdfStatus) extQrPdfStatus.textContent = `✓ ${file.name} (24h Cloud Ready)`;
+      if (extQrLogoPreset) extQrLogoPreset.value = 'pdf';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    } catch (err) {
+      if (extQrPdfStatus) extQrPdfStatus.textContent = '⚠️ Upload failed — paste URL below';
+    } finally {
+      btnExtQrUploadPdf.disabled = false;
     }
   });
 }
+
+// Create Dynamic Shortlink (/q/:code)
+async function createExtDynamicShortlink() {
+  const cleanBase = getCleanBaseUrl();
+  if (btnExtQrMakeDynamic) btnExtQrMakeDynamic.textContent = 'Saving...';
+  try {
+    let title = 'Dynamic Link';
+    let targetUrl = computeExtQrPayload();
+    let payload = {};
+    if (extQrCurrentEngine === 'url') {
+      title = targetUrl.replace(/^https?:\/\//, '').slice(0, 28) || 'Website';
+    } else if (extQrCurrentEngine === 'text') {
+      title = (extQrTextInput && extQrTextInput.value.slice(0, 24)) || 'Text Note';
+      payload = { text: (extQrTextInput && extQrTextInput.value) || '' };
+    } else if (extQrCurrentEngine === 'vcard') {
+      title = (extVcardName && extVcardName.value) || 'Contact Card';
+      payload = {
+        fullName: extVcardName ? extVcardName.value : '',
+        jobTitle: extVcardTitle ? extVcardTitle.value : '',
+        org: extVcardOrg ? extVcardOrg.value : '',
+        phone: extVcardPhone ? extVcardPhone.value : '',
+        whatsapp: extVcardWhatsapp ? extVcardWhatsapp.value : '',
+        email: extVcardEmail ? extVcardEmail.value : '',
+        website: extVcardWeb ? extVcardWeb.value : '',
+        address: extVcardCity ? extVcardCity.value : ''
+      };
+    } else if (extQrCurrentEngine === 'applink') {
+      title = (extQrAppName && extQrAppName.value) || 'App Link';
+      targetUrl = (extQrAppIos && extQrAppIos.value) || (extQrAppAndroid && extQrAppAndroid.value) || cleanBase;
+      payload = {
+        appName: extQrAppName ? extQrAppName.value : '',
+        iosUrl: extQrAppIos ? extQrAppIos.value : '',
+        androidUrl: extQrAppAndroid ? extQrAppAndroid.value : ''
+      };
+    } else if (extQrCurrentEngine === 'pdf') {
+      title = (extQrPdfTitle && extQrPdfTitle.value) || 'PDF Document';
+      payload = { docTitle: title };
+    } else if (extQrCurrentEngine === 'wifi') {
+      title = (extQrWifiSsid && extQrWifiSsid.value) || 'Wi-Fi';
+      payload = {
+        ssid: extQrWifiSsid ? extQrWifiSsid.value : '',
+        password: extQrWifiPass ? extQrWifiPass.value : '',
+        encryption: extQrWifiEnc ? extQrWifiEnc.value : 'WPA'
+      };
+    }
+
+    const res = await fetch(`${cleanBase}/api/qr-studio?action=create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: extQrCurrentEngine === 'analytics' ? 'url' : extQrCurrentEngine,
+        title, targetUrl, payload
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.qr && data.qr.code) {
+      extQrActiveDynamicCode = data.qr.code;
+      extQrSavedDynamicItems = [data.qr, ...extQrSavedDynamicItems.filter((i) => i.code !== data.qr.code)];
+      saveExtDynamicItemsToStorage();
+      if (extQrActiveDynamicText) extQrActiveDynamicText.textContent = `/q/${data.qr.code}`;
+      if (extQrActiveDynamicBadge) extQrActiveDynamicBadge.style.display = 'inline-flex';
+      if (btnExtQrMakeDynamic) btnExtQrMakeDynamic.style.display = 'none';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    }
+  } catch (_) {
+  } finally {
+    if (btnExtQrMakeDynamic) btnExtQrMakeDynamic.innerHTML = '<span>⚡ Dynamic</span>';
+  }
+}
+
+if (btnExtQrMakeDynamic) {
+  btnExtQrMakeDynamic.addEventListener('click', createExtDynamicShortlink);
+}
+if (btnExtQrCreateAppLink) {
+  btnExtQrCreateAppLink.addEventListener('click', createExtDynamicShortlink);
+}
+if (btnExtQrResetDynamic) {
+  btnExtQrResetDynamic.addEventListener('click', () => {
+    extQrActiveDynamicCode = '';
+    if (extQrActiveDynamicBadge) extQrActiveDynamicBadge.style.display = 'none';
+    if (btnExtQrMakeDynamic && extQrCurrentEngine !== 'analytics') {
+      btnExtQrMakeDynamic.style.display = 'inline-flex';
+    }
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+
+function renderExtSavedDynamicList() {
+  if (!extQrSavedList) return;
+  if (!extQrSavedDynamicItems || extQrSavedDynamicItems.length === 0) {
+    extQrSavedList.innerHTML = '<div style="padding: 12px; text-align: center; font-size: 10px; color: #64748b; background: #f8fafc; border-radius: 8px;">No dynamic links saved yet.</div>';
+    return;
+  }
+  extQrSavedList.innerHTML = extQrSavedDynamicItems.map((item) => `
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;">
+      <div style="min-width: 0; flex: 1;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <span style="font-size: 10.5px; font-weight: 800; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.title || item.code)}</span>
+          <span style="font-size: 9.5px; font-family: ui-monospace, monospace; font-weight: 700; color: #0284c7;">/q/${escapeHtml(item.code)}</span>
+        </div>
+        <div style="font-size: 9px; color: #64748b; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.targetUrl || item.type || '')}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+        <span style="font-size: 9.5px; font-weight: 800; color: #0f172a;">${item.scans || 0} scans</span>
+        <button type="button" class="ext-qr-mini-btn primary btn-ext-use-dyn" data-code="${escapeHtml(item.code)}">View</button>
+        <button type="button" class="ext-qr-mini-btn danger btn-ext-del-dyn" data-code="${escapeHtml(item.code)}">✕</button>
+      </div>
+    </div>
+  `).join('');
+
+  extQrSavedList.querySelectorAll('.btn-ext-use-dyn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const code = btn.getAttribute('data-code') || '';
+      if (!code) return;
+      extQrActiveDynamicCode = code;
+      if (extQrActiveDynamicText) extQrActiveDynamicText.textContent = `/q/${code}`;
+      if (extQrActiveDynamicBadge) extQrActiveDynamicBadge.style.display = 'inline-flex';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    });
+  });
+
+  extQrSavedList.querySelectorAll('.btn-ext-del-dyn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const code = btn.getAttribute('data-code') || '';
+      if (!code) return;
+      extQrSavedDynamicItems = extQrSavedDynamicItems.filter((i) => i.code !== code);
+      saveExtDynamicItemsToStorage();
+      if (extQrActiveDynamicCode === code) {
+        extQrActiveDynamicCode = '';
+        if (extQrActiveDynamicBadge) extQrActiveDynamicBadge.style.display = 'none';
+      }
+      renderExtSavedDynamicList();
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+      try {
+        await fetch(`${getCleanBaseUrl()}/api/qr-studio?action=delete&code=${encodeURIComponent(code)}`, { method: 'POST' });
+      } catch (_) {}
+    });
+  });
+}
+
+if (btnExtQrRefreshSaved) {
+  btnExtQrRefreshSaved.addEventListener('click', async () => {
+    if (extQrSavedDynamicItems.length === 0) return;
+    const codes = extQrSavedDynamicItems.map((i) => i.code).join(',');
+    try {
+      const res = await fetch(`${getCleanBaseUrl()}/api/qr-studio?action=list&codes=${encodeURIComponent(codes)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          const map = new Map(data.items.map((i) => [i.code, i]));
+          extQrSavedDynamicItems = extQrSavedDynamicItems.map((item) => map.get(item.code) || item);
+          saveExtDynamicItemsToStorage();
+          renderExtSavedDynamicList();
+        }
+      }
+    } catch (_) {}
+  });
+}
+
+// Optional Customizer Accordion & Sub-tabs
+if (btnExtToggleQrCustom && extQrCustomBody) {
+  btnExtToggleQrCustom.addEventListener('click', () => {
+    const isOpen = extQrCustomBody.style.display === 'flex';
+    extQrCustomBody.style.display = isOpen ? 'none' : 'flex';
+    if (extQrCustomChevron) extQrCustomChevron.textContent = isOpen ? '▼' : '▲';
+  });
+}
+
+function updateExtFxToggleButtons() {
+  if (btnExtQrFx3d) {
+    btnExtQrFx3d.textContent = `🧊 3D Pop Depth: ${extQrFx3dEnabled ? 'ON' : 'Off'}`;
+    btnExtQrFx3d.classList.toggle('primary', extQrFx3dEnabled);
+  }
+  if (btnExtQrFxNeon) {
+    btnExtQrFxNeon.textContent = `⚡ Neon Glow: ${extQrFxNeonEnabled ? 'ON' : 'Off'}`;
+    btnExtQrFxNeon.classList.toggle('primary', extQrFxNeonEnabled);
+  }
+}
+
+if (btnExtQrFx3d) {
+  btnExtQrFx3d.addEventListener('click', () => {
+    extQrFx3dEnabled = !extQrFx3dEnabled;
+    updateExtFxToggleButtons();
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+
+if (btnExtQrFxNeon) {
+  btnExtQrFxNeon.addEventListener('click', () => {
+    extQrFxNeonEnabled = !extQrFxNeonEnabled;
+    updateExtFxToggleButtons();
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+
+if (btnExtQrUploadArt && extQrArtFileInput) {
+  btnExtQrUploadArt.addEventListener('click', () => extQrArtFileInput.click());
+  extQrArtFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      extQrCustomArtDataUrl = String(reader.result || '');
+      if (extQrArtPreset) extQrArtPreset.value = 'custom';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+extQrPresetChips.forEach((chip) => {
+  chip.addEventListener('click', () => {
+    const pId = chip.getAttribute('data-preset') || 'classic-clean';
+    const p = EXT_DESIGNER_PRESETS[pId];
+    if (!p) return;
+    extQrPresetChips.forEach((c) => c.classList.toggle('active', c === chip));
+    if (extQrFg1) extQrFg1.value = p.fg1;
+    if (extQrFg2) extQrFg2.value = p.fg2;
+    if (extQrGradMode) extQrGradMode.value = p.grad;
+    if (extQrBg) extQrBg.value = p.bg;
+    if (extQrBodyShape) extQrBodyShape.value = p.body;
+    if (extQrOuterEye) extQrOuterEye.value = p.outerEye;
+    if (extQrInnerEye) extQrInnerEye.value = p.innerEye;
+    if (extQrFrameStyle) extQrFrameStyle.value = p.frame;
+    if (extQrFrameColor) extQrFrameColor.value = p.frameColor;
+    if (extQrFrameText && p.frameText) extQrFrameText.value = p.frameText;
+    if (extQrArtPreset && p.art) extQrArtPreset.value = p.art;
+    if (extQrArtBlend && p.blend) extQrArtBlend.value = p.blend;
+    extQrFx3dEnabled = Boolean(p.fx3d);
+    extQrFxNeonEnabled = Boolean(p.fxNeon);
+    updateExtFxToggleButtons();
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+});
+
+extQrCustTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const target = tab.getAttribute('data-custtab') || 'art';
+    extQrCustTabs.forEach((t) => t.classList.toggle('active', t === tab));
+    if (extCustSubArt) extCustSubArt.style.display = target === 'art' ? 'flex' : 'none';
+    if (extCustSubShapes) extCustSubShapes.style.display = target === 'shapes' ? 'flex' : 'none';
+    if (extCustSubColors) extCustSubColors.style.display = target === 'colors' ? 'flex' : 'none';
+    if (extCustSubFrame) extCustSubFrame.style.display = target === 'frame' ? 'flex' : 'none';
+    if (extCustSubLogo) extCustSubLogo.style.display = target === 'logo' ? 'flex' : 'none';
+  });
+});
+
+if (btnExtQrUploadLogo && extQrLogoFileInput) {
+  btnExtQrUploadLogo.addEventListener('click', () => extQrLogoFileInput.click());
+  extQrLogoFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      extQrCustomLogoDataUrl = String(reader.result || '');
+      if (extQrLogoPreset) extQrLogoPreset.value = 'custom';
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Export Actions: High-Res PNG, Vector SVG, Copy Image, Print Business Card, Full Studio
+if (btnDownloadQuickQrPng) {
+  btnDownloadQuickQrPng.addEventListener('click', async () => {
+    const hiCanvas = document.createElement('canvas');
+    await renderStyledExtQrCanvas(hiCanvas, 4);
+    const dataUrl = hiCanvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `beamdrop-qr-${extQrCurrentEngine}-${Date.now().toString(36)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+}
+
+if (btnExtDownloadQrSvg) {
+  btnExtDownloadQrSvg.addEventListener('click', () => {
+    if (typeof QRCode === 'undefined' || !QRCode.create) return;
+    const payloadToDraw = computeExtQrPayload() || 'https://beam-drop-mu.vercel.app';
+    const qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
+    const modules = qrObj.modules;
+    const count = modules.size;
+    const bodyShape = (extQrBodyShape && extQrBodyShape.value) || 'rounded';
+    const fgColor = (extQrFg1 && extQrFg1.value) || '#0f172a';
+    const fgColor2 = (extQrFg2 && extQrFg2.value) || '#0284c7';
+    const bgColor = (extQrBg && extQrBg.value) || '#ffffff';
+    const gradMode = (extQrGradMode && extQrGradMode.value) || 'none';
+
+    const size = 600;
+    const pad = 44;
+    const drawArea = size - pad * 2;
+    const cell = drawArea / count;
+
+    let rectsSvg = '';
+    for (let r = 0; r < count; r++) {
+      for (let c = 0; c < count; c++) {
+        if (!modules.get(r, c)) continue;
+        const x = (pad + c * cell).toFixed(2);
+        const y = (pad + r * cell).toFixed(2);
+        const w = (cell * 0.94).toFixed(2);
+        if (bodyShape === 'dots') {
+          const cx = (pad + c * cell + cell / 2).toFixed(2);
+          const cy = (pad + r * cell + cell / 2).toFixed(2);
+          const rad = ((cell / 2) * 0.86).toFixed(2);
+          rectsSvg += `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="url(#qrGrad)" />`;
+        } else {
+          const rx = bodyShape === 'rounded' || bodyShape === 'classy' ? (cell * 0.35).toFixed(2) : '0';
+          rectsSvg += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="${rx}" fill="url(#qrGrad)" />`;
+        }
+      }
+    }
+
+    const svgStr = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+  <defs>
+    <linearGradient id="qrGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${fgColor}" />
+      <stop offset="100%" stop-color="${gradMode !== 'none' ? fgColor2 : fgColor}" />
+    </linearGradient>
+  </defs>
+  <rect width="${size}" height="${size}" rx="36" fill="${bgColor}" />
+  ${rectsSvg}
+</svg>`;
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `beamdrop-qr-${extQrCurrentEngine}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+}
+
+if (btnExtCopyQrImg) {
+  btnExtCopyQrImg.addEventListener('click', async () => {
+    try {
+      const hiCanvas = document.createElement('canvas');
+      await renderStyledExtQrCanvas(hiCanvas, 2);
+      const blob = await new Promise((resolve) => hiCanvas.toBlob(resolve, 'image/png'));
+      if (blob && navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      } else {
+        await navigator.clipboard.writeText(computeExtQrPayload());
+      }
+      if (extCopyQrImgText) {
+        extCopyQrImgText.textContent = 'Copied!';
+        setTimeout(() => { extCopyQrImgText.textContent = 'Copy'; }, 1800);
+      }
+    } catch (_) {
+      try {
+        await navigator.clipboard.writeText(computeExtQrPayload());
+        if (extCopyQrImgText) {
+          extCopyQrImgText.textContent = 'Copied!';
+          setTimeout(() => { extCopyQrImgText.textContent = 'Copy'; }, 1800);
+        }
+      } catch (__) {}
+    }
+  });
+}
+
+if (btnExtPrintBusinessCard) {
+  btnExtPrintBusinessCard.addEventListener('click', async () => {
+    const cardCanvas = document.createElement('canvas');
+    cardCanvas.width = 1050;
+    cardCanvas.height = 600;
+    const ctx = cardCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const grad = ctx.createLinearGradient(0, 0, 1050, 600);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 1050, 600, 32);
+    ctx.fill();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(60, 72, 68, 6);
+
+    const fn = (extVcardName && extVcardName.value.trim()) || 'Alex Rivera';
+    const title = (extVcardTitle && extVcardTitle.value.trim()) || '';
+    const org = (extVcardOrg && extVcardOrg.value.trim()) || '';
+    const tel = (extVcardPhone && extVcardPhone.value.trim()) || '';
+    const email = (extVcardEmail && extVcardEmail.value.trim()) || '';
+    const web = (extVcardWeb && extVcardWeb.value.trim()) || '';
+    const city = (extVcardCity && extVcardCity.value.trim()) || '';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 44px system-ui, -apple-system, sans-serif';
+    ctx.fillText(fn, 60, 145);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 22px system-ui, -apple-system, sans-serif';
+    ctx.fillText([title, org].filter(Boolean).join(' • '), 60, 185);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '600 20px ui-monospace, monospace';
+    let yPos = 290;
+    [
+      tel ? `TEL:   ${tel}` : '',
+      email ? `EMAIL: ${email}` : '',
+      web ? `WEB:   ${web}` : '',
+      city ? `LOC:   ${city}` : ''
+    ].filter(Boolean).forEach((line) => {
+      ctx.fillText(line, 60, yPos);
+      yPos += 42;
+    });
+
+    const qrTemp = document.createElement('canvas');
+    await renderStyledExtQrCanvas(qrTemp, 1.25);
+    ctx.drawImage(qrTemp, 650, 95, 330, Math.min(410, qrTemp.height));
+
+    const dataUrl = cardCanvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `${fn.replace(/[^a-zA-Z0-9_-]/g, '_')}-business-card.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+}
+
 if (btnOpenFullQrStudio) {
   btnOpenFullQrStudio.addEventListener('click', () => {
     const base = getCleanBaseUrl();
@@ -2127,13 +3575,22 @@ if (btnOpenFullQrStudio) {
     }
   });
 }
+
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.action === 'open_quick_qr' && msg.payload) {
       if (navTabSend) navTabSend.click();
-      if (quickQrInput) quickQrInput.value = msg.payload;
       switchBridgeMode('quickqr');
-      renderQuickQrCode(msg.payload);
+      const textPayload = String(msg.payload || '').trim();
+      if (textPayload.startsWith('http://') || textPayload.startsWith('https://')) {
+        switchExtQrEngine('url');
+        if (quickQrInput) quickQrInput.value = textPayload;
+      } else {
+        switchExtQrEngine('text');
+        if (extQrTextInput) extQrTextInput.value = textPayload;
+        if (extQrTextChars) extQrTextChars.textContent = `${textPayload.length} chars`;
+      }
+      renderStyledExtQrCanvas(extQrStudioCanvas, 1);
     }
   });
 }
