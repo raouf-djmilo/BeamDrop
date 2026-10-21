@@ -62,23 +62,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 2. Request Camera Access
-  async function requestCameraAccess(isDedicatedFlow = false) {
-    if (cameraGrantStatus) {
+  // 2. Request Camera Access (Universal PC Webcam & Mobile Safe — Zero DOMException Console Pollution)
+  async function requestCameraAccess(isDedicatedFlow = false, isSilentAutoAttempt = false) {
+    if (cameraGrantStatus && !isSilentAutoAttempt) {
       cameraGrantStatus.style.display = 'none';
       cameraGrantStatus.className = 'status-alert';
     }
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      updateCameraBadge('prompt');
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      // Stop all tracks immediately once verified
-      stream.getTracks().forEach((track) => track.stop());
+      let stream = null;
+      try {
+        // Use standard { video: true } first so desktop webcams never throw OverconstrainedError
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (firstErr) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      }
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
 
       updateCameraBadge('granted');
 
       if (cameraGrantStatus) {
         cameraGrantStatus.textContent = '✓ Camera permission granted successfully! You can now scan QR codes inside the Side Panel.';
         cameraGrantStatus.className = 'status-alert success';
+        cameraGrantStatus.style.backgroundColor = '';
+        cameraGrantStatus.style.color = '';
+        cameraGrantStatus.style.borderColor = '';
         cameraGrantStatus.style.display = 'block';
       }
 
@@ -97,17 +113,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isDedicatedFlow) {
         setTimeout(() => {
-          // If opened in separate window/tab by extension, close tab
           try {
             window.close();
           } catch (_) {}
         }, 1800);
       }
     } catch (err) {
-      console.warn('[BeamDrop Camera Bridge] Error:', err);
+      const errName = (err && err.name) ? String(err.name) : '';
+      // If auto-triggered on page load before user gesture, keep prompt state cleanly without error noise
+      if (isSilentAutoAttempt && (errName === 'NotAllowedError' || errName === 'AbortError')) {
+        updateCameraBadge('prompt');
+        return;
+      }
+
+      if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        updateCameraBadge('prompt');
+        if (cameraGrantStatus) {
+          cameraGrantStatus.textContent = 'No webcam hardware detected on this computer. You can still scan QR image files directly inside the Side Panel.';
+          cameraGrantStatus.className = 'status-alert';
+          cameraGrantStatus.style.backgroundColor = '#f0f9ff';
+          cameraGrantStatus.style.color = '#0369a1';
+          cameraGrantStatus.style.borderColor = '#bae6fd';
+          cameraGrantStatus.style.display = 'block';
+        }
+        return;
+      }
+
       updateCameraBadge('denied');
       if (cameraGrantStatus) {
-        cameraGrantStatus.textContent = 'Please click the lock icon in the browser address bar to allow camera access for BeamDrop.';
+        cameraGrantStatus.textContent = 'Click "Allow Camera Access" above or click the camera/lock icon in the browser address bar to enable access.';
         cameraGrantStatus.className = 'status-alert';
         cameraGrantStatus.style.backgroundColor = '#fef2f2';
         cameraGrantStatus.style.color = '#b91c1c';
@@ -119,19 +153,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnTestCamera) {
     btnTestCamera.addEventListener('click', () => {
-      requestCameraAccess(false);
+      requestCameraAccess(false, false);
     });
   }
 
   if (btnGrantCameraNow) {
     btnGrantCameraNow.addEventListener('click', () => {
-      requestCameraAccess(true);
+      requestCameraAccess(true, false);
     });
   }
 
   if (btnCloseGrantTab) {
     btnCloseGrantTab.addEventListener('click', () => {
-      // Try opening sidepanel before closing
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         chrome.runtime.sendMessage({ action: 'open_side_panel' }, () => {
           window.close();
@@ -142,9 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // If opened specifically for grant, trigger request automatically on initial user interaction or focus
+  // If opened specifically for grant, attempt silent check without throwing console errors
   if (isGrantCameraIntent) {
-    requestCameraAccess(true);
+    requestCameraAccess(true, true);
   }
 
   refreshCameraPermissionStatus();

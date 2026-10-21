@@ -136,10 +136,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={`ml-auto flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-colors ${
                     isActive
                       ? 'bg-white/20 text-white'
-                      : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/60'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200/80'
                   }`}
                 >
-                  <Lock className="w-2.5 h-2.5" />
+                  <Lock className="w-3 h-3" />
                   <span>PRO</span>
                 </span>
               )}
