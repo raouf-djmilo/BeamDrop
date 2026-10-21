@@ -9,6 +9,10 @@ if (!VERCEL_RECEIVER_URL || VERCEL_RECEIVER_URL.includes('.run.app') || VERCEL_R
 }
 const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
+function getCleanBaseUrl() {
+  return String(VERCEL_RECEIVER_URL || VERCEL_HOST || "https://beam-drop-mu.vercel.app").replace(/\/$/, "");
+}
+
 let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
 // Ultra-Fast Zero-Deadlock STUN/TURN Server Matrix (Bypasses Symmetric NAT & 4G/5G mobile cellular firewalls)
@@ -2147,7 +2151,10 @@ function saveExtDynamicItemsToStorage() {
 const extQrQuotaPill = document.getElementById('extQrQuotaPill');
 const extQrProLockTag = document.getElementById('extQrProLockTag');
 const extQrProLockBanner = document.getElementById('extQrProLockBanner');
+const extQrProLockBannerText = document.getElementById('extQrProLockBannerText');
 const btnExtUpgradeProQr = document.getElementById('btnExtUpgradeProQr');
+const btnExtGenerateQrMain = document.getElementById('btnExtGenerateQrMain');
+const btnExtGenerateQrMainText = document.getElementById('btnExtGenerateQrMainText');
 
 let extCachedUser = null;
 let extCachedDailyUsage = {
@@ -2173,8 +2180,7 @@ function getExtQrGenerationsLeft() {
   return Math.max(0, 15 - used);
 }
 
-function triggerExtProUpgrade(reasonText) {
-  updateStatus('error', reasonText || 'PRO Feature — Upgrade to BeamDrop PRO for Unlimited QR & Art Themes!');
+function openExtProUpgradePage() {
   const cleanBase = getCleanBaseUrl();
   const targetStudioUrl = `${cleanBase}/?tab=qrstudio&upgrade=pro`;
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
@@ -2184,11 +2190,35 @@ function triggerExtProUpgrade(reasonText) {
   }
 }
 
+function triggerExtProUpgrade(reasonText, openNewTab = false) {
+  if (extQrCustomBody && extQrCustomBody.style.display === 'none') {
+    extQrCustomBody.style.display = 'flex';
+    if (extQrCustomChevron) extQrCustomChevron.textContent = '▲';
+  }
+  if (extQrProLockBanner) {
+    extQrProLockBanner.style.display = 'flex';
+    extQrProLockBanner.style.background = '#e0f2fe';
+    extQrProLockBanner.style.borderColor = '#38bdf8';
+    setTimeout(() => {
+      if (extQrProLockBanner) {
+        extQrProLockBanner.style.background = '#f0f9ff';
+        extQrProLockBanner.style.borderColor = '#bae6fd';
+      }
+    }, 1400);
+  }
+  if (extQrProLockBannerText && reasonText) {
+    extQrProLockBannerText.textContent = reasonText;
+  }
+  if (openNewTab) {
+    openExtProUpgradePage();
+  }
+}
+
 async function enforceExtQrGenerationQuota() {
   if (isExtProUser()) return true;
   const left = getExtQrGenerationsLeft();
   if (left <= 0) {
-    triggerExtProUpgrade('Limit reached (15/15 QR codes). Upgrade to PRO for Unlimited QR Generation & all Art Themes!');
+    triggerExtProUpgrade('Limit reached (15/15 Free QR codes). Click Unlock PRO for Unlimited QR Generation!');
     return false;
   }
   const today = new Date().toISOString().slice(0, 10);
@@ -2212,19 +2242,41 @@ async function enforceExtQrGenerationQuota() {
 
 function syncExtProQrUi() {
   const pro = isExtProUser();
+  const isMember = Boolean(extCachedUser && extCachedUser.uid);
   const left = getExtQrGenerationsLeft();
+  const tierPrefix = isMember ? 'Free' : 'Guest';
 
   if (extQrQuotaPill) {
     if (pro) {
-      extQrQuotaPill.textContent = 'PRO Unlimited';
+      extQrQuotaPill.textContent = '👑 PRO Unlimited';
       extQrQuotaPill.style.background = '#f0f9ff';
       extQrQuotaPill.style.borderColor = '#bae6fd';
       extQrQuotaPill.style.color = '#0369a1';
     } else {
-      extQrQuotaPill.textContent = `${left}/15 Free`;
-      extQrQuotaPill.style.background = left <= 3 ? '#fff1f2' : '#f8fafc';
-      extQrQuotaPill.style.borderColor = left <= 3 ? '#fecdd3' : '#e2e8f0';
-      extQrQuotaPill.style.color = left <= 3 ? '#be123c' : '#475569';
+      extQrQuotaPill.textContent = `${tierPrefix}: ${left}/15 QR`;
+      extQrQuotaPill.style.background = left <= 3 ? '#fff1f2' : '#f0f9ff';
+      extQrQuotaPill.style.borderColor = left <= 3 ? '#fecdd3' : '#bae6fd';
+      extQrQuotaPill.style.color = left <= 3 ? '#be123c' : '#0369a1';
+    }
+  }
+
+  if (typeof userPlanPill !== 'undefined' && userPlanPill) {
+    const sends = (extCachedDailyUsage && extCachedDailyUsage.sendOperations) || 0;
+    if (pro) {
+      userPlanPill.className = 'plan-pill-pro';
+      userPlanPill.textContent = 'PRO Unlimited';
+    } else if (isMember) {
+      const beamLeft = Math.max(0, 15 - sends);
+      userPlanPill.className = 'plan-pill-free';
+      userPlanPill.textContent = activeBridgeMode === 'quickqr'
+        ? `Free (${left}/15 QR)`
+        : `Free (${beamLeft}/15 Beams)`;
+    } else {
+      const beamLeft = Math.max(0, 5 - sends);
+      userPlanPill.className = 'plan-pill-guest';
+      userPlanPill.textContent = activeBridgeMode === 'quickqr'
+        ? `Guest (${left}/15 QR)`
+        : `Guest (${beamLeft}/5 Beams)`;
     }
   }
 
@@ -2285,14 +2337,14 @@ function syncExtProQrUi() {
 if (extQrQuotaPill) {
   extQrQuotaPill.addEventListener('click', () => {
     if (!isExtProUser()) {
-      triggerExtProUpgrade('Free & Guest users have 15 QR code generations. Upgrade to PRO for Unlimited QR Generation & all 6 PRO Art Themes!');
+      triggerExtProUpgrade('Free & Guest Plan: 15 QR Code Limit. Click Unlock PRO for Unlimited QR & All 6 Art Themes!');
     }
   });
 }
 
 if (btnExtUpgradeProQr) {
   btnExtUpgradeProQr.addEventListener('click', () => {
-    triggerExtProUpgrade('Upgrade to PRO to unlock Cyber Anime, Sakura Heart, Manga Ink, 3D Gold Pop, Arcade 8-Bit, Emerald & Unlimited QR!');
+    openExtProUpgradePage();
   });
 }
 
@@ -3140,14 +3192,17 @@ function switchBridgeMode(mode) {
     if (viewFilesMode) viewFilesMode.style.display = 'flex';
     if (viewTextMode) viewTextMode.style.display = 'none';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
+    syncExtProQrUi();
   } else if (mode === 'text' || mode === 'clipboard') {
     if (viewFilesMode) viewFilesMode.style.display = 'none';
     if (viewTextMode) viewTextMode.style.display = 'flex';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'none';
+    syncExtProQrUi();
   } else if (mode === 'quickqr') {
     if (viewFilesMode) viewFilesMode.style.display = 'none';
     if (viewTextMode) viewTextMode.style.display = 'none';
     if (viewQuickQrMode) viewQuickQrMode.style.display = 'flex';
+    syncExtProQrUi();
     if (quickQrInput && !quickQrInput.value.trim()) {
       populateActiveTabUrlForQuickQr();
     } else {
@@ -3160,6 +3215,42 @@ if (modeBtnFiles) modeBtnFiles.addEventListener('click', () => switchBridgeMode(
 if (modeBtnText) modeBtnText.addEventListener('click', () => switchBridgeMode('text'));
 if (modeBtnClipboard) modeBtnClipboard.addEventListener('click', () => switchBridgeMode('text'));
 if (modeBtnQuickQr) modeBtnQuickQr.addEventListener('click', () => switchBridgeMode('quickqr'));
+
+// Universal Generate QR Code Button across ALL 7 tabs (Link, Text, Wi-Fi, vCard, PDF, App, Saved)
+if (btnExtGenerateQrMain) {
+  btnExtGenerateQrMain.addEventListener('click', async () => {
+    const allowed = await enforceExtQrGenerationQuota();
+    if (!allowed) return;
+
+    if (btnExtGenerateQrMainText) {
+      const origText = btnExtGenerateQrMainText.textContent;
+      btnExtGenerateQrMainText.textContent = '✓ QR Code Generated!';
+      setTimeout(() => {
+        if (btnExtGenerateQrMainText) btnExtGenerateQrMainText.textContent = origText;
+      }, 1600);
+    }
+
+    await renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+
+    if (extQrScanSafetyBadge) {
+      extQrScanSafetyBadge.textContent = '✓ Live QR Code Ready';
+      extQrScanSafetyBadge.style.background = '#ecfdf5';
+      extQrScanSafetyBadge.style.borderColor = '#a7f3d0';
+      extQrScanSafetyBadge.style.color = '#047857';
+    }
+
+    if (quickQrCanvasContainer) {
+      quickQrCanvasContainer.style.borderColor = '#0284c7';
+      quickQrCanvasContainer.style.boxShadow = '0 0 0 2px rgba(2, 132, 199, 0.2)';
+      setTimeout(() => {
+        if (quickQrCanvasContainer) {
+          quickQrCanvasContainer.style.borderColor = '#e2e8f0';
+          quickQrCanvasContainer.style.boxShadow = 'none';
+        }
+      }, 1200);
+    }
+  });
+}
 
 // Wire all QR Studio inputs for live canvas updates
 [

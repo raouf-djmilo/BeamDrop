@@ -1949,6 +1949,18 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
   };
 
+  const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(false);
+  const handleExplicitGenerateQr = async () => {
+    setIsGeneratingQr(true);
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) {
+      setIsGeneratingQr(false);
+      return;
+    }
+    notifySuccess('QR Code Generated', 'Live QR preview is updated & ready to scan or export.');
+    setTimeout(() => setIsGeneratingQr(false), 1200);
+  };
+
   const handleSaveDynamicEdit = async (code: string) => {
     try {
       await fetch('/api/qr-studio?action=update', {
@@ -2606,6 +2618,31 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               )}
             </div>
           )}
+
+          {/* Universal Generate QR Code Action Bar (All 7 Tabs: Link, Text, Wi-Fi, vCard, PDF, App, Saved) */}
+          <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleExplicitGenerateQr}
+              disabled={isGeneratingQr}
+              className="flex-1 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-xs cursor-pointer transition-all"
+            >
+              <QrIcon className="w-4 h-4" />
+              <span>{isGeneratingQr ? '✓ QR Code Generated!' : '⚡ Generate QR Code'}</span>
+            </button>
+            {engineType !== 'analytics' && !activeDynamicCode && (
+              <button
+                type="button"
+                onClick={handleCreateDynamicQr}
+                disabled={isCreatingDynamic}
+                className="py-3 px-3.5 rounded-xl border border-sky-200 hover:border-sky-300 bg-sky-50/70 hover:bg-sky-100 text-sky-700 font-bold text-xs flex items-center space-x-1.5 cursor-pointer transition-colors shrink-0"
+                title="Create editable Dynamic Shortlink (/q/:code)"
+              >
+                <Zap className="w-3.5 h-3.5 text-sky-600" />
+                <span>Dynamic Link</span>
+              </button>
+            )}
+          </div>
 
           {/* OPTIONAL COLLAPSIBLE DESIGN CUSTOMIZER (100% Clean Light Mode) */}
           <div className="bg-white/95 border border-sky-200/80 rounded-2xl shadow-xs overflow-hidden">

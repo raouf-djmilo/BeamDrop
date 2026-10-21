@@ -3602,14 +3602,16 @@ body {
 }
 
 .ext-qr-engine-btn {
-  padding: 4px 7px;
-  border-radius: 7px;
+  padding: 5px 4px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: #475569;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
   transition: all 0.12s ease;
 }
 
@@ -3621,26 +3623,28 @@ body {
 .ext-qr-engine-btn.active {
   background: #0284c7;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.22);
 }
 
 .ext-qr-dynamic-btn {
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: none;
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 9.5px;
-  font-weight: 800;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid #bae6fd;
+  background: #f0f9ff;
+  color: #0284c7;
+  font-size: 10px;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  transition: background 0.12s ease;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.12s ease;
 }
 
 .ext-qr-dynamic-btn:hover {
-  background: #1e293b;
+  background: #e0f2fe;
+  border-color: #7dd3fc;
 }
 
 .ext-qr-input-card {

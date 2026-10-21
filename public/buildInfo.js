@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.3",
-  commitSha: "a8a6c5cf761b20adbe97dbff93f01766c86885d2",
-  shortSha: "a8a6c5c",
-  buildHash: "a8a6c5c",
-  buildTimestamp: 1792592812,
-  patchNotes: "feat: implement QR generation quota and styling"
+  commitSha: "9fb22cd52945020b483e7f35e592874c8bed5d73",
+  shortSha: "9fb22cd",
+  buildHash: "9fb22cd",
+  buildTimestamp: 1792597701,
+  patchNotes: "feat: implement QR quota, extension fixes, and version 1.6.3"
 };

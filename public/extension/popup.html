@@ -297,11 +297,11 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: FULL PRODUCTION QR STUDIO (All 7 Modes + Optional Design Customizer) -->
+    <!-- SUB-VIEW 3: FULL PRODUCTION QR STUDIO (All 7 Modes + Live Preview + Optional Customizer) -->
     <div id="viewQuickQrMode" style="display: none; flex-direction: column; gap: 8px;">
-      <!-- 1. Mode Selector Bar + Dynamic Link Button -->
-      <div class="ext-qr-topbar">
-        <div class="ext-qr-engine-pills">
+      <!-- 1. Mode Selector Bar (All 7 Tabs cleanly aligned) -->
+      <div class="ext-qr-topbar" style="display: flex; flex-direction: column; gap: 5px; padding: 6px;">
+        <div class="ext-qr-engine-pills" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; width: 100%;">
           <button type="button" class="ext-qr-engine-btn active" data-engine="url">Link</button>
           <button type="button" class="ext-qr-engine-btn" data-engine="text">Text</button>
           <button type="button" class="ext-qr-engine-btn" data-engine="wifi">Wi-Fi</button>
@@ -310,22 +310,10 @@
           <button type="button" class="ext-qr-engine-btn" data-engine="applink">App</button>
           <button type="button" class="ext-qr-engine-btn" data-engine="analytics">Saved</button>
         </div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <button id="extQrQuotaPill" type="button" style="background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 3px 7px; border-radius: 8px; font-size: 9.5px; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Free & Guest: 15 QR Codes • Upgrade to PRO for Unlimited">
-            15/15 Free
-          </button>
-          <div id="extQrActiveDynamicBadge" style="display: none; align-items: center; gap: 4px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 7px; border-radius: 8px; font-size: 10px; font-family: ui-monospace, monospace; font-weight: 800; color: #065f46;">
-            <span id="extQrActiveDynamicText">/q/code</span>
-            <button id="btnExtQrResetDynamic" type="button" style="background: none; border: none; color: #e11d48; font-weight: 800; cursor: pointer; font-size: 10px;">✕</button>
-          </div>
-          <button id="btnExtQrMakeDynamic" type="button" class="ext-qr-dynamic-btn" title="Create editable Dynamic Shortlink QR">
-            <span>⚡ Dynamic</span>
-          </button>
-        </div>
       </div>
 
-      <!-- 2. Direct Input Panels (1 per Engine Mode) -->
-      <div class="ext-qr-input-card">
+      <!-- 2. Direct Input Panels (1 per Engine Mode) + Universal Generate QR Code Action Bar -->
+      <div class="ext-qr-input-card" style="display: flex; flex-direction: column; gap: 8px;">
         <!-- ENGINE: LINK (URL) -->
         <div id="extQrPanelUrl" class="ext-qr-panel">
           <div class="ext-qr-panel-head">
@@ -348,7 +336,7 @@
               <button id="btnExtQrClearText" type="button" class="ext-qr-mini-btn danger">Clear</button>
             </div>
           </div>
-          <textarea id="extQrTextInput" rows="3" class="ext-qr-textarea" placeholder="Type or paste any text, note, code, or message..."></textarea>
+          <textarea id="extQrTextInput" rows="2" class="ext-qr-textarea" placeholder="Type or paste any text, note, code, or message..."></textarea>
         </div>
 
         <!-- ENGINE: WI-FI -->
@@ -420,8 +408,8 @@
             <input id="extQrAppName" type="text" class="ext-qr-input" placeholder="App Name" value="BeamDrop Mobile">
             <input id="extQrAppIos" type="url" class="ext-qr-input mono" placeholder="iOS App Store URL" value="https://apps.apple.com">
             <input id="extQrAppAndroid" type="url" class="ext-qr-input mono" placeholder="Android Play Store URL" value="https://play.google.com">
-            <button id="btnExtQrCreateAppLink" type="button" class="btn-cta-generate" style="padding: 7px 10px; font-size: 11px;">
-              <span>Create Smart OS Link</span>
+            <button id="btnExtQrCreateAppLink" type="button" class="ext-qr-mini-btn" style="padding: 5px 8px; font-size: 10px; align-self: flex-start;">
+              <span>🔗 Save Smart OS Shortlink</span>
             </button>
           </div>
         </div>
@@ -432,11 +420,62 @@
             <span class="ext-qr-label">Saved Dynamic QRs</span>
             <button id="btnExtQrRefreshSaved" type="button" class="ext-qr-mini-btn">Refresh</button>
           </div>
-          <div id="extQrSavedList" style="display: flex; flex-direction: column; gap: 5px; max-height: 120px; overflow-y: auto;"></div>
+          <div id="extQrSavedList" style="display: flex; flex-direction: column; gap: 5px; max-height: 110px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- UNIVERSAL GENERATE QR CODE CONTROL BAR (Available in ALL 7 Tabs: Link, Text, Wi-Fi, vCard, PDF, App, Saved) -->
+        <div style="display: flex; align-items: center; gap: 5px; padding-top: 6px; border-top: 1px solid #f1f5f9;">
+          <button id="btnExtGenerateQrMain" type="button" class="btn-cta-generate" style="flex: 1; padding: 8px 10px; font-size: 11px; border-radius: 10px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span id="btnExtGenerateQrMainText">Generate QR Code</span>
+          </button>
+          <div id="extQrActiveDynamicBadge" style="display: none; align-items: center; gap: 4px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 6px 8px; border-radius: 9px; font-size: 10px; font-family: ui-monospace, monospace; font-weight: 700; color: #065f46;">
+            <span id="extQrActiveDynamicText">/q/code</span>
+            <button id="btnExtQrResetDynamic" type="button" style="background: none; border: none; color: #e11d48; font-weight: 800; cursor: pointer; font-size: 10px;">✕</button>
+          </div>
+          <button id="btnExtQrMakeDynamic" type="button" class="ext-qr-dynamic-btn" title="Create editable Dynamic Shortlink QR (/q/code)">
+            <span>⚡ Dynamic</span>
+          </button>
         </div>
       </div>
 
-      <!-- 3. Optional Collapsible Customize QR Style Drawer (Clean Light Mode) -->
+      <!-- 3. Always-Visible Live QR Preview Card & Direct Export Bar (Directly below Input!) -->
+      <div class="ext-qr-preview-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 10px; gap: 4px;">
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <span id="extQrScanSafetyBadge" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 7px; border-radius: 8px; font-weight: 700; font-size: 9.5px;">✓ Live Preview Ready</span>
+            <button id="btnExtQrAutoFixContrast" type="button" style="display: none; background: #f59e0b; color: #ffffff; border: none; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 700; cursor: pointer;">Fix Contrast</button>
+          </div>
+          <button id="extQrQuotaPill" type="button" style="background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 2px 7px; border-radius: 7px; font-size: 9.5px; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Free & Guest: 15 QR Codes • PRO: Unlimited">
+            15/15 Free
+          </button>
+        </div>
+
+        <div id="quickQrCanvasContainer" style="background: #f8fafc; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; width: 100%;">
+          <canvas id="extQrStudioCanvas" width="280" height="280" style="max-width: 156px; height: auto; border-radius: 10px; background: #ffffff; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);"></canvas>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%;">
+          <button id="btnDownloadQuickQrPng" type="button" class="ext-qr-export-btn primary">
+            <span>⬇ PNG</span>
+          </button>
+          <button id="btnExtDownloadQrSvg" type="button" class="ext-qr-export-btn">
+            <span>⬇ SVG</span>
+          </button>
+          <button id="btnExtCopyQrImg" type="button" class="ext-qr-export-btn">
+            <span id="extCopyQrImgText">Copy</span>
+          </button>
+          <button id="btnOpenFullQrStudio" type="button" class="ext-qr-export-btn" title="Open Full Web QR Studio">
+            <span>Studio ↗</span>
+          </button>
+        </div>
+
+        <button id="btnExtPrintBusinessCard" type="button" class="ext-qr-print-card-btn" style="display: none;">
+          <span>🪪 Print Business Card (PNG)</span>
+        </button>
+      </div>
+
+      <!-- 4. Optional Collapsible Customize QR Style Drawer (Clean Light Mode, directly below Live Preview) -->
       <div class="ext-qr-custom-drawer">
         <button id="btnExtToggleQrCustom" type="button" class="ext-qr-custom-toggle">
           <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
@@ -469,8 +508,8 @@
           </div>
 
           <!-- Subtle Light-Mode Upgrade Bar for Non-PRO Users -->
-          <div id="extQrProLockBanner" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; border-radius: 10px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0f172a;">
-            <span style="font-size: 9.5px; color: #334155; font-weight: 600;">Custom themes, shapes, colors &amp; logos require PRO.</span>
+          <div id="extQrProLockBanner" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; border-radius: 10px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0f172a; transition: all 0.2s ease;">
+            <span id="extQrProLockBannerText" style="font-size: 9.5px; color: #334155; font-weight: 600;">Custom themes, shapes, colors &amp; logos require PRO.</span>
             <button id="btnExtUpgradeProQr" type="button" style="background: #0284c7; color: #ffffff; border: none; border-radius: 7px; padding: 4px 8px; font-size: 9.5px; font-weight: 700; cursor: pointer; flex-shrink: 0; white-space: nowrap;">
               Unlock PRO
             </button>
@@ -614,37 +653,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- 4. Clean Light-Mode Preview Card & Direct Export Bar -->
-      <div class="ext-qr-preview-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 10px;">
-          <span id="extQrScanSafetyBadge" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 99px; font-weight: 700;">✓ 100% Scan Ready</span>
-          <button id="btnExtQrAutoFixContrast" type="button" style="display: none; background: #f59e0b; color: #ffffff; border: none; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 700; cursor: pointer;">Auto-Fix Contrast</button>
-        </div>
-
-        <div id="quickQrCanvasContainer" style="background: #f8fafc; padding: 10px; border-radius: 14px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; width: 100%;">
-          <canvas id="extQrStudioCanvas" style="max-width: 176px; height: auto; border-radius: 12px; background: #ffffff; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);"></canvas>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%;">
-          <button id="btnDownloadQuickQrPng" type="button" class="ext-qr-export-btn primary">
-            <span>⬇ PNG</span>
-          </button>
-          <button id="btnExtDownloadQrSvg" type="button" class="ext-qr-export-btn">
-            <span>⬇ SVG</span>
-          </button>
-          <button id="btnExtCopyQrImg" type="button" class="ext-qr-export-btn">
-            <span id="extCopyQrImgText">Copy</span>
-          </button>
-          <button id="btnOpenFullQrStudio" type="button" class="ext-qr-export-btn" title="Open Full Web QR Studio">
-            <span>Studio ↗</span>
-          </button>
-        </div>
-
-        <button id="btnExtPrintBusinessCard" type="button" class="ext-qr-print-card-btn" style="display: none;">
-          <span>🪪 Print Business Card (PNG)</span>
-        </button>
       </div>
     </div>
   </main>
