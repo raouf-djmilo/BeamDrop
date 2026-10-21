@@ -6,7 +6,7 @@ if (!global.__BEAMDROP_TRANSIT__) {
 const transitStore = global.__BEAMDROP_TRANSIT__;
 
 // Clean items older than 3 minutes
-setInterval(() => {
+const transitCleaner = setInterval(() => {
   const now = Date.now();
   for (const [peer, items] of transitStore.entries()) {
     if (Array.isArray(items)) {
@@ -18,6 +18,7 @@ setInterval(() => {
     }
   }
 }, 30000);
+if (transitCleaner && transitCleaner.unref) transitCleaner.unref();
 
 export const config = {
   api: {

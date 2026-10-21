@@ -15,6 +15,14 @@ const GITHUB_COMMITS_API = `https://api.github.com/repos/${GITHUB_REPO}/commits?
 const GITHUB_VERSION_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/public/version.json`;
 const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 
+// CRITICAL FIX: When running inside Chrome Extension (chrome-extension://<id>/updater.html),
+// window.location.origin is "chrome-extension://<id>", which has NO backend server.
+// Fetching window.location.origin + "/api/*" produces net::ERR_FILE_NOT_FOUND.
+// Use VERCEL_HOST as fallback API base for extensions; use origin only when served via HTTP/HTTPS!
+const API_BASE = (typeof window !== 'undefined' && window.location.protocol.startsWith('http'))
+  ? window.location.origin
+  : VERCEL_HOST;
+
 const DEFAULT_INJECT_FILES = [
   'manifest.json',
   'popup.html',
@@ -28,6 +36,7 @@ const DEFAULT_INJECT_FILES = [
   'updater.js',
   'folderStore.js',
   'buildInfo.js',
+  'favicon.ico',
   'update.bat',
   'update.sh',
   'icons/icon16.png',
@@ -42,6 +51,21 @@ const DEFAULT_INJECT_FILES = [
   'libs/peerjs.min.js',
   'libs/qrcode.min.js'
 ];
+
+// Helper: Resilient fetch with strict timeout to prevent infinite hanging loops
+async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const installedVer = document.getElementById('installedVer');
 const cloudVer = document.getElementById('cloudVer');
@@ -64,38 +88,6 @@ const toastSuccess = document.getElementById('toastSuccess');
 let currentDirHandle = null;
 let currentFolderName = '';
 
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-  displayLocalBuildInfo();
-  initFolderState();
-  checkCloudStatus();
-
-  // Check if auto-sync was requested via URL ?action=sync
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('action') === 'sync' || urlParams.get('action') === 'update') {
-    setTimeout(async () => {
-      let isAlreadyGranted = false;
-      if (currentDirHandle && typeof currentDirHandle.queryPermission === 'function') {
-        try {
-          const q = await currentDirHandle.queryPermission({ mode: 'readwrite' });
-          if (q === 'granted') isAlreadyGranted = true;
-        } catch (_) {}
-      }
-
-      if (isAlreadyGranted) {
-        log('⚡ Write permission verified. Starting direct update...');
-        if (btnMasterSync) btnMasterSync.click();
-      } else {
-        log('👉 Click the glowing "1-Click Full Sync" button below to authorize folder write and update your extension.');
-        if (btnMasterSync) {
-          btnMasterSync.classList.add('pulse-highlight');
-          btnMasterSync.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }, 400);
-  }
-});
-
 function compareSemver(v1, v2) {
   const p1 = (v1 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
   const p2 = (v2 || '0.0.0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -109,7 +101,7 @@ function compareSemver(v1, v2) {
 }
 
 let currentCloudState = {
-  latestVersion: '1.6.2',
+  latestVersion: '1.6.3',
   latestHash: '',
   shortSha: '',
   commitMessage: '',
@@ -129,27 +121,37 @@ function normalizeSha(s) {
   return hexOnly.slice(0, 7);
 }
 
+// 1. Immediately display local build info synchronously so UI is never stuck on "Checking..."
 function displayLocalBuildInfo() {
   const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
     ? window.BEAMDROP_BUILD
-    : { version: '1.6.2', buildHash: '38027b1' };
+    : { version: '1.6.3', buildHash: '11bbfd7', shortSha: '11bbfd7' };
   
-  const shortHash = normalizeSha(localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '38027b1';
+  const shortHash = normalizeSha(localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '11bbfd7';
   if (installedVer) installedVer.textContent = `v${localBuild.version} (${shortHash})`;
   if (appVerBadge) appVerBadge.textContent = `v${localBuild.version}`;
-  if (cloudVer) cloudVer.textContent = `v${localBuild.version} (Checking GitHub...)`;
-  if (buildHashText) buildHashText.textContent = shortHash;
+  if (cloudVer && cloudVer.textContent === 'Checking...') {
+    cloudVer.textContent = `v${localBuild.version} (Checking cloud...)`;
+  }
+  if (buildHashText && buildHashText.textContent === 'Checking...') {
+    buildHashText.textContent = shortHash;
+  }
 }
 
+// 2. Asynchronously query cloud status with fast multi-source fallback and strict 3s timeouts
 async function checkCloudStatus() {
-  let latestVersion = '1.6.2';
+  const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
+    ? window.BEAMDROP_BUILD
+    : { version: '1.6.3', buildHash: '11bbfd7' };
+
+  let latestVersion = localBuild.version || '1.6.3';
   let latestHash = '';
   let commitMessage = '';
 
-  // 1. Check GitHub Commit for extension folder & whole repo (highest authority)
+  // 1. Check GitHub Commit for extension folder
   try {
-    const cResp = await fetch(`${GITHUB_COMMITS_API}&_t=${Date.now()}`, { cache: 'no-store' });
-    if (cResp.ok) {
+    const cResp = await fetchWithTimeout(`${GITHUB_COMMITS_API}&_t=${Date.now()}`, { cache: 'no-store' }, 2500);
+    if (cResp && cResp.ok) {
       const commits = await cResp.json();
       if (Array.isArray(commits) && commits.length > 0 && commits[0].sha) {
         latestHash = commits[0].sha;
@@ -160,11 +162,11 @@ async function checkCloudStatus() {
     }
   } catch (_) {}
 
-  // 1b. Fallback to host /api/git-status
-  if (!latestHash) {
+  // 1b. Fallback to API_BASE /api/git-status (Never calls chrome-extension://)
+  if (!latestHash && API_BASE) {
     try {
-      const gResp = await fetch(`${window.location.origin}/api/git-status?_t=${Date.now()}`, { cache: 'no-store' });
-      if (gResp.ok) {
+      const gResp = await fetchWithTimeout(`${API_BASE}/api/git-status?_t=${Date.now()}`, { cache: 'no-store' }, 2000);
+      if (gResp && gResp.ok) {
         const gData = await gResp.json();
         if (gData && gData.sha) {
           latestHash = gData.sha;
@@ -176,32 +178,30 @@ async function checkCloudStatus() {
   }
 
   // 2. Check GitHub raw public/version.json
-  try {
-    const vResp = await fetch(`${GITHUB_VERSION_URL}?_t=${Date.now()}`, { cache: 'no-store' });
-    if (vResp.ok) {
-      const vData = await vResp.json();
-      if (vData && (vData.version || vData.latestVersion)) {
-        latestVersion = vData.version || vData.latestVersion;
-        if (!latestHash) latestHash = vData.commitSha || vData.buildHash || '';
-      }
-    }
-  } catch (_) {}
-
-  // 3. Fallback to Vercel host / version.json
   if (!latestHash) {
     try {
-      const resp = await fetch(`${VERCEL_HOST}/version.json?_t=${Date.now()}`, { cache: 'no-store' });
-      if (resp.ok) {
+      const vResp = await fetchWithTimeout(`${GITHUB_VERSION_URL}?_t=${Date.now()}`, { cache: 'no-store' }, 2000);
+      if (vResp && vResp.ok) {
+        const vData = await vResp.json();
+        if (vData && (vData.version || vData.latestVersion)) {
+          latestVersion = vData.version || vData.latestVersion;
+          if (!latestHash) latestHash = vData.commitSha || vData.buildHash || '';
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Fallback to Vercel host /version.json
+  if (!latestHash) {
+    try {
+      const resp = await fetchWithTimeout(`${VERCEL_HOST}/version.json?_t=${Date.now()}`, { cache: 'no-store' }, 2000);
+      if (resp && resp.ok) {
         const data = await resp.json();
         latestVersion = data.version || latestVersion;
         latestHash = data.commitSha || data.buildHash || latestHash;
       }
     } catch (_) {}
   }
-
-  const localBuild = (typeof window !== 'undefined' && window.BEAMDROP_BUILD)
-    ? window.BEAMDROP_BUILD
-    : { version: '1.6.2', buildHash: '38027b1' };
 
   // Read stored sync state from chrome.storage.local if available
   let storedSha = '';
@@ -216,11 +216,11 @@ async function checkCloudStatus() {
     }
   } catch (_) {}
 
-  const normLocalSha = normalizeSha(storedSha || localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '38027b1';
+  const normLocalSha = normalizeSha(storedSha || localBuild.shortSha || localBuild.commitSha || localBuild.buildHash) || '11bbfd7';
   const normRemoteSha = normalizeSha(latestHash) || normLocalSha;
 
   currentCloudState.latestVersion = latestVersion;
-  currentCloudState.latestHash = latestHash || '38027b12bd5f40e8d7e97f9112125571b4ad5746';
+  currentCloudState.latestHash = latestHash || '11bbfd70f80978a6ec399b937d02aebe7db139de';
   currentCloudState.shortSha = normRemoteSha;
   currentCloudState.commitMessage = commitMessage;
   currentCloudState.checkedTimestamp = Date.now();
@@ -231,20 +231,21 @@ async function checkCloudStatus() {
 
   if (isNewer || isNewHash) {
     if (cloudVer) {
-      cloudVer.textContent = `v${latestVersion} (GitHub: ${normRemoteSha || 'new update'})`;
+      cloudVer.textContent = `v${latestVersion} (Update available: ${normRemoteSha})`;
       cloudVer.style.color = '#0284c7';
       cloudVer.style.fontWeight = 'bold';
     }
-    log(`⚡ GitHub Update Detected! Repo Commit: ${normRemoteSha}${commitMessage ? ` ("${commitMessage}")` : ''}`);
+    log(`⚡ Cloud Update Available! Target: v${latestVersion} (${normRemoteSha})`);
   } else {
     if (cloudVer) {
-      cloudVer.textContent = `v${latestVersion} (✓ Synchronized with GitHub: ${normRemoteSha || normLocalSha})`;
+      cloudVer.textContent = `v${latestVersion} (✓ Up-to-date with cloud: ${normRemoteSha})`;
       cloudVer.style.color = '#10b981';
+      cloudVer.style.fontWeight = 'bold';
     }
-    log(`✓ Verified: Installed extension is 100% up-to-date with GitHub (${normLocalSha}).`);
+    log(`✓ Verified: Installed extension matches cloud build (${normLocalSha}).`);
   }
 
-  if (buildHashText) buildHashText.textContent = normRemoteSha || normLocalSha || '38027b1';
+  if (buildHashText) buildHashText.textContent = normRemoteSha || normLocalSha;
   if (appVerBadge) appVerBadge.textContent = `v${latestVersion}`;
 }
 
@@ -260,7 +261,7 @@ async function initFolderState() {
       }
     }
   } catch (err) {
-    console.warn('initFolderState:', err);
+    console.warn('initFolderState notice:', err);
   }
   showFolderNotLinked();
 }
@@ -271,6 +272,12 @@ function showFolderLinked(name) {
     linkedFolderStatus.className = 'folder-pill';
     linkedFolderStatus.innerHTML = `<span>🟢 Linked Folder: <strong>${safeName}</strong></span> <span style="color:#059669; font-weight:700;">✓ Ready</span>`;
   }
+  if (btnStep1Select) {
+    btnStep1Select.innerHTML = `<span>🟢 <strong>Folder Linked: "${safeName}"</strong></span> <span class="btn-meta-tag">✓ Ready</span>`;
+    btnStep1Select.style.borderColor = '#10b981';
+    btnStep1Select.style.backgroundColor = '#f0fdf4';
+    btnStep1Select.style.color = '#047857';
+  }
 }
 
 function showFolderNotLinked() {
@@ -280,46 +287,88 @@ function showFolderNotLinked() {
     linkedFolderStatus.className = 'folder-pill not-linked';
     linkedFolderStatus.innerHTML = `<span>📁 <strong>No folder selected yet</strong></span> <span style="font-size:11px; opacity:0.85;">Click Step 1 below</span>`;
   }
+  if (btnStep1Select) {
+    btnStep1Select.innerHTML = `<span>📁 <strong>Step 1: Select Extension Folder</strong></span> <span class="btn-meta-tag">Select "EXTN"</span>`;
+    btnStep1Select.style.borderColor = '';
+    btnStep1Select.style.backgroundColor = '';
+    btnStep1Select.style.color = '';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
-// BUTTON 1: SELECT EXTENSION FOLDER
+// BUTTON 1: SELECT EXTENSION FOLDER (SAFE & RESILIENT)
 // ─────────────────────────────────────────────────────────────
-if (btnStep1Select) {
-  btnStep1Select.addEventListener('click', async () => {
+async function handleSelectFolder() {
+  try {
+    if (typeof window.showDirectoryPicker !== 'function') {
+      alert('File System Access API is not supported in this browser window. Please use the extension.zip download below.');
+      return;
+    }
+
+    showLogStream();
+    log('📁 Opening folder selector dialog... Please choose your unpacked extension folder.');
+
+    let handle = null;
+
+    // Attempt 1: Safe directory picker without restrictive ID to prevent stale-path aborts
     try {
-      if (typeof window.showDirectoryPicker !== 'function') {
-        alert('File System Access API is not supported in this browser window.');
-        return;
-      }
-
-      showLogStream();
-      log('📁 Opening native folder picker...');
-
-      const handle = await window.showDirectoryPicker({
-        id: 'beamdrop-extension-dir',
+      handle = await window.showDirectoryPicker({
         mode: 'readwrite'
       });
-
-      if (handle) {
-        currentDirHandle = handle;
-        currentFolderName = handle.name || 'EXTN';
-
-        if (window.BeamDropFolderStore) {
-          await window.BeamDropFolderStore.saveFolderHandle(handle);
-        }
-
-        showFolderLinked(currentFolderName);
-        log(`✓ Successfully linked folder: "${currentFolderName}"`);
-        showToast(`✓ Folder "${currentFolderName}" linked! Now click Step 2 or Step 3.`);
+    } catch (e1) {
+      if (e1 && e1.name === 'AbortError') {
+        log('ℹ️ Folder selection cancelled by user.');
+        return;
       }
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Directory link failed:', err);
-        log(`❌ Error: ${err.message}`);
+      console.warn('Attempt 1 failed, trying unconstrained picker:', e1);
+      try {
+        handle = await window.showDirectoryPicker();
+      } catch (e2) {
+        if (e2 && e2.name === 'AbortError') {
+          log('ℹ️ Folder selection cancelled by user.');
+          return;
+        }
+        throw e2;
       }
     }
-  });
+
+    if (handle) {
+      currentDirHandle = handle;
+      currentFolderName = handle.name || 'EXTN';
+
+      // Verify and request write permission immediately with the active user gesture
+      const writeGranted = await ensureFolderWritePermission(handle);
+      if (!writeGranted) {
+        log('⚠️ Write permission was not granted. Chrome requires you to click "Allow" or "Edit" on the prompt.');
+      }
+
+      if (window.BeamDropFolderStore) {
+        try {
+          await window.BeamDropFolderStore.saveFolderHandle(handle);
+        } catch (dbErr) {
+          console.warn('FolderStore save notice:', dbErr);
+        }
+      }
+
+      showFolderLinked(currentFolderName);
+      log(`✓ Successfully linked folder: "${currentFolderName}"`);
+      showToast(`✓ Folder "${currentFolderName}" linked! Now click Step 2 or 1-Click Sync.`);
+
+      if (btnMasterSync) {
+        btnMasterSync.classList.add('pulse-highlight');
+      }
+    }
+  } catch (err) {
+    if (err && err.name !== 'AbortError') {
+      console.error('Directory link failed:', err);
+      log(`❌ Error opening folder: ${err.message || err}`);
+      alert(`Could not open folder: ${err.message || 'Permission denied'}. You can also use the extension.zip download.`);
+    }
+  }
+}
+
+if (btnStep1Select) {
+  btnStep1Select.addEventListener('click', handleSelectFolder);
 }
 
 async function ensureFolderWritePermission(handle) {
@@ -354,13 +403,13 @@ async function ensureFolderWritePermission(handle) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BUTTON 2: CLEAN FOLDER (THOROUGH & VERIFIED REMOVAL)
+// BUTTON 2: CLEAN FOLDER (PRESERVE RUNNING EXTENSION PAGES)
 // ─────────────────────────────────────────────────────────────
 if (btnStep2Clean) {
   btnStep2Clean.addEventListener('click', async () => {
     if (!currentDirHandle) {
       alert('Please click Step 1 first to select your extension folder!');
-      btnStep1Select ? btnStep1Select.click() : null;
+      await handleSelectFolder();
       return;
     }
     await executeCleanFolder(currentDirHandle);
@@ -418,13 +467,13 @@ async function executeCleanFolder(dirHandle) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// BUTTON 3: INJECT ALL EXTENSION FILES (GITHUB & CLOUD STREAM)
+// BUTTON 3: INJECT ALL EXTENSION FILES (MULTI-MIRROR STREAM)
 // ─────────────────────────────────────────────────────────────
 if (btnStep3Inject) {
   btnStep3Inject.addEventListener('click', async () => {
     if (!currentDirHandle) {
       alert('Please click Step 1 first to select your extension folder!');
-      btnStep1Select ? btnStep1Select.click() : null;
+      await handleSelectFolder();
       return;
     }
     await executeInjectFiles(currentDirHandle);
@@ -436,16 +485,10 @@ async function discoverExtensionFiles() {
 
   // 1. Dynamic check via GitHub repository tree
   try {
-    log('📡 Checking GitHub repository tree for updated files...');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const resp = await fetch(GITHUB_TREE_API, {
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
+    log('📡 Checking GitHub repository tree for fresh extension files...');
+    const resp = await fetchWithTimeout(GITHUB_TREE_API, { cache: 'no-store' }, 3000);
 
-    if (resp.ok) {
+    if (resp && resp.ok) {
       const data = await resp.json();
       if (data && data.tree && Array.isArray(data.tree)) {
         const remoteExtFiles = data.tree
@@ -454,26 +497,26 @@ async function discoverExtensionFiles() {
           .filter(name => !name.startsWith('.') && !name.includes('.git'));
 
         if (remoteExtFiles.length >= 10) {
-          log(`✓ GitHub Repository Engine: ${remoteExtFiles.length} extension files discovered in GitHub repo!`);
+          log(`✓ GitHub Repository Engine: Discovered ${remoteExtFiles.length} files in repo.`);
           remoteExtFiles.forEach(f => discovered.add(f));
         }
       }
     }
-  } catch (err) {
-    console.debug('GitHub API dynamic tree query notice (falling back to host):', err);
-  }
-
-  // 2. Dynamic check via host /api/extension-tree
-  try {
-    const tResp = await fetch(`${window.location.origin}/api/extension-tree?_t=${Date.now()}`);
-    if (tResp.ok) {
-      const tData = await tResp.json();
-      if (tData.success && Array.isArray(tData.files)) {
-        log(`✓ Host Extension Engine: ${tData.files.length} extension files active on server.`);
-        tData.files.forEach(f => discovered.add(f));
-      }
-    }
   } catch (_) {}
+
+  // 2. Dynamic check via API_BASE /api/extension-tree (Never calls chrome-extension://)
+  if (API_BASE) {
+    try {
+      const tResp = await fetchWithTimeout(`${API_BASE}/api/extension-tree?_t=${Date.now()}`, { cache: 'no-store' }, 2000);
+      if (tResp && tResp.ok) {
+        const tData = await tResp.json();
+        if (tData.success && Array.isArray(tData.files)) {
+          log(`✓ Host Extension Engine: ${tData.files.length} extension files active on server.`);
+          tData.files.forEach(f => discovered.add(f));
+        }
+      }
+    } catch (_) {}
+  }
 
   const finalFiles = Array.from(discovered);
   log(`📦 Resolved target extension package: ${finalFiles.length} files to inject.`);
@@ -481,33 +524,27 @@ async function discoverExtensionFiles() {
 }
 
 async function fetchFileContent(fname) {
-  const isHttpHost = typeof window !== 'undefined' && window.location.protocol.startsWith('http');
   const sources = [
     // Priority 1: GitHub Raw (Directly from repository main branch)
     `${GITHUB_RAW_BASE}/${fname}?_t=${Date.now()}`,
-    // Priority 2: Vercel Production
+    // Priority 2: Vercel Production extension mirror
     `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`,
-    // Priority 3: Vercel Proxy
-    `${VERCEL_HOST}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`
+    // Priority 3: API_BASE file proxy
+    `${API_BASE}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`
   ];
-
-  if (isHttpHost) {
-    sources.splice(1, 0, `${window.location.origin}/extension/${fname}?_t=${Date.now()}`);
-    sources.splice(2, 0, `${window.location.origin}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`);
-  }
 
   let lastErr = null;
   for (const src of sources) {
     try {
-      const resp = await fetch(src, { cache: 'no-store' });
-      if (resp.ok) {
+      const resp = await fetchWithTimeout(src, { cache: 'no-store' }, 3500);
+      if (resp && resp.ok) {
         return await resp.arrayBuffer();
       }
     } catch (e) {
       lastErr = e;
     }
   }
-  throw new Error(`Could not fetch ${fname} from any source: ${lastErr?.message || 'HTTP 404'}`);
+  throw new Error(`Could not fetch ${fname} from mirrors: ${lastErr?.message || 'HTTP 404'}`);
 }
 
 async function executeInjectFiles(dirHandle) {
@@ -519,12 +556,9 @@ async function executeInjectFiles(dirHandle) {
     let hasPerm = await ensureFolderWritePermission(activeHandle);
 
     if (!hasPerm) {
-      log('📁 Please confirm or select your extension folder to grant write permission...');
-      if (typeof window.showDirectoryPicker === 'function') {
-        const freshHandle = await window.showDirectoryPicker({
-          id: 'beamdrop-extension-dir',
-          mode: 'readwrite'
-        });
+      log('📁 Please confirm write authorization for your extension folder...');
+      try {
+        const freshHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
         if (!freshHandle) throw new Error('Folder selection was cancelled.');
         activeHandle = freshHandle;
         currentDirHandle = freshHandle;
@@ -533,8 +567,8 @@ async function executeInjectFiles(dirHandle) {
           await window.BeamDropFolderStore.saveFolderHandle(freshHandle);
         }
         showFolderLinked(currentFolderName);
-      } else {
-        throw new Error('Write permission was denied. Please click Allow in Chrome prompt.');
+      } catch (pErr) {
+        throw new Error('Write permission was denied: ' + (pErr?.message || 'Please grant access'));
       }
     }
 
@@ -542,7 +576,7 @@ async function executeInjectFiles(dirHandle) {
       await checkCloudStatus();
     }
 
-    // 1. Discover all extension files (live from GitHub or registry)
+    // 1. Discover all extension files
     const filesToInject = await discoverExtensionFiles();
     log(`🚀 Starting injection of ${filesToInject.length} files into folder...`);
 
@@ -582,9 +616,9 @@ async function executeInjectFiles(dirHandle) {
     }
 
     // Generate and write stamped buildInfo.js directly into local extension directory
-    const finalCommitSha = currentCloudState.latestHash || '38027b12bd5f40e8d7e97f9112125571b4ad5746';
-    const finalShortSha = currentCloudState.shortSha || normalizeSha(finalCommitSha) || '38027b1';
-    const finalVersion = currentCloudState.latestVersion || '1.6.2';
+    const finalCommitSha = currentCloudState.latestHash || '11bbfd70f80978a6ec399b937d02aebe7db139de';
+    const finalShortSha = currentCloudState.shortSha || normalizeSha(finalCommitSha) || '11bbfd7';
+    const finalVersion = currentCloudState.latestVersion || '1.6.3';
     const finalMsg = currentCloudState.commitMessage || 'Synchronized with GitHub main branch';
 
     const finalBuildInfo = `window.BEAMDROP_BUILD = {\n` +
@@ -603,7 +637,7 @@ async function executeInjectFiles(dirHandle) {
       await bWritable.close();
       log(`✓ Stamped buildInfo.js on disk with verified commit: ${finalShortSha}`);
     } catch (bErr) {
-      log(`⚠️ Notice on buildInfo.js write: ${bErr.message}`);
+      console.warn('buildInfo write notice:', bErr);
     }
 
     // Persist verified commit SHA in chrome.storage.local for instantaneous confirmation upon reload
@@ -634,16 +668,20 @@ async function executeInjectFiles(dirHandle) {
     }
 
     showProgress('✅ All files injected successfully! Reloading...', 100);
-    log(`🎉 SUCCESS: All ${written} files cleanly injected into folder!`);
+    log(`🎉 SUCCESS: ${written} files cleanly injected into folder!`);
     showToast(`✓ Complete! ${written} extension files injected and ready.`);
 
     setTimeout(() => {
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
-        chrome.runtime.reload();
+        try {
+          chrome.runtime.reload();
+        } catch (_) {
+          window.location.reload();
+        }
       } else {
         window.location.reload();
       }
-    }, 1200);
+    }, 1500);
 
     return true;
   } catch (err) {
@@ -672,30 +710,28 @@ if (btnMasterSync) {
           return;
         }
 
-        const handle = await window.showDirectoryPicker({
-          id: 'beamdrop-extension-dir',
-          mode: 'readwrite'
-        });
+        try {
+          targetHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        } catch (e1) {
+          if (e1 && e1.name === 'AbortError') return;
+          targetHandle = await window.showDirectoryPicker();
+        }
 
-        if (!handle) return;
-        currentDirHandle = handle;
-        targetHandle = handle;
-        currentFolderName = handle.name || 'EXTN';
+        if (!targetHandle) return;
+        currentDirHandle = targetHandle;
+        currentFolderName = targetHandle.name || 'EXTN';
         if (window.BeamDropFolderStore) {
-          await window.BeamDropFolderStore.saveFolderHandle(handle);
+          await window.BeamDropFolderStore.saveFolderHandle(targetHandle);
         }
         showFolderLinked(currentFolderName);
       }
 
       // Check / request write permission safely
-      let hasPerm = await ensureFolderWritePermission(targetHandle);
+      const hasPerm = await ensureFolderWritePermission(targetHandle);
       if (!hasPerm) {
-        log('📁 Requesting folder access authorization...');
-        if (typeof window.showDirectoryPicker === 'function') {
-          const freshHandle = await window.showDirectoryPicker({
-            id: 'beamdrop-extension-dir',
-            mode: 'readwrite'
-          });
+        log('📁 Requesting folder write authorization...');
+        try {
+          const freshHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
           if (freshHandle) {
             currentDirHandle = freshHandle;
             targetHandle = freshHandle;
@@ -705,6 +741,9 @@ if (btnMasterSync) {
             }
             showFolderLinked(currentFolderName);
           }
+        } catch (fErr) {
+          if (fErr && fErr.name === 'AbortError') return;
+          throw fErr;
         }
       }
 
@@ -712,13 +751,38 @@ if (btnMasterSync) {
       await executeInjectFiles(targetHandle);
 
     } catch (err) {
-      if (err.name !== 'AbortError') {
+      if (err && err.name !== 'AbortError') {
         console.error('Master sync failed:', err);
-        log(`❌ Sync Error: ${err.message}`);
-        showProgress('Update failed: ' + err.message, 0);
+        log(`❌ Sync Error: ${err.message || err}`);
+        showProgress('Update failed: ' + (err.message || err), 0);
       }
     }
   });
+}
+
+// URL Intent Handler for ?action=sync
+function handleAutoSyncIntent() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+
+  if (action === 'sync' || action === 'update') {
+    showLogStream();
+    log('⚡ Updater opened with auto-sync request.');
+
+    if (currentDirHandle) {
+      log(`🟢 Linked extension folder detected: "${currentFolderName}".`);
+      log('👉 Click the glowing "1-Click Full Sync" button below to apply the update directly.');
+      if (btnMasterSync) {
+        btnMasterSync.classList.add('pulse-highlight');
+        btnMasterSync.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      log('📁 Please click Step 1 above to select your extension folder on your computer.');
+      if (btnStep1Select) {
+        btnStep1Select.classList.add('pulse-highlight');
+      }
+    }
+  }
 }
 
 // UI Helpers
@@ -758,4 +822,21 @@ function escapeHtml(str) {
     "'": '&#39;',
     '"': '&quot;'
   }[tag] || tag));
+}
+
+// ─────────────────────────────────────────────────────────────
+// SAFE BOOTSTRAP (RUNS IMMEDIATELY IF READY, PREVENTS FREEZE)
+// ─────────────────────────────────────────────────────────────
+function bootUpdater() {
+  displayLocalBuildInfo();
+  initFolderState().then(() => {
+    checkCloudStatus();
+    handleAutoSyncIntent();
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootUpdater);
+} else {
+  bootUpdater();
 }

@@ -9,7 +9,7 @@ const cloudDropsStore = global.__BEAMDROP_CLOUD_DROPS__;
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 // Periodic housekeeper: clean up expired drops from memory every 60 seconds
-setInterval(() => {
+const dropCleaner = setInterval(() => {
   const now = Date.now();
   for (const [id, drop] of cloudDropsStore.entries()) {
     if (drop.expiresAt && now > drop.expiresAt) {
@@ -18,6 +18,7 @@ setInterval(() => {
     }
   }
 }, 60000);
+if (dropCleaner && dropCleaner.unref) dropCleaner.unref();
 
 export const config = {
   api: {

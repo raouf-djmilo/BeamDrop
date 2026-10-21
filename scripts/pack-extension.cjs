@@ -4,6 +4,15 @@ const https = require("https");
 const JSZip = require("jszip");
 
 async function fetchLatestGitHubCommit() {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    const sha = process.env.VERCEL_GIT_COMMIT_SHA;
+    const msg = (process.env.VERCEL_GIT_COMMIT_MESSAGE || "Vercel auto-deploy update").split("\n")[0];
+    return {
+      sha,
+      shortSha: sha.slice(0, 7),
+      message: msg
+    };
+  }
   return new Promise((resolve) => {
     const req = https.get(
       "https://api.github.com/repos/raouf-djmilo/BeamDrop/commits?per_page=1",
@@ -28,10 +37,11 @@ async function fetchLatestGitHubCommit() {
       }
     );
     req.on("error", () => resolve(null));
-    req.setTimeout(3000, () => {
-      req.abort();
+    const timer = setTimeout(() => {
+      try { req.destroy(); } catch (_) {}
       resolve(null);
-    });
+    }, 1500);
+    if (timer.unref) timer.unref();
   });
 }
 
@@ -40,16 +50,16 @@ async function packExtension() {
   
   // Query GitHub for canonical repository commit SHA
   const gitInfo = await fetchLatestGitHubCommit();
-  const commitSha = gitInfo ? gitInfo.sha : "38027b12bd5f40e8d7e97f9112125571b4ad5746";
-  const shortSha = gitInfo ? gitInfo.shortSha : "38027b1";
-  const commitMsg = gitInfo ? gitInfo.message : "Live WebRTC DataChannel optimizations & instant two-way handshake";
+  const commitSha = gitInfo ? gitInfo.sha : "a8a6c5c9314811a2f6046e7f8e87ad6f407b1403";
+  const shortSha = gitInfo ? gitInfo.shortSha : "a8a6c5c";
+  const commitMsg = gitInfo ? gitInfo.message : "feat: QR engine production hardening, themes and Vercel sync";
 
   console.log(`📌 Canonical GitHub Fingerprint: ${shortSha} ("${commitMsg}")`);
 
   // 1. Write to extension/buildInfo.js
   const buildInfoPath = path.resolve(__dirname, "../extension/buildInfo.js");
   const buildInfoJs = "window.BEAMDROP_BUILD = {\n" +
-    '  version: "1.6.2",\n' +
+    '  version: "1.6.3",\n' +
     `  commitSha: "${commitSha}",\n` +
     `  shortSha: "${shortSha}",\n` +
     `  buildHash: "${shortSha}",\n` +
@@ -82,7 +92,7 @@ async function packExtension() {
   copyDirRecursive(path.resolve(__dirname, "../extension"), publicExtDir);
 
   // Copy updater pages directly to public root for web updater access
-  const updaterFiles = ["updater.html", "updater.js", "folderStore.js", "style.css", "manifest.json"];
+  const updaterFiles = ["updater.html", "updater.js", "folderStore.js", "buildInfo.js", "style.css", "manifest.json", "favicon.ico"];
   for (const uf of updaterFiles) {
     const srcF = path.resolve(__dirname, "../extension", uf);
     if (fs.existsSync(srcF)) {
@@ -95,8 +105,8 @@ async function packExtension() {
   if (fs.existsSync(versionJsonPath)) {
     try {
       const vdata = JSON.parse(fs.readFileSync(versionJsonPath, "utf8"));
-      vdata.version = "1.6.2";
-      vdata.latestVersion = "1.6.2";
+      vdata.version = "1.6.3";
+      vdata.latestVersion = "1.6.3";
       vdata.commitSha = commitSha;
       vdata.shortSha = shortSha;
       vdata.buildHash = shortSha;

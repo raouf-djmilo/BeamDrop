@@ -1,7 +1,7 @@
 {
   "name": "BeamDrop",
-  "version": "1.6.2",
-  "latestVersion": "1.6.2",
+  "version": "1.6.3",
+  "latestVersion": "1.6.3",
   "releaseDate": "2026-10-21",
   "minSupportedVersion": "1.0.0",
   "downloadUrl": "https://beam-drop-mu.vercel.app/extension.zip",
@@ -73,9 +73,9 @@
       ]
     }
   ],
-  "buildHash": "11bbfd7",
-  "buildTimestamp": 1792586041,
-  "patchNotes": "feat(extension): implement 24h cloud drop and quick QR",
-  "commitSha": "11bbfd70f80978a6ec399b937d02aebe7db139de",
-  "shortSha": "11bbfd7"
+  "buildHash": "a8a6c5c",
+  "buildTimestamp": 1792592812,
+  "patchNotes": "feat: implement QR generation quota and styling",
+  "commitSha": "a8a6c5cf761b20adbe97dbff93f01766c86885d2",
+  "shortSha": "a8a6c5c"
 }

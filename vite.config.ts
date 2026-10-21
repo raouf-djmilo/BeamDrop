@@ -162,7 +162,7 @@ export default defineConfig(() => {
                       message: commits[0].commit?.message?.split('\n')[0] || 'Repository update',
                       author: commits[0].commit?.author?.name || 'Raouf Djemel',
                       date: commits[0].commit?.author?.date || new Date().toISOString(),
-                      version: '1.6.2',
+                      version: '1.6.3',
                       timestamp: now
                     };
                     cachedGitStatusTime = now;
@@ -1162,6 +1162,9 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+    },
+    build: {
+      chunkSizeWarningLimit: 2500,
     },
     preview: {
       host: '0.0.0.0',
