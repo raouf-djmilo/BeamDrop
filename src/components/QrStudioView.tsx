@@ -35,10 +35,42 @@ import {
   Sparkles,
   ShieldCheck,
   AlertTriangle,
+  Lock,
+  Crown,
   X
 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 import { formatBytes } from '../utils/formatters';
+
+/**
+ * Bullet-proof QR Code matrix generator with automatic Error Correction fallback ('H' -> 'Q' -> 'M' -> 'L')
+ * and safe payload truncation so QRCode.create NEVER throws on long text, UTF-8, or vCard payloads.
+ */
+function safeCreateQrCode(rawPayload: string, preferHighEcc = true): any {
+  const cleanPayload = (rawPayload || '').trim() || 'https://beam-drop-mu.vercel.app';
+  const eccOrder: Array<'H' | 'Q' | 'M' | 'L'> = preferHighEcc
+    ? ['H', 'Q', 'M', 'L']
+    : ['M', 'L'];
+
+  for (const level of eccOrder) {
+    try {
+      return QRCode.create(cleanPayload, { errorCorrectionLevel: level });
+    } catch (_) {
+      // Continue to lower ECC level
+    }
+  }
+
+  // If payload exceeds maximum QR Version 40 capacity (~2953 bytes), truncate safely
+  const truncatedLengths = [1800, 1200, 800, 400];
+  for (const maxLen of truncatedLengths) {
+    try {
+      return QRCode.create(cleanPayload.slice(0, maxLen), { errorCorrectionLevel: 'L' });
+    } catch (_) {}
+  }
+
+  return QRCode.create('https://beam-drop-mu.vercel.app', { errorCorrectionLevel: 'M' });
+}
 
 export type QrEngineType = 'url' | 'text' | 'wifi' | 'vcard' | 'pdf' | 'applink' | 'analytics';
 export type QrBodyShape =
@@ -94,6 +126,7 @@ interface DesignerPreset {
   id: string;
   name: string;
   badge?: string;
+  proOnly?: boolean;
   fgColor: string;
   fgColor2: string;
   gradientMode: QrGradientMode;
@@ -117,6 +150,7 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'classic-clean',
     name: 'Classic',
+    proOnly: false,
     fgColor: '#0f172a',
     fgColor2: '#1e293b',
     gradientMode: 'none',
@@ -136,7 +170,8 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'liquid-cyan',
     name: 'Liquid Flow',
-    badge: 'NEW',
+    badge: 'FREE',
+    proOnly: false,
     fgColor: '#0284c7',
     fgColor2: '#2563eb',
     gradientMode: 'linear-diag',
@@ -157,6 +192,7 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
     id: 'anime-cyber',
     name: 'Cyber Anime',
     badge: 'ART',
+    proOnly: true,
     fgColor: '#311042',
     fgColor2: '#0f172a',
     gradientMode: 'linear-diag',
@@ -179,6 +215,7 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
     id: 'sakura-art',
     name: 'Sakura Heart',
     badge: 'ART',
+    proOnly: true,
     fgColor: '#881337',
     fgColor2: '#9d174d',
     gradientMode: 'radial',
@@ -200,7 +237,8 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'manga-panel',
     name: 'Manga Ink',
-    badge: 'ART',
+    badge: '3D',
+    proOnly: true,
     fgColor: '#090d16',
     fgColor2: '#1e293b',
     gradientMode: 'none',
@@ -221,7 +259,8 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'obsidian-3d',
     name: '3D Gold Pop',
-    badge: '3D',
+    badge: 'NEW',
+    proOnly: true,
     fgColor: '#0f172a',
     fgColor2: '#b45309',
     gradientMode: 'linear-diag',
@@ -242,7 +281,8 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'retro-arcade',
     name: 'Arcade 8-Bit',
-    badge: 'NEW',
+    badge: 'PRO',
+    proOnly: true,
     fgColor: '#1e1b4b',
     fgColor2: '#4338ca',
     gradientMode: 'linear-vert',
@@ -264,6 +304,8 @@ const DESIGNER_PRESETS: DesignerPreset[] = [
   {
     id: 'emerald-matrix',
     name: 'Emerald',
+    badge: 'PRO',
+    proOnly: true,
     fgColor: '#065f46',
     fgColor2: '#0d9488',
     gradientMode: 'radial',
@@ -438,6 +480,41 @@ function hexToLuminance(hex: string): number {
 
 export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) => {
   const { notifyInfo, notifySuccess, notifyError } = useNotification();
+  const { userTier, plan, dailyUsage, trackOp } = useAuth();
+
+  const isPro = userTier === 'pro' || plan === 'pro';
+  const qrUsed = dailyUsage.qrGenerationsCount || 0;
+  const qrLimit = 15;
+  const qrRemaining = isPro ? Infinity : Math.max(0, qrLimit - qrUsed);
+
+  const triggerProUpgradeModal = useCallback((reason: string) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('beamdrop:quota_exceeded', {
+          detail: {
+            type: 'qr_generate',
+            tier: userTier,
+            trigger: 'pricing_modal',
+            reason
+          }
+        })
+      );
+    }
+  }, [userTier]);
+
+  const enforceQrGenerationQuota = useCallback(async (): Promise<boolean> => {
+    if (isPro) return true;
+    try {
+      const res = await trackOp('qr_generate');
+      return res.allowed;
+    } catch (err: any) {
+      notifyError(
+        'QR Limit Reached (15/15)',
+        err?.message || 'Free & Guest limit is 15 QR codes. Upgrade to PRO for Unlimited QR Generation!'
+      );
+      return false;
+    }
+  }, [isPro, trackOp, notifyError]);
 
   // Active QR Mode
   const [engineType, setEngineType] = useState<QrEngineType>('url');
@@ -548,6 +625,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   const [copiedQrImage, setCopiedQrImage] = useState<boolean>(false);
 
   const applyDesignerPreset = (preset: DesignerPreset) => {
+    if (preset.proOnly && !isPro) {
+      triggerProUpgradeModal(
+        `🔒 "${preset.name}" Art Theme is exclusive to PRO users! Upgrade to PRO to unlock all Art Themes, Customizations & Unlimited QR generation.`
+      );
+      return;
+    }
     setActivePresetId(preset.id);
     setFgColor(preset.fgColor);
     setFgColor2(preset.fgColor2);
@@ -567,6 +650,30 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     setFx3d(Boolean(preset.fx3d));
     setFxNeon(Boolean(preset.fxNeon));
   };
+
+  // Ensure non-PRO users cannot remain on a locked PRO preset if they sign out
+  useEffect(() => {
+    if (!isPro) {
+      const currentPreset = DESIGNER_PRESETS.find((p) => p.id === activePresetId);
+      if (currentPreset?.proOnly || artPreset !== 'none' || fx3d || fxNeon) {
+        const cleanPreset = DESIGNER_PRESETS[0];
+        setActivePresetId(cleanPreset.id);
+        setFgColor(cleanPreset.fgColor);
+        setFgColor2(cleanPreset.fgColor2);
+        setGradientMode(cleanPreset.gradientMode);
+        setBgColor(cleanPreset.bgColor);
+        setBodyShape(cleanPreset.bodyShape);
+        setOuterEyeShape(cleanPreset.outerEyeShape);
+        setInnerEyeShape(cleanPreset.innerEyeShape);
+        setCustomEyeColor(false);
+        setFrameStyle('none');
+        setArtPreset('none');
+        setFx3d(false);
+        setFxNeon(false);
+        setLogoPreset('none');
+      }
+    }
+  }, [isPro, activePresetId, artPreset, fx3d, fxNeon]);
 
   // Live Scannability Score (Contrast & Quiet Zone check)
   const scanSafety = useMemo(() => {
@@ -867,7 +974,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   const renderStyledQrCanvas = useCallback(
     async (targetCanvas: HTMLCanvasElement, scaleFactor = 1) => {
       const payloadToDraw = qrPayload || 'https://beam-drop-mu.vercel.app';
-      const qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
+      const qrObj = safeCreateQrCode(payloadToDraw, true);
       const modules = qrObj.modules;
       const count = modules.size;
 
@@ -1411,6 +1518,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   }, [renderStyledQrCanvas, previewTab]);
 
   const handleDownloadPng = async () => {
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) return;
     try {
       const offscreen = document.createElement('canvas');
       await renderStyledQrCanvas(offscreen, 4);
@@ -1428,6 +1537,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   };
 
   const handleDownloadPrintableBusinessCard = async () => {
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) return;
     try {
       const canvas = document.createElement('canvas');
       const W = 1050;
@@ -1547,10 +1658,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
   };
 
-  const handleDownloadSvg = () => {
+  const handleDownloadSvg = async () => {
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) return;
     try {
       const payloadToDraw = qrPayload || 'https://beam-drop-mu.vercel.app';
-      const qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
+      const qrObj = safeCreateQrCode(payloadToDraw, true);
       const modules = qrObj.modules;
       const count = modules.size;
       const size = 400;
@@ -1626,21 +1739,32 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   };
 
   const handleCopyQrImage = async () => {
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) return;
     try {
       const offscreen = document.createElement('canvas');
       await renderStyledQrCanvas(offscreen, 2);
-      offscreen.toBlob(async (blob) => {
-        if (!blob) return;
-        if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          setCopiedQrImage(true);
-          notifyInfo('Copied', 'QR image copied to clipboard.');
-          setTimeout(() => setCopiedQrImage(false), 2000);
-        }
-      }, 'image/png');
+      const blob = await new Promise<Blob | null>((resolve) =>
+        offscreen.toBlob((b) => resolve(b), 'image/png')
+      );
+      if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setCopiedQrImage(true);
+        notifyInfo('Copied', 'QR image copied to clipboard.');
+        setTimeout(() => setCopiedQrImage(false), 2000);
+      } else {
+        await navigator.clipboard.writeText(qrPayload);
+        setCopiedQrImage(true);
+        notifyInfo('Copied', 'QR content copied to clipboard.');
+        setTimeout(() => setCopiedQrImage(false), 2000);
+      }
     } catch (_) {
-      navigator.clipboard.writeText(qrPayload);
-      notifyInfo('Copied', 'QR content copied.');
+      try {
+        await navigator.clipboard.writeText(qrPayload);
+        setCopiedQrImage(true);
+        notifyInfo('Copied', 'QR content copied.');
+        setTimeout(() => setCopiedQrImage(false), 2000);
+      } catch (__) {}
     }
   };
 
@@ -1731,6 +1855,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   };
 
   const handleCreateDynamicQr = async () => {
+    const allowed = await enforceQrGenerationQuota();
+    if (!allowed) return;
     setIsCreatingDynamic(true);
     try {
       let title = websiteTitle || websiteUrl || 'Dynamic QR';
@@ -1932,10 +2058,33 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           })}
         </div>
 
-        {/* Optional Dynamic Shortlink Toggle */}
+        {/* Tier Quota Pill + Optional Dynamic Shortlink Toggle */}
         <div className="flex items-center gap-2">
+          {isPro ? (
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-sky-50 border border-sky-200/80 text-sky-700 text-xs font-semibold whitespace-nowrap">
+              <Crown className="w-3.5 h-3.5 text-sky-600" />
+              <span>PRO Unlimited</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                triggerProUpgradeModal(
+                  'Upgrade to PRO for Unlimited QR Code Generation and full access to all 6 PRO Art Themes & Customizer.'
+                )
+              }
+              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-slate-700 hover:text-sky-700 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+              title="Free & Guest Plan: 15 QR Code Limit. Click to unlock PRO Unlimited"
+            >
+              <span>{qrRemaining}/15 Free</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-sky-600 text-white text-[10px] font-bold">
+                PRO
+              </span>
+            </button>
+          )}
+
           {activeDynamicCode ? (
-            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs">
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs whitespace-nowrap">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span className="font-mono font-bold text-emerald-900">/q/{activeDynamicCode}</span>
               <button
@@ -1953,10 +2102,10 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                 type="button"
                 onClick={handleCreateDynamicQr}
                 disabled={isCreatingDynamic}
-                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200/80 text-sky-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors whitespace-nowrap"
                 title="Create editable Dynamic Shortlink QR"
               >
-                <Zap className="w-3.5 h-3.5 text-sky-400" />
+                <Zap className="w-3.5 h-3.5 text-sky-600" />
                 <span>{isCreatingDynamic ? 'Saving...' : 'Dynamic Link'}</span>
               </button>
             )
@@ -2336,7 +2485,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                 type="button"
                 onClick={handleCreateDynamicQr}
                 disabled={isCreatingDynamic}
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center space-x-2 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center space-x-2 cursor-pointer"
               >
                 <Smartphone className="w-4 h-4" />
                 <span>Create Smart OS Link</span>
@@ -2458,27 +2607,29 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
             </div>
           )}
 
-          {/* OPTIONAL COLLAPSIBLE DESIGN CUSTOMIZER */}
+          {/* OPTIONAL COLLAPSIBLE DESIGN CUSTOMIZER (100% Clean Light Mode) */}
           <div className="bg-white/95 border border-sky-200/80 rounded-2xl shadow-xs overflow-hidden">
             <button
               type="button"
               onClick={() => setIsCustomizing((prev) => !prev)}
-              className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-sky-50/50 transition-colors cursor-pointer"
+              className="w-full px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-sky-50/40 transition-colors cursor-pointer"
             >
-              <div className="flex items-center space-x-2.5">
-                <Sparkles className="w-4 h-4 text-sky-600" />
-                <span className="text-xs font-extrabold text-slate-900">
-                  Customize QR & Art Style
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-900 whitespace-nowrap">
+                  Customize QR Style
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">(Optional)</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-sky-50 border border-sky-200/80 text-sky-700 text-[10px] font-semibold whitespace-nowrap">
+                  {isPro ? 'PRO Active' : 'Optional'}
+                </span>
               </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <div className="hidden sm:flex items-center space-x-1">
                   {DESIGNER_PRESETS.slice(0, 6).map((p) => (
                     <span
                       key={p.id}
-                      className="w-3.5 h-3.5 rounded-full border border-black/10"
+                      className="w-3 h-3 rounded-full border border-slate-200"
                       style={{
                         background: `linear-gradient(135deg, ${p.fgColor}, ${p.fgColor2})`
                       }}
@@ -2486,56 +2637,72 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   ))}
                 </div>
                 {isCustomizing ? (
-                  <ChevronUp className="w-4 h-4 text-slate-500" />
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
                 )}
               </div>
             </button>
 
             {isCustomizing && (
-              <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
-                {/* 1-Click Art & Style Themes */}
+              <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-4">
+                {/* 1-Click Art & Style Themes (Clean 4-Column Light Cards) */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">
-                    1-Click Themes
-                  </label>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                      Style Themes
+                    </span>
+                    {!isPro && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          triggerProUpgradeModal(
+                            'Unlock all 6 PRO Art Themes (Cyber Anime, Sakura Heart, Manga Ink, 3D Gold Pop, Arcade 8-Bit, Emerald) & Unlimited QR Generation.'
+                          )
+                        }
+                        className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                      >
+                        <Lock className="w-3 h-3" />
+                        <span>Unlock PRO Themes</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {DESIGNER_PRESETS.map((preset) => {
                       const isSelected = activePresetId === preset.id;
+                      const isLocked = Boolean(preset.proOnly && !isPro);
                       return (
                         <button
                           key={preset.id}
                           type="button"
                           onClick={() => applyDesignerPreset(preset)}
-                          className={`relative p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-left transition-all cursor-pointer ${
                             isSelected
-                              ? 'border-sky-600 bg-sky-50/90 shadow-xs'
-                              : 'border-slate-200 hover:border-sky-300 bg-white'
+                              ? 'border-sky-600 bg-sky-50/70 shadow-2xs'
+                              : 'border-slate-200/90 hover:border-sky-300 bg-white hover:bg-slate-50/60'
                           }`}
                         >
-                          {preset.badge && (
-                            <span className="absolute -top-1.5 right-1 px-1 py-0.2 rounded text-[8px] font-black bg-sky-600 text-white">
-                              {preset.badge}
-                            </span>
-                          )}
                           <div
-                            className="w-6 h-6 rounded-lg mx-auto mb-1 border border-black/10"
+                            className="w-6 h-6 rounded-lg shrink-0 border border-black/10"
                             style={{
                               background: `linear-gradient(135deg, ${preset.fgColor}, ${preset.fgColor2})`
                             }}
                           />
-                          <div className="text-[10px] font-bold text-slate-800 truncate">
+                          <span className="text-xs font-semibold text-slate-800 truncate flex-1">
                             {preset.name}
-                          </div>
+                          </span>
+                          {isLocked && (
+                            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Sub-Tabs: Art & Photo | Shapes | Colors | Frame | Logo */}
-                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                {/* Clean Light-Mode Sub-Tabs: Art & FX | Shapes | Colors | Frame | Logo */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/60 overflow-x-auto">
                   {[
                     { id: 'art', label: 'Art & FX', icon: Sparkles },
                     { id: 'shapes', label: 'Shapes', icon: Shapes },
@@ -2549,22 +2716,54 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setActiveCustTab(t.id as any)}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all cursor-pointer ${
-                          active
-                            ? 'bg-white text-slate-900 shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900'
+                        onClick={() => {
+                          if (!isPro) {
+                            triggerProUpgradeModal(
+                              `Custom "${t.label}" studio controls are available on the PRO plan.`
+                            );
+                            return;
+                          }
+                          setActiveCustTab(t.id as any);
+                        }}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+                          active && isPro
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                         }`}
                       >
-                        <Icon className="w-3.5 h-3.5" />
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
                         <span>{t.label}</span>
+                        {!isPro && <Lock className="w-2.5 h-2.5 text-slate-400 shrink-0" />}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Art & Photo Blend + 3D/Neon FX */}
-                {activeCustTab === 'art' && (
+                {/* Subtle Light-Mode Upgrade Bar for Non-PRO Users */}
+                {!isPro && (
+                  <div className="px-3.5 py-2.5 rounded-xl bg-sky-50/70 border border-sky-200/80 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Lock className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      <span className="text-xs text-slate-700 truncate">
+                        Custom art backgrounds, shapes, colors, frames &amp; logos are included with PRO.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        triggerProUpgradeModal(
+                          'Upgrade to PRO to unlock full QR Design Customization and Unlimited QR Generation.'
+                        )
+                      }
+                      className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors shrink-0"
+                    >
+                      Unlock PRO
+                    </button>
+                  </div>
+                )}
+
+                {/* Art & Photo Blend + 3D/Neon FX (PRO Only) */}
+                {isPro && activeCustTab === 'art' && (
                   <div className="space-y-3">
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
@@ -2590,7 +2789,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         <button
                           type="button"
                           onClick={() => artFileInputRef.current?.click()}
-                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold flex items-center space-x-1 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-[11px] font-semibold flex items-center space-x-1 cursor-pointer"
                         >
                           <Upload className="w-3 h-3" />
                           <span>Upload Photo / Anime</span>
@@ -2656,7 +2855,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         onClick={() => setFx3d((prev) => !prev)}
                         className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer ${
                           fx3d
-                            ? 'bg-amber-50 border-amber-500 text-amber-900'
+                            ? 'bg-sky-50 border-sky-500 text-sky-900'
                             : 'border-slate-200 text-slate-600'
                         }`}
                       >
@@ -2669,7 +2868,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         onClick={() => setFxNeon((prev) => !prev)}
                         className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer ${
                           fxNeon
-                            ? 'bg-fuchsia-50 border-fuchsia-500 text-fuchsia-900'
+                            ? 'bg-sky-50 border-sky-500 text-sky-900'
                             : 'border-slate-200 text-slate-600'
                         }`}
                       >
@@ -2680,8 +2879,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   </div>
                 )}
 
-                {/* Shapes */}
-                {activeCustTab === 'shapes' && (
+                {/* Shapes (PRO Only) */}
+                {isPro && activeCustTab === 'shapes' && (
                   <div className="space-y-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
@@ -2778,8 +2977,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   </div>
                 )}
 
-                {/* Colors */}
-                {activeCustTab === 'colors' && (
+                {/* Colors (PRO Only) */}
+                {isPro && activeCustTab === 'colors' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-5 gap-1.5">
                       {(
@@ -2845,8 +3044,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   </div>
                 )}
 
-                {/* Frame */}
-                {activeCustTab === 'frame' && (
+                {/* Frame (PRO Only) */}
+                {isPro && activeCustTab === 'frame' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-4 gap-1.5">
                       {(
@@ -2907,8 +3106,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                   </div>
                 )}
 
-                {/* Logo */}
-                {activeCustTab === 'logo' && (
+                {/* Logo (PRO Only) */}
+                {isPro && activeCustTab === 'logo' && (
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-1.5">
                       {(
@@ -2979,7 +3178,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer"
                         >
                           <Upload className="w-3.5 h-3.5" />
                           <span>Upload Logo</span>
@@ -2993,29 +3192,29 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           </div>
         </div>
 
-        {/* RIGHT STICKY COLUMN (5 Cols): Clean QR Preview & Direct Export */}
+        {/* RIGHT STICKY COLUMN (5 Cols): Clean Light-Mode QR Preview & Direct Export */}
         <div className="lg:col-span-5 lg:sticky lg:top-6 self-start z-20">
-          <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-xl border border-slate-800 space-y-4">
+          <div className="bg-white/95 backdrop-blur-xl text-slate-900 rounded-3xl p-5 shadow-sm border border-sky-200/80 space-y-4">
             {/* Compact Status Bar: Scannability Guard + vCard Toggle */}
             <div className="flex items-center justify-between gap-2">
               <div
-                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+                className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold border ${
                   scanSafety.ok
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                    : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}
               >
                 {scanSafety.ok ? (
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 ) : (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                 )}
                 <span>{scanSafety.label}</span>
                 {!scanSafety.ok && (
                   <button
                     type="button"
                     onClick={handleAutoFixContrast}
-                    className="ml-1 px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black cursor-pointer"
+                    className="ml-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-bold cursor-pointer"
                   >
                     Fix
                   </button>
@@ -3023,12 +3222,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               </div>
 
               {engineType === 'vcard' && (
-                <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
                   <button
                     type="button"
                     onClick={() => setPreviewTab('qr')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer ${
-                      previewTab === 'qr' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                      previewTab === 'qr' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     <QrIcon className="w-3 h-3" />
@@ -3038,7 +3237,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                     type="button"
                     onClick={() => setPreviewTab('iphone')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer ${
-                      previewTab === 'iphone' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                      previewTab === 'iphone' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     <Smartphone className="w-3 h-3" />
@@ -3048,12 +3247,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               )}
             </div>
 
-            {/* QR Canvas */}
+            {/* QR Canvas (Clean Light Well) */}
             {previewTab === 'qr' && (
-              <div className="flex items-center justify-center bg-slate-950/70 rounded-2xl p-4 border border-slate-800/80">
+              <div className="flex items-center justify-center bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80">
                 <canvas
                   ref={previewCanvasRef}
-                  className="max-w-full h-auto rounded-2xl shadow-lg"
+                  className="max-w-full h-auto rounded-2xl shadow-sm bg-white"
                   style={{ maxHeight: '310px' }}
                 />
               </div>
@@ -3062,8 +3261,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
             {/* Mobile Card Mockup (vCard) */}
             {previewTab === 'iphone' && (
               <div className="flex justify-center">
-                <div className="w-[276px] rounded-[34px] p-2.5 bg-slate-950 border-2 border-slate-700 shadow-2xl">
-                  <div className="w-20 h-3.5 bg-black rounded-full mx-auto mb-2" />
+                <div className="w-[276px] rounded-[34px] p-2.5 bg-slate-100 border-2 border-slate-200 shadow-md">
+                  <div className="w-20 h-3 bg-slate-300 rounded-full mx-auto mb-2" />
                   <div
                     className={`rounded-[24px] overflow-hidden p-4 space-y-3 ${
                       vcardTheme === 'titanium-dark'
@@ -3071,8 +3270,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                         : vcardTheme === 'creator-aurora'
                         ? 'bg-gradient-to-br from-indigo-950 via-purple-950 to-fuchsia-950 text-white'
                         : vcardTheme === 'swiss-minimal'
-                        ? 'bg-white text-slate-950'
-                        : 'bg-gradient-to-b from-sky-50 to-white text-slate-900'
+                        ? 'bg-white text-slate-950 border border-slate-200'
+                        : 'bg-gradient-to-b from-sky-50 to-white text-slate-900 border border-sky-100'
                     }`}
                   >
                     <div className="text-center">
@@ -3111,7 +3310,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                       {vcardPhone && (
                         <a
                           href={`tel:${vcardPhone}`}
-                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
+                          className="p-2 rounded-lg bg-black/5 flex items-center space-x-1 truncate"
                         >
                           <Phone className="w-3 h-3 shrink-0" />
                           <span>Call</span>
@@ -3122,7 +3321,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                           href={`https://wa.me/${vcardWhatsapp.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-lg bg-emerald-500/20 flex items-center space-x-1 truncate"
+                          className="p-2 rounded-lg bg-emerald-500/15 flex items-center space-x-1 truncate"
                         >
                           <MessageCircle className="w-3 h-3 shrink-0" />
                           <span>WhatsApp</span>
@@ -3131,7 +3330,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                       {vcardEmail && (
                         <a
                           href={`mailto:${vcardEmail}`}
-                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
+                          className="p-2 rounded-lg bg-black/5 flex items-center space-x-1 truncate"
                         >
                           <Mail className="w-3 h-3 shrink-0" />
                           <span>Email</span>
@@ -3142,7 +3341,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
                           href={vcardWebsite}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-lg bg-black/10 flex items-center space-x-1 truncate"
+                          className="p-2 rounded-lg bg-black/5 flex items-center space-x-1 truncate"
                         >
                           <Globe className="w-3 h-3 shrink-0" />
                           <span>Web</span>
@@ -3162,12 +3361,12 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               </div>
             )}
 
-            {/* Direct Action Buttons */}
+            {/* Direct Action Buttons (Light Mode) */}
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={handleDownloadPng}
-                className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>PNG</span>
@@ -3176,21 +3375,21 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               <button
                 type="button"
                 onClick={handleDownloadSvg}
-                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-700 cursor-pointer transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs flex items-center justify-center space-x-1.5 border border-slate-200 cursor-pointer transition-colors"
               >
-                <Download className="w-3.5 h-3.5 text-sky-400" />
+                <Download className="w-3.5 h-3.5 text-sky-600" />
                 <span>SVG</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleCopyQrImage}
-                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-700 cursor-pointer transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs flex items-center justify-center space-x-1.5 border border-slate-200 cursor-pointer transition-colors"
               >
                 {copiedQrImage ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-sky-400" />
+                  <Copy className="w-3.5 h-3.5 text-sky-600" />
                 )}
                 <span>{copiedQrImage ? 'Copied' : 'Copy'}</span>
               </button>
@@ -3200,9 +3399,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
               <button
                 type="button"
                 onClick={handleDownloadPrintableBusinessCard}
-                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 font-semibold text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition-colors"
               >
-                <CreditCard className="w-4 h-4" />
+                <CreditCard className="w-4 h-4 text-sky-600" />
                 <span>Print Business Card (PNG)</span>
               </button>
             )}

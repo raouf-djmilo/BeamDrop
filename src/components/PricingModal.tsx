@@ -270,7 +270,16 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         <div className="space-y-1.5 mb-3.5 text-xs">
           <div className="flex items-center space-x-2 font-medium text-slate-800 dark:text-slate-200">
             <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 stroke-[2.5]" />
-            <span className="font-semibold text-slate-900 dark:text-white">Unlimited Beams (No 5/15 daily caps)</span>
+            <span className="font-semibold text-slate-900 dark:text-white">
+              Unlimited Beams &amp; Unlimited QR Code Generation
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2 font-medium text-slate-700 dark:text-slate-300">
+            <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 stroke-[2.5]" />
+            <span>
+              Unlock All PRO Art Themes (Cyber Anime, Sakura, Manga, 3D Gold, Arcade, Emerald) &amp; Customizer
+            </span>
           </div>
 
           <div className="flex items-center space-x-2 font-medium text-slate-700 dark:text-slate-300">
@@ -280,12 +289,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
 
           <div className="flex items-center space-x-2 font-medium text-slate-700 dark:text-slate-300">
             <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 stroke-[2.5]" />
-            <span>Direct Web &amp; Chrome Extension offline sync</span>
-          </div>
-
-          <div className="flex items-center space-x-2 font-medium text-slate-700 dark:text-slate-300">
-            <Check className="w-3.5 h-3.5 text-sky-600 shrink-0 stroke-[2.5]" />
-            <span>Cancel anytime in 1 click from your PayPal dashboard</span>
+            <span>Direct Web &amp; Chrome Extension PRO sync</span>
           </div>
         </div>
 

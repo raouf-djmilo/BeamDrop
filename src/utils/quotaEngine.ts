@@ -3,7 +3,7 @@ import { db } from '../firebase';
 
 declare const chrome: any;
 
-export type OperationTypeQuota = 'send' | 'receive' | 'qr_scan';
+export type OperationTypeQuota = 'send' | 'receive' | 'qr_scan' | 'qr_generate';
 export type UserTier = 'guest' | 'free' | 'pro';
 // Backward compatibility alias
 export type UserPlan = 'free' | 'pro';
@@ -12,6 +12,7 @@ export interface PlanLimits {
   maxSends: number;
   maxReceives: number;
   maxScans: number;
+  maxQrGenerations: number;
   maxTransitFileSize: number; // bytes
 }
 
@@ -20,18 +21,21 @@ export const PLAN_LIMITS: Record<UserTier, PlanLimits> = {
     maxSends: 5,
     maxReceives: 5,
     maxScans: 5,
+    maxQrGenerations: 15,
     maxTransitFileSize: 25 * 1024 * 1024 // 25 MB
   },
   free: {
     maxSends: 15,
     maxReceives: 15,
     maxScans: 15,
+    maxQrGenerations: 15,
     maxTransitFileSize: 50 * 1024 * 1024 // 50 MB
   },
   pro: {
     maxSends: Infinity,
     maxReceives: Infinity,
     maxScans: Infinity,
+    maxQrGenerations: Infinity,
     maxTransitFileSize: 100 * 1024 * 1024 // 100 MB (P2P Unlimited)
   }
 };
@@ -41,6 +45,7 @@ export interface DailyUsageMetrics {
   sendOperations: number;
   receiveOperations: number;
   qrScansCount: number;
+  qrGenerationsCount: number;
   bytesTransferred: number;
   lastActivity: number;
 }
@@ -101,6 +106,7 @@ export function getLocalDailyUsage(dateStr = getTodayDateString(), uid?: string 
         sendOperations: parsed.sendOperations || 0,
         receiveOperations: parsed.receiveOperations || 0,
         qrScansCount: parsed.qrScansCount || 0,
+        qrGenerationsCount: parsed.qrGenerationsCount || 0,
         bytesTransferred: parsed.bytesTransferred || 0,
         lastActivity: parsed.lastActivity || Date.now()
       };
@@ -112,6 +118,7 @@ export function getLocalDailyUsage(dateStr = getTodayDateString(), uid?: string 
     sendOperations: 0,
     receiveOperations: 0,
     qrScansCount: 0,
+    qrGenerationsCount: 0,
     bytesTransferred: 0,
     lastActivity: Date.now()
   };
@@ -163,6 +170,7 @@ export async function fetchDailyUsage(
         sendOperations: Number(data.sendOperations || 0),
         receiveOperations: Number(data.receiveOperations || 0),
         qrScansCount: Number(data.qrScansCount || 0),
+        qrGenerationsCount: Math.max(localUsage.qrGenerationsCount || 0, Number(data.qrGenerationsCount || 0)),
         bytesTransferred: Number(data.bytesTransferred || 0),
         lastActivity: Number(data.lastActivity || Date.now())
       };
@@ -226,6 +234,9 @@ export async function checkOperationQuota(
   } else if (type === 'qr_scan') {
     count = usage.qrScansCount;
     max = limits.maxScans;
+  } else if (type === 'qr_generate') {
+    count = usage.qrGenerationsCount || 0;
+    max = limits.maxQrGenerations;
   }
 
   const remaining = Math.max(0, max - count);
@@ -235,7 +246,10 @@ export async function checkOperationQuota(
   let reason: string | undefined = undefined;
 
   if (!allowed) {
-    if (tier === 'guest') {
+    if (type === 'qr_generate') {
+      trigger = 'pricing_modal';
+      reason = 'Free & Guest limit of 15 QR Code generations reached! Upgrade to PRO for Unlimited QR Generation & all PRO Art Themes!';
+    } else if (tier === 'guest') {
       trigger = 'auth_modal';
       reason = 'Khlass l-quota ta3 l-guest (5/5)! Creer compte batel dork w ddi 15 Beams f nhar!';
     } else {
@@ -300,6 +314,7 @@ export async function trackOperation({
     sendOperations: currentLocal.sendOperations + (type === 'send' ? 1 : 0),
     receiveOperations: currentLocal.receiveOperations + (type === 'receive' ? 1 : 0),
     qrScansCount: currentLocal.qrScansCount + (type === 'qr_scan' ? 1 : 0),
+    qrGenerationsCount: (currentLocal.qrGenerationsCount || 0) + (type === 'qr_generate' ? 1 : 0),
     bytesTransferred: currentLocal.bytesTransferred + fileBytes,
     lastActivity: Date.now()
   };
@@ -315,6 +330,7 @@ export async function trackOperation({
           sendOperations: increment(type === 'send' ? 1 : 0),
           receiveOperations: increment(type === 'receive' ? 1 : 0),
           qrScansCount: increment(type === 'qr_scan' ? 1 : 0),
+          qrGenerationsCount: increment(type === 'qr_generate' ? 1 : 0),
           bytesTransferred: increment(fileBytes),
           lastActivity: Date.now()
         },
@@ -332,6 +348,8 @@ export async function trackOperation({
       ? updatedLocal.sendOperations
       : type === 'receive'
       ? updatedLocal.receiveOperations
+      : type === 'qr_generate'
+      ? updatedLocal.qrGenerationsCount
       : updatedLocal.qrScansCount;
 
   return {

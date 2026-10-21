@@ -206,6 +206,15 @@ function MainApp() {
 
   // Auto-listen for quota exceeded events across the app (Guest -> AuthModal, Free -> PricingModal)
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('upgrade') === 'pro') {
+        setPricingReason(
+          'Unlock Unlimited QR Code Generation, all 6 PRO Art Themes (Cyber Anime, Sakura Heart, Manga Ink, 3D Gold Pop, Arcade 8-Bit, Emerald) & Full Studio Customization!'
+        );
+        setShowPricingModal(true);
+      }
+    }
     const handleQuotaExceeded = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
       const trigger = detail?.trigger || (detail?.tier === 'guest' ? 'auth_modal' : 'pricing_modal');

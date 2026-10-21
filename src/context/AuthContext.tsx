@@ -66,7 +66,7 @@ interface AuthContextType {
   dailyUsage: DailyUsageMetrics;
   plan: UserPlan;
   userTier: UserTier;
-  remainingQuota: { sends: number; receives: number; scans: number };
+  remainingQuota: { sends: number; receives: number; scans: number; qrGenerations: number };
   signUpWithEmail: (fullName: string, username: string, email: string, pass: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -94,7 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const remainingQuota = {
     sends: userTier === 'pro' ? Infinity : Math.max(0, limits.maxSends - (dailyUsage.sendOperations || 0)),
     receives: userTier === 'pro' ? Infinity : Math.max(0, limits.maxReceives - (dailyUsage.receiveOperations || 0)),
-    scans: userTier === 'pro' ? Infinity : Math.max(0, limits.maxScans - (dailyUsage.qrScansCount || 0))
+    scans: userTier === 'pro' ? Infinity : Math.max(0, limits.maxScans - (dailyUsage.qrScansCount || 0)),
+    qrGenerations: userTier === 'pro' ? Infinity : Math.max(0, limits.maxQrGenerations - (dailyUsage.qrGenerationsCount || 0))
   };
 
   // Broadcast authentication & quota sync to Web and Chrome Extension Bridge
@@ -308,16 +309,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (snap) => {
         if (snap.exists()) {
           const d = snap.data();
+          const localCurr = getLocalDailyUsage(today, currentUser.uid);
           const updated: DailyUsageMetrics = {
             date: today,
             sendOperations: Number(d.sendOperations || 0),
             receiveOperations: Number(d.receiveOperations || 0),
             qrScansCount: Number(d.qrScansCount || 0),
+            qrGenerationsCount: Math.max(localCurr.qrGenerationsCount || 0, Number(d.qrGenerationsCount || 0)),
             bytesTransferred: Number(d.bytesTransferred || 0),
             lastActivity: Number(d.lastActivity || Date.now())
           };
           setDailyUsage(updated);
-          setLocalDailyUsage(updated);
+          setLocalDailyUsage(updated, currentUser.uid);
         } else {
           setDailyUsage(getLocalDailyUsage(today));
         }

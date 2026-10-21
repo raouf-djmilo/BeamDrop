@@ -311,6 +311,9 @@
           <button type="button" class="ext-qr-engine-btn" data-engine="analytics">Saved</button>
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
+          <button id="extQrQuotaPill" type="button" style="background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 3px 7px; border-radius: 8px; font-size: 9.5px; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Free & Guest: 15 QR Codes • Upgrade to PRO for Unlimited">
+            15/15 Free
+          </button>
           <div id="extQrActiveDynamicBadge" style="display: none; align-items: center; gap: 4px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 7px; border-radius: 8px; font-size: 10px; font-family: ui-monospace, monospace; font-weight: 800; color: #065f46;">
             <span id="extQrActiveDynamicText">/q/code</span>
             <button id="btnExtQrResetDynamic" type="button" style="background: none; border: none; color: #e11d48; font-weight: 800; cursor: pointer; font-size: 10px;">✕</button>
@@ -433,38 +436,48 @@
         </div>
       </div>
 
-      <!-- 3. Optional Collapsible Customize QR & Art Style Drawer -->
+      <!-- 3. Optional Collapsible Customize QR Style Drawer (Clean Light Mode) -->
       <div class="ext-qr-custom-drawer">
         <button id="btnExtToggleQrCustom" type="button" class="ext-qr-custom-toggle">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 11px; font-weight: 800; color: #0f172a;">✨ Customize QR & Art Style</span>
-            <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">(Optional)</span>
+          <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span style="font-size: 11px; font-weight: 700; color: #0f172a;">✨ Customize QR Style</span>
+            <span id="extQrProLockTag" style="font-size: 9.5px; background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 6px; font-weight: 600;">Optional</span>
           </div>
-          <span id="extQrCustomChevron" style="font-size: 10px; color: #64748b; font-weight: 800;">▼</span>
+          <span id="extQrCustomChevron" style="font-size: 10px; color: #64748b; font-weight: 700;">▼</span>
         </button>
 
         <div id="extQrCustomBody" style="display: none; padding: 8px 10px 10px; border-top: 1px solid #f1f5f9; flex-direction: column; gap: 8px;">
-          <!-- 6 1-Click Art & Style Themes -->
-          <div class="ext-qr-preset-row">
+          <!-- 8 Art & Style Themes (Classic + Liquid Free | 6 Exclusive PRO Themes) -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
             <button type="button" class="ext-qr-preset-chip active" data-preset="classic-clean">Classic</button>
             <button type="button" class="ext-qr-preset-chip" data-preset="liquid-cyan">Liquid</button>
-            <button type="button" class="ext-qr-preset-chip" data-preset="anime-cyber">Anime</button>
-            <button type="button" class="ext-qr-preset-chip" data-preset="sakura-art">Sakura</button>
-            <button type="button" class="ext-qr-preset-chip" data-preset="manga-panel">Manga</button>
-            <button type="button" class="ext-qr-preset-chip" data-preset="obsidian-3d">3D Gold</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="anime-cyber" data-pro="true">Cyber Anime</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="sakura-art" data-pro="true">Sakura Heart</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="manga-panel" data-pro="true">Manga Ink</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="obsidian-3d" data-pro="true">3D Gold Pop</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="retro-arcade" data-pro="true">Arcade 8-Bit</button>
+            <button type="button" class="ext-qr-preset-chip" data-preset="emerald-matrix" data-pro="true">Emerald</button>
           </div>
 
           <!-- Customizer Sub-Tabs: Art & FX | Shapes | Colors | Frame | Logo -->
           <div style="display: flex; gap: 2px; background: #f1f5f9; padding: 2px; border-radius: 8px;">
-            <button type="button" class="ext-qr-cust-tab active" data-custtab="art">Art & FX</button>
+            <button type="button" class="ext-qr-cust-tab active" data-custtab="art">Art &amp; FX</button>
             <button type="button" class="ext-qr-cust-tab" data-custtab="shapes">Shapes</button>
             <button type="button" class="ext-qr-cust-tab" data-custtab="colors">Colors</button>
             <button type="button" class="ext-qr-cust-tab" data-custtab="frame">Frame</button>
             <button type="button" class="ext-qr-cust-tab" data-custtab="logo">Logo</button>
           </div>
 
+          <!-- Subtle Light-Mode Upgrade Bar for Non-PRO Users -->
+          <div id="extQrProLockBanner" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; border-radius: 10px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0f172a;">
+            <span style="font-size: 9.5px; color: #334155; font-weight: 600;">Custom themes, shapes, colors &amp; logos require PRO.</span>
+            <button id="btnExtUpgradeProQr" type="button" style="background: #0284c7; color: #ffffff; border: none; border-radius: 7px; padding: 4px 8px; font-size: 9.5px; font-weight: 700; cursor: pointer; flex-shrink: 0; white-space: nowrap;">
+              Unlock PRO
+            </button>
+          </div>
+
           <!-- Sub-Tab: Art & FX -->
-          <div id="extCustSubArt" style="display: flex; flex-direction: column; gap: 6px;">
+          <div id="extCustSubArt" style="display: none; flex-direction: column; gap: 6px;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 5px;">
               <select id="extQrArtPreset" class="ext-qr-input" style="flex: 1;">
                 <option value="none" selected>No Art Background</option>
@@ -603,15 +616,15 @@
         </div>
       </div>
 
-      <!-- 4. High-Contrast Dark Preview Card & Direct Export Bar -->
+      <!-- 4. Clean Light-Mode Preview Card & Direct Export Bar -->
       <div class="ext-qr-preview-card">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 10px;">
-          <span id="extQrScanSafetyBadge" style="background: rgba(16,185,129,0.14); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.35); padding: 2px 8px; border-radius: 99px; font-weight: 800;">✓ 100% Scan Ready</span>
-          <button id="btnExtQrAutoFixContrast" type="button" style="display: none; background: #fbbf24; color: #090d16; border: none; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 900; cursor: pointer;">Auto-Fix Contrast</button>
+          <span id="extQrScanSafetyBadge" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 99px; font-weight: 700;">✓ 100% Scan Ready</span>
+          <button id="btnExtQrAutoFixContrast" type="button" style="display: none; background: #f59e0b; color: #ffffff; border: none; border-radius: 6px; padding: 2px 7px; font-size: 9.5px; font-weight: 700; cursor: pointer;">Auto-Fix Contrast</button>
         </div>
 
-        <div id="quickQrCanvasContainer" style="background: rgba(2, 6, 23, 0.65); padding: 10px; border-radius: 14px; border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center; width: 100%;">
-          <canvas id="extQrStudioCanvas" style="max-width: 176px; height: auto; border-radius: 12px;"></canvas>
+        <div id="quickQrCanvasContainer" style="background: #f8fafc; padding: 10px; border-radius: 14px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; width: 100%;">
+          <canvas id="extQrStudioCanvas" style="max-width: 176px; height: auto; border-radius: 12px; background: #ffffff; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);"></canvas>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%;">

@@ -2144,42 +2144,231 @@ function saveExtDynamicItemsToStorage() {
   } catch (_) {}
 }
 
+const extQrQuotaPill = document.getElementById('extQrQuotaPill');
+const extQrProLockTag = document.getElementById('extQrProLockTag');
+const extQrProLockBanner = document.getElementById('extQrProLockBanner');
+const btnExtUpgradeProQr = document.getElementById('btnExtUpgradeProQr');
+
+let extCachedUser = null;
+let extCachedDailyUsage = {
+  date: new Date().toISOString().slice(0, 10),
+  sendOperations: 0,
+  receiveOperations: 0,
+  qrScansCount: 0,
+  qrGenerationsCount: 0
+};
+
+function isExtProUser() {
+  return Boolean(extCachedUser && extCachedUser.plan === 'pro');
+}
+
+function getExtQrGenerationsLeft() {
+  if (isExtProUser()) return Infinity;
+  const today = new Date().toISOString().slice(0, 10);
+  if (extCachedDailyUsage && extCachedDailyUsage.date !== today) {
+    extCachedDailyUsage.date = today;
+    extCachedDailyUsage.qrGenerationsCount = 0;
+  }
+  const used = Number((extCachedDailyUsage && extCachedDailyUsage.qrGenerationsCount) || 0);
+  return Math.max(0, 15 - used);
+}
+
+function triggerExtProUpgrade(reasonText) {
+  updateStatus('error', reasonText || 'PRO Feature — Upgrade to BeamDrop PRO for Unlimited QR & Art Themes!');
+  const cleanBase = getCleanBaseUrl();
+  const targetStudioUrl = `${cleanBase}/?tab=qrstudio&upgrade=pro`;
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+    chrome.tabs.create({ url: targetStudioUrl });
+  } else {
+    window.open(targetStudioUrl, '_blank');
+  }
+}
+
+async function enforceExtQrGenerationQuota() {
+  if (isExtProUser()) return true;
+  const left = getExtQrGenerationsLeft();
+  if (left <= 0) {
+    triggerExtProUpgrade('Limit reached (15/15 QR codes). Upgrade to PRO for Unlimited QR Generation & all Art Themes!');
+    return false;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const nextCount = Number((extCachedDailyUsage && extCachedDailyUsage.qrGenerationsCount) || 0) + 1;
+  extCachedDailyUsage = {
+    ...(extCachedDailyUsage || {}),
+    date: today,
+    qrGenerationsCount: nextCount
+  };
+  try {
+    localStorage.setItem('beamdrop_daily_usage_v1', JSON.stringify(extCachedDailyUsage));
+  } catch (_) {}
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      await chrome.storage.local.set({ beamdrop_daily_usage: extCachedDailyUsage });
+    } catch (_) {}
+  }
+  syncExtProQrUi();
+  return true;
+}
+
+function syncExtProQrUi() {
+  const pro = isExtProUser();
+  const left = getExtQrGenerationsLeft();
+
+  if (extQrQuotaPill) {
+    if (pro) {
+      extQrQuotaPill.textContent = 'PRO Unlimited';
+      extQrQuotaPill.style.background = '#f0f9ff';
+      extQrQuotaPill.style.borderColor = '#bae6fd';
+      extQrQuotaPill.style.color = '#0369a1';
+    } else {
+      extQrQuotaPill.textContent = `${left}/15 Free`;
+      extQrQuotaPill.style.background = left <= 3 ? '#fff1f2' : '#f8fafc';
+      extQrQuotaPill.style.borderColor = left <= 3 ? '#fecdd3' : '#e2e8f0';
+      extQrQuotaPill.style.color = left <= 3 ? '#be123c' : '#475569';
+    }
+  }
+
+  if (extQrProLockTag) {
+    if (pro) {
+      extQrProLockTag.textContent = 'PRO Active';
+      extQrProLockTag.style.background = '#f0f9ff';
+      extQrProLockTag.style.color = '#0369a1';
+      extQrProLockTag.style.borderColor = '#bae6fd';
+    } else {
+      extQrProLockTag.textContent = 'Optional';
+      extQrProLockTag.style.background = '#f8fafc';
+      extQrProLockTag.style.color = '#475569';
+      extQrProLockTag.style.borderColor = '#e2e8f0';
+    }
+  }
+
+  if (extQrProLockBanner) {
+    extQrProLockBanner.style.display = pro ? 'none' : 'flex';
+  }
+
+  // Update preset chips clean labels
+  extQrPresetChips.forEach((chip) => {
+    const pId = chip.getAttribute('data-preset') || '';
+    const preset = EXT_DESIGNER_PRESETS[pId];
+    if (preset && preset.proOnly) {
+      const labelMap = {
+        'anime-cyber': 'Cyber Anime',
+        'sakura-art': 'Sakura Heart',
+        'manga-panel': 'Manga Ink',
+        'obsidian-3d': '3D Gold Pop',
+        'retro-arcade': 'Arcade 8-Bit',
+        'emerald-matrix': 'Emerald'
+      };
+      const baseLabel = labelMap[pId] || pId;
+      chip.innerHTML = pro ? baseLabel : `${baseLabel} <span style="opacity:0.55;font-size:8.5px;">PRO</span>`;
+    }
+  });
+
+  // Hide customizer sub-panels if not PRO
+  if (!pro) {
+    if (extCustSubArt) extCustSubArt.style.display = 'none';
+    if (extCustSubShapes) extCustSubShapes.style.display = 'none';
+    if (extCustSubColors) extCustSubColors.style.display = 'none';
+    if (extCustSubFrame) extCustSubFrame.style.display = 'none';
+    if (extCustSubLogo) extCustSubLogo.style.display = 'none';
+  } else {
+    const activeTabBtn = document.querySelector('.ext-qr-cust-tab.active');
+    const target = (activeTabBtn && activeTabBtn.getAttribute('data-custtab')) || 'art';
+    if (extCustSubArt) extCustSubArt.style.display = target === 'art' ? 'flex' : 'none';
+    if (extCustSubShapes) extCustSubShapes.style.display = target === 'shapes' ? 'flex' : 'none';
+    if (extCustSubColors) extCustSubColors.style.display = target === 'colors' ? 'flex' : 'none';
+    if (extCustSubFrame) extCustSubFrame.style.display = target === 'frame' ? 'flex' : 'none';
+    if (extCustSubLogo) extCustSubLogo.style.display = target === 'logo' ? 'flex' : 'none';
+  }
+}
+
+if (extQrQuotaPill) {
+  extQrQuotaPill.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('Free & Guest users have 15 QR code generations. Upgrade to PRO for Unlimited QR Generation & all 6 PRO Art Themes!');
+    }
+  });
+}
+
+if (btnExtUpgradeProQr) {
+  btnExtUpgradeProQr.addEventListener('click', () => {
+    triggerExtProUpgrade('Upgrade to PRO to unlock Cyber Anime, Sakura Heart, Manga Ink, 3D Gold Pop, Arcade 8-Bit, Emerald & Unlimited QR!');
+  });
+}
+
+function safeCreateExtQrCode(rawPayload) {
+  const cleanPayload = (rawPayload || '').trim() || 'https://beam-drop-mu.vercel.app';
+  const levels = ['H', 'Q', 'M', 'L'];
+  for (const level of levels) {
+    try {
+      return QRCode.create(cleanPayload, { errorCorrectionLevel: level });
+    } catch (_) {}
+  }
+  const safeLengths = [1800, 1200, 800, 400];
+  for (const maxLen of safeLengths) {
+    try {
+      return QRCode.create(cleanPayload.slice(0, maxLen), { errorCorrectionLevel: 'L' });
+    } catch (_) {}
+  }
+  return QRCode.create('https://beam-drop-mu.vercel.app', { errorCorrectionLevel: 'M' });
+}
+
 const EXT_DESIGNER_PRESETS = {
   'classic-clean': {
+    proOnly: false,
     fg1: '#0f172a', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
     body: 'rounded', outerEye: 'rounded', innerEye: 'rounded',
     frame: 'none', frameColor: '#0f172a', frameText: 'SCAN ME',
     art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
   },
   'liquid-cyan': {
+    proOnly: false,
     fg1: '#0284c7', fg2: '#2563eb', grad: 'linear-diag', bg: '#ffffff',
     body: 'liquid', outerEye: 'circle', innerEye: 'circle',
     frame: 'bottom-banner', frameColor: '#0284c7', frameText: 'SCAN ME',
     art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
   },
   'anime-cyber': {
+    proOnly: true,
     fg1: '#311042', fg2: '#0f172a', grad: 'linear-diag', bg: '#ffffff',
     body: 'liquid', outerEye: 'leaf', innerEye: 'diamond',
     frame: 'polaroid', frameColor: '#701a75', frameText: 'CYBER DROP',
     art: 'cyber-anime', blend: 'halftone', fx3d: false, fxNeon: true
   },
   'sakura-art': {
+    proOnly: true,
     fg1: '#881337', fg2: '#9d174d', grad: 'radial', bg: '#fff1f2',
     body: 'heart', outerEye: 'circle', innerEye: 'circle',
     frame: 'polaroid', frameColor: '#be123c', frameText: 'SAKURA EDITION',
     art: 'sakura-spirit', blend: 'halftone', fx3d: false, fxNeon: false
   },
   'manga-panel': {
+    proOnly: true,
     fg1: '#090d16', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
     body: 'star', outerEye: 'square', innerEye: 'diamond',
     frame: 'manga-panel', frameColor: '#090d16', frameText: 'SCAN!! ドドド',
     art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
   },
   'obsidian-3d': {
+    proOnly: true,
     fg1: '#0f172a', fg2: '#b45309', grad: 'linear-diag', bg: '#ffffff',
     body: 'diamond', outerEye: 'rounded', innerEye: 'diamond',
     frame: 'vip-ticket', frameColor: '#0f172a', frameText: 'VIP ACCESS PASS',
     art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
+  },
+  'retro-arcade': {
+    proOnly: true,
+    fg1: '#1e1b4b', fg2: '#4338ca', grad: 'linear-vert', bg: '#ffffff',
+    body: 'square', outerEye: 'square', innerEye: 'square',
+    frame: 'retro-arcade', frameColor: '#312e81', frameText: 'INSERT COIN • SCAN',
+    art: 'mecha-neon', blend: 'halftone', fx3d: false, fxNeon: true
+  },
+  'emerald-matrix': {
+    proOnly: true,
+    fg1: '#065f46', fg2: '#0d9488', grad: 'radial', bg: '#ffffff',
+    body: 'bars', outerEye: 'leaf', innerEye: 'circle',
+    frame: 'bottom-banner', frameColor: '#065f46', frameText: 'VERIFIED LINK',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
   }
 };
 
@@ -2283,15 +2472,15 @@ function updateExtScanSafetyIndicator() {
 
   if (bad) {
     extQrScanSafetyBadge.textContent = lumFg > lumBg ? '⚠️ Inverted Colors' : '⚠️ Low Contrast';
-    extQrScanSafetyBadge.style.background = 'rgba(245, 158, 11, 0.18)';
-    extQrScanSafetyBadge.style.color = '#fcd34d';
-    extQrScanSafetyBadge.style.borderColor = 'rgba(245, 158, 11, 0.45)';
+    extQrScanSafetyBadge.style.background = '#fffbeb';
+    extQrScanSafetyBadge.style.color = '#92400e';
+    extQrScanSafetyBadge.style.borderColor = '#fde68a';
     if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'inline-block';
   } else {
     extQrScanSafetyBadge.textContent = '✓ 100% Scan Ready';
-    extQrScanSafetyBadge.style.background = 'rgba(16, 185, 129, 0.14)';
-    extQrScanSafetyBadge.style.color = '#6ee7b7';
-    extQrScanSafetyBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    extQrScanSafetyBadge.style.background = '#ecfdf5';
+    extQrScanSafetyBadge.style.color = '#047857';
+    extQrScanSafetyBadge.style.borderColor = '#a7f3d0';
     if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'none';
   }
 }
@@ -2511,12 +2700,7 @@ async function renderStyledExtQrCanvas(targetCanvas, scaleFactor = 1, customPayl
   updateExtScanSafetyIndicator();
 
   const payloadToDraw = customPayload || computeExtQrPayload() || 'https://beam-drop-mu.vercel.app';
-  let qrObj;
-  try {
-    qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
-  } catch (_) {
-    qrObj = QRCode.create('https://beam-drop-mu.vercel.app', { errorCorrectionLevel: 'H' });
-  }
+  const qrObj = safeCreateExtQrCode(payloadToDraw);
   const modules = qrObj.modules;
   const count = modules.size;
 
@@ -3141,6 +3325,8 @@ if (btnExtQrUploadPdf && extQrPdfFileInput) {
 
 // Create Dynamic Shortlink (/q/:code)
 async function createExtDynamicShortlink() {
+  const allowed = await enforceExtQrGenerationQuota();
+  if (!allowed) return;
   const cleanBase = getCleanBaseUrl();
   if (btnExtQrMakeDynamic) btnExtQrMakeDynamic.textContent = 'Saving...';
   try {
@@ -3319,6 +3505,10 @@ function updateExtFxToggleButtons() {
 
 if (btnExtQrFx3d) {
   btnExtQrFx3d.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('🔒 3D Pop Depth FX is exclusive to PRO users!');
+      return;
+    }
     extQrFx3dEnabled = !extQrFx3dEnabled;
     updateExtFxToggleButtons();
     renderStyledExtQrCanvas(extQrStudioCanvas, 1);
@@ -3327,6 +3517,10 @@ if (btnExtQrFx3d) {
 
 if (btnExtQrFxNeon) {
   btnExtQrFxNeon.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('🔒 Neon Glow FX is exclusive to PRO users!');
+      return;
+    }
     extQrFxNeonEnabled = !extQrFxNeonEnabled;
     updateExtFxToggleButtons();
     renderStyledExtQrCanvas(extQrStudioCanvas, 1);
@@ -3334,7 +3528,13 @@ if (btnExtQrFxNeon) {
 }
 
 if (btnExtQrUploadArt && extQrArtFileInput) {
-  btnExtQrUploadArt.addEventListener('click', () => extQrArtFileInput.click());
+  btnExtQrUploadArt.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('🔒 Custom Anime & Photo QR Art is exclusive to PRO users!');
+      return;
+    }
+    extQrArtFileInput.click();
+  });
   extQrArtFileInput.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -3353,6 +3553,10 @@ extQrPresetChips.forEach((chip) => {
     const pId = chip.getAttribute('data-preset') || 'classic-clean';
     const p = EXT_DESIGNER_PRESETS[pId];
     if (!p) return;
+    if (p.proOnly && !isExtProUser()) {
+      triggerExtProUpgrade('🔒 This Art Theme is exclusive to PRO users! Upgrade to PRO to unlock all 6 PRO Art Themes & Unlimited QR.');
+      return;
+    }
     extQrPresetChips.forEach((c) => c.classList.toggle('active', c === chip));
     if (extQrFg1) extQrFg1.value = p.fg1;
     if (extQrFg2) extQrFg2.value = p.fg2;
@@ -3375,6 +3579,10 @@ extQrPresetChips.forEach((chip) => {
 
 extQrCustTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('🔒 Custom QR Art, Shapes, Colors, Frames & Logos are exclusive to PRO users!');
+      return;
+    }
     const target = tab.getAttribute('data-custtab') || 'art';
     extQrCustTabs.forEach((t) => t.classList.toggle('active', t === tab));
     if (extCustSubArt) extCustSubArt.style.display = target === 'art' ? 'flex' : 'none';
@@ -3386,7 +3594,13 @@ extQrCustTabs.forEach((tab) => {
 });
 
 if (btnExtQrUploadLogo && extQrLogoFileInput) {
-  btnExtQrUploadLogo.addEventListener('click', () => extQrLogoFileInput.click());
+  btnExtQrUploadLogo.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('🔒 Custom Brand Logos are exclusive to PRO users!');
+      return;
+    }
+    extQrLogoFileInput.click();
+  });
   extQrLogoFileInput.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -3403,6 +3617,8 @@ if (btnExtQrUploadLogo && extQrLogoFileInput) {
 // Export Actions: High-Res PNG, Vector SVG, Copy Image, Print Business Card, Full Studio
 if (btnDownloadQuickQrPng) {
   btnDownloadQuickQrPng.addEventListener('click', async () => {
+    const allowed = await enforceExtQrGenerationQuota();
+    if (!allowed) return;
     const hiCanvas = document.createElement('canvas');
     await renderStyledExtQrCanvas(hiCanvas, 4);
     const dataUrl = hiCanvas.toDataURL('image/png');
@@ -3416,10 +3632,12 @@ if (btnDownloadQuickQrPng) {
 }
 
 if (btnExtDownloadQrSvg) {
-  btnExtDownloadQrSvg.addEventListener('click', () => {
+  btnExtDownloadQrSvg.addEventListener('click', async () => {
+    const allowed = await enforceExtQrGenerationQuota();
+    if (!allowed) return;
     if (typeof QRCode === 'undefined' || !QRCode.create) return;
     const payloadToDraw = computeExtQrPayload() || 'https://beam-drop-mu.vercel.app';
-    const qrObj = QRCode.create(payloadToDraw, { errorCorrectionLevel: 'H' });
+    const qrObj = safeCreateExtQrCode(payloadToDraw);
     const modules = qrObj.modules;
     const count = modules.size;
     const bodyShape = (extQrBodyShape && extQrBodyShape.value) || 'rounded';
@@ -3477,6 +3695,8 @@ if (btnExtDownloadQrSvg) {
 
 if (btnExtCopyQrImg) {
   btnExtCopyQrImg.addEventListener('click', async () => {
+    const allowed = await enforceExtQrGenerationQuota();
+    if (!allowed) return;
     try {
       const hiCanvas = document.createElement('canvas');
       await renderStyledExtQrCanvas(hiCanvas, 2);
@@ -3504,6 +3724,8 @@ if (btnExtCopyQrImg) {
 
 if (btnExtPrintBusinessCard) {
   btnExtPrintBusinessCard.addEventListener('click', async () => {
+    const allowed = await enforceExtQrGenerationQuota();
+    if (!allowed) return;
     const cardCanvas = document.createElement('canvas');
     cardCanvas.width = 1050;
     cardCanvas.height = 600;
@@ -6778,9 +7000,48 @@ if (btnSignOutExt) {
 }
 
 function renderUserAccountBadge(user, dailyUsage) {
+  extCachedUser = user || null;
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyUsage && dailyUsage.date === today) {
+    extCachedDailyUsage = {
+      date: today,
+      sendOperations: Number(dailyUsage.sendOperations || 0),
+      receiveOperations: Number(dailyUsage.receiveOperations || 0),
+      qrScansCount: Number(dailyUsage.qrScansCount || 0),
+      qrGenerationsCount: Number(dailyUsage.qrGenerationsCount || 0)
+    };
+  } else {
+    try {
+      const localRaw = localStorage.getItem('beamdrop_daily_usage_v1');
+      if (localRaw) {
+        const parsed = JSON.parse(localRaw);
+        if (parsed && parsed.date === today) {
+          extCachedDailyUsage = {
+            date: today,
+            sendOperations: Number(parsed.sendOperations || 0),
+            receiveOperations: Number(parsed.receiveOperations || 0),
+            qrScansCount: Number(parsed.qrScansCount || 0),
+            qrGenerationsCount: Number(parsed.qrGenerationsCount || 0)
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  // If user is not PRO, ensure no PRO art preset remains active
+  if (!isExtProUser()) {
+    const activeChip = document.querySelector('.ext-qr-preset-chip.active');
+    const activePid = activeChip && activeChip.getAttribute('data-preset');
+    if (activePid && EXT_DESIGNER_PRESETS[activePid] && EXT_DESIGNER_PRESETS[activePid].proOnly) {
+      const classicChip = document.querySelector('.ext-qr-preset-chip[data-preset="classic-clean"]');
+      if (classicChip) classicChip.click();
+    }
+  }
+  syncExtProQrUi();
+
   if (!userProfileBadge) return;
 
-  const sends = dailyUsage?.sendOperations || 0;
+  const sends = extCachedDailyUsage.sendOperations || 0;
 
   if (user && user.uid) {
     userProfileBadge.classList.remove('hidden');
@@ -6830,6 +7091,8 @@ function renderUserAccountBadge(user, dailyUsage) {
     }
   }
 }
+
+syncExtProQrUi();
 
 // Initial load from local chrome storage
 if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
