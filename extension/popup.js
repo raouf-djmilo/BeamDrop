@@ -12,6 +12,9 @@ const VERCEL_HOST = "https://beam-drop-mu.vercel.app";
 function getCleanBaseUrl() {
   return String(VERCEL_RECEIVER_URL || VERCEL_HOST || "https://beam-drop-mu.vercel.app").replace(/\/$/, "");
 }
+if (typeof window !== 'undefined') {
+  window.getCleanBaseUrl = getCleanBaseUrl;
+}
 
 let CHUNK_SIZE = 256 * 1024; // Dynamic Adaptive LAN Chunker (Up to 512KB)
 
@@ -2026,6 +2029,7 @@ const modeBtnQuickQr = document.getElementById('modeBtnQuickQr');
 const viewQuickQrMode = document.getElementById('viewQuickQrMode');
 const quickQrInput = document.getElementById('quickQrInput');
 const extQrStudioCanvas = document.getElementById('extQrStudioCanvas');
+const quickQrCanvasContainer = document.getElementById('quickQrCanvasContainer');
 const btnGrabCurrentTabUrl = document.getElementById('btnGrabCurrentTabUrl');
 const btnExtQrClearUrl = document.getElementById('btnExtQrClearUrl');
 const btnDownloadQuickQrPng = document.getElementById('btnDownloadQuickQrPng');
@@ -2546,7 +2550,9 @@ if (btnExtQrAutoFixContrast) {
 }
 
 function computeExtQrPayload() {
-  const cleanBase = getCleanBaseUrl();
+  const cleanBase = typeof getCleanBaseUrl === 'function'
+    ? getCleanBaseUrl()
+    : 'https://beam-drop-mu.vercel.app';
   if (extQrActiveDynamicCode) {
     return `${cleanBase}/q/${extQrActiveDynamicCode}`;
   }
@@ -2747,14 +2753,52 @@ function bodyShapeOrDots(s) {
   return s === 'dots' ? 'dots' : s;
 }
 
+function renderFallbackExtQrCanvas(targetCanvas, payloadToDraw, scaleFactor = 1) {
+  try {
+    if (!targetCanvas || typeof QRCode === 'undefined') return;
+    if (typeof QRCode.toCanvas === 'function') {
+      QRCode.toCanvas(targetCanvas, payloadToDraw || 'https://beam-drop-mu.vercel.app', {
+        width: 280 * scaleFactor,
+        margin: 2,
+        color: {
+          dark: (extQrFg1 && extQrFg1.value) || '#0f172a',
+          light: (extQrBg && extQrBg.value) || '#ffffff'
+        }
+      });
+      return;
+    }
+    const qrObj = safeCreateExtQrCode(payloadToDraw);
+    const modules = qrObj.modules;
+    const count = modules.size;
+    const size = 280 * scaleFactor;
+    targetCanvas.width = size;
+    targetCanvas.height = size;
+    const ctx = targetCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = (extQrBg && extQrBg.value) || '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    const pad = 20 * scaleFactor;
+    const cell = (size - pad * 2) / count;
+    ctx.fillStyle = (extQrFg1 && extQrFg1.value) || '#0f172a';
+    for (let r = 0; r < count; r++) {
+      for (let c = 0; c < count; c++) {
+        if (modules.get(r, c)) {
+          ctx.fillRect(pad + c * cell, pad + r * cell, Math.ceil(cell), Math.ceil(cell));
+        }
+      }
+    }
+  } catch (_) {}
+}
+
 async function renderStyledExtQrCanvas(targetCanvas, scaleFactor = 1, customPayload = null) {
   if (!targetCanvas || typeof QRCode === 'undefined' || !QRCode.create) return;
   updateExtScanSafetyIndicator();
 
   const payloadToDraw = customPayload || computeExtQrPayload() || 'https://beam-drop-mu.vercel.app';
-  const qrObj = safeCreateExtQrCode(payloadToDraw);
-  const modules = qrObj.modules;
-  const count = modules.size;
+  try {
+    const qrObj = safeCreateExtQrCode(payloadToDraw);
+    const modules = qrObj.modules;
+    const count = modules.size;
 
   const bodyShape = (extQrBodyShape && extQrBodyShape.value) || 'rounded';
   const outerEyeShape = (extQrOuterEye && extQrOuterEye.value) || 'rounded';
@@ -3118,6 +3162,10 @@ async function renderStyledExtQrCanvas(targetCanvas, scaleFactor = 1, customPayl
     }
     ctx.restore();
   }
+  } catch (err) {
+    console.warn('QR Styled render fallback:', err);
+    renderFallbackExtQrCanvas(targetCanvas, payloadToDraw, scaleFactor);
+  }
 }
 
 function renderQuickQrCode(overrideText) {
@@ -3273,6 +3321,11 @@ if (btnExtGenerateQrMain) {
   });
   el.addEventListener('change', () => renderStyledExtQrCanvas(extQrStudioCanvas, 1));
 });
+
+// Pre-render QR code immediately so canvas is never blank when opening QR Studio
+try {
+  renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+} catch (_) {}
 
 if (btnGrabCurrentTabUrl) {
   btnGrabCurrentTabUrl.addEventListener('click', () => populateActiveTabUrlForQuickQr());

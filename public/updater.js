@@ -524,14 +524,15 @@ async function discoverExtensionFiles() {
 }
 
 async function fetchFileContent(fname) {
-  const sources = [
-    // Priority 1: GitHub Raw (Directly from repository main branch)
-    `${GITHUB_RAW_BASE}/${fname}?_t=${Date.now()}`,
-    // Priority 2: Vercel Production extension mirror
-    `${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`,
-    // Priority 3: API_BASE file proxy
-    `${API_BASE}/api/extension-file?path=${encodeURIComponent(fname)}&_t=${Date.now()}`
-  ];
+  const sources = [];
+  if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
+    sources.push(`${window.location.origin}/extension/${fname}?_t=${Date.now()}`);
+  }
+  if (currentCloudState && currentCloudState.latestHash && /^[a-f0-9]{7,40}$/i.test(currentCloudState.latestHash)) {
+    sources.push(`https://raw.githubusercontent.com/${GITHUB_REPO}/${currentCloudState.latestHash}/extension/${fname}?_t=${Date.now()}`);
+  }
+  sources.push(`${VERCEL_HOST}/extension/${fname}?_t=${Date.now()}`);
+  sources.push(`${GITHUB_RAW_BASE}/${fname}?_t=${Date.now()}`);
 
   let lastErr = null;
   for (const src of sources) {

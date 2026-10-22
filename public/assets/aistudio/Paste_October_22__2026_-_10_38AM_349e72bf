@@ -1,0 +1,1514 @@
+Errors
+Uncaught (in promise) ReferenceError: getCleanBaseUrl is not defined
+Context
+popup.html
+Stack Trace
+popup.js:2497 (anonymous function)
+...
+1998
+1999
+2000
+2001
+2002
+2003
+2004
+2005
+2006
+2007
+2008
+2009
+2010
+2011
+2012
+2013
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024
+2025
+2026
+2027
+2028
+2029
+2030
+2031
+2032
+2033
+2034
+2035
+2036
+2037
+2038
+2039
+2040
+2041
+2042
+2043
+2044
+2045
+2046
+2047
+2048
+2049
+2050
+2051
+2052
+2053
+2054
+2055
+2056
+2057
+2058
+2059
+2060
+2061
+2062
+2063
+2064
+2065
+2066
+2067
+2068
+2069
+2070
+2071
+2072
+2073
+2074
+2075
+2076
+2077
+2078
+2079
+2080
+2081
+2082
+2083
+2084
+2085
+2086
+2087
+2088
+2089
+2090
+2091
+2092
+2093
+2094
+2095
+2096
+2097
+2098
+2099
+2100
+2101
+2102
+2103
+2104
+2105
+2106
+2107
+2108
+2109
+2110
+2111
+2112
+2113
+2114
+2115
+2116
+2117
+2118
+2119
+2120
+2121
+2122
+2123
+2124
+2125
+2126
+2127
+2128
+2129
+2130
+2131
+2132
+2133
+2134
+2135
+2136
+2137
+2138
+2139
+2140
+2141
+2142
+2143
+2144
+2145
+2146
+2147
+2148
+2149
+2150
+2151
+2152
+2153
+2154
+2155
+2156
+2157
+2158
+2159
+2160
+2161
+2162
+2163
+2164
+2165
+2166
+2167
+2168
+2169
+2170
+2171
+2172
+2173
+2174
+2175
+2176
+2177
+2178
+2179
+2180
+2181
+2182
+2183
+2184
+2185
+2186
+2187
+2188
+2189
+2190
+2191
+2192
+2193
+2194
+2195
+2196
+2197
+2198
+2199
+2200
+2201
+2202
+2203
+2204
+2205
+2206
+2207
+2208
+2209
+2210
+2211
+2212
+2213
+2214
+2215
+2216
+2217
+2218
+2219
+2220
+2221
+2222
+2223
+2224
+2225
+2226
+2227
+2228
+2229
+2230
+2231
+2232
+2233
+2234
+2235
+2236
+2237
+2238
+2239
+2240
+2241
+2242
+2243
+2244
+2245
+2246
+2247
+2248
+2249
+2250
+2251
+2252
+2253
+2254
+2255
+2256
+2257
+2258
+2259
+2260
+2261
+2262
+2263
+2264
+2265
+2266
+2267
+2268
+2269
+2270
+2271
+2272
+2273
+2274
+2275
+2276
+2277
+2278
+2279
+2280
+2281
+2282
+2283
+2284
+2285
+2286
+2287
+2288
+2289
+2290
+2291
+2292
+2293
+2294
+2295
+2296
+2297
+2298
+2299
+2300
+2301
+2302
+2303
+2304
+2305
+2306
+2307
+2308
+2309
+2310
+2311
+2312
+2313
+2314
+2315
+2316
+2317
+2318
+2319
+2320
+2321
+2322
+2323
+2324
+2325
+2326
+2327
+2328
+2329
+2330
+2331
+2332
+2333
+2334
+2335
+2336
+2337
+2338
+2339
+2340
+2341
+2342
+2343
+2344
+2345
+2346
+2347
+2348
+2349
+2350
+2351
+2352
+2353
+2354
+2355
+2356
+2357
+2358
+2359
+2360
+2361
+2362
+2363
+2364
+2365
+2366
+2367
+2368
+2369
+2370
+2371
+2372
+2373
+2374
+2375
+2376
+2377
+2378
+2379
+2380
+2381
+2382
+2383
+2384
+2385
+2386
+2387
+2388
+2389
+2390
+2391
+2392
+2393
+2394
+2395
+2396
+2397
+2398
+2399
+2400
+2401
+2402
+2403
+2404
+2405
+2406
+2407
+2408
+2409
+2410
+2411
+2412
+2413
+2414
+2415
+2416
+2417
+2418
+2419
+2420
+2421
+2422
+2423
+2424
+2425
+2426
+2427
+2428
+2429
+2430
+2431
+2432
+2433
+2434
+2435
+2436
+2437
+2438
+2439
+2440
+2441
+2442
+2443
+2444
+2445
+2446
+2447
+2448
+2449
+2450
+2451
+2452
+2453
+2454
+2455
+2456
+2457
+2458
+2459
+2460
+2461
+2462
+2463
+2464
+2465
+2466
+2467
+2468
+2469
+2470
+2471
+2472
+2473
+2474
+2475
+2476
+2477
+2478
+2479
+2480
+2481
+2482
+2483
+2484
+2485
+2486
+2487
+2488
+2489
+2490
+2491
+2492
+2493
+2494
+2495
+2496
+2497
+2498
+2499
+2500
+2501
+2502
+2503
+2504
+2505
+2506
+2507
+2508
+2509
+2510
+2511
+2512
+2513
+2514
+2515
+2516
+2517
+2518
+2519
+2520
+2521
+2522
+2523
+2524
+2525
+2526
+2527
+2528
+2529
+2530
+2531
+2532
+2533
+2534
+2535
+2536
+2537
+2538
+2539
+2540
+2541
+2542
+2543
+2544
+2545
+2546
+2547
+2548
+2549
+2550
+2551
+2552
+2553
+2554
+2555
+2556
+2557
+2558
+2559
+2560
+2561
+2562
+2563
+2564
+2565
+2566
+2567
+2568
+2569
+2570
+2571
+2572
+2573
+2574
+2575
+2576
+2577
+2578
+2579
+2580
+2581
+2582
+2583
+2584
+2585
+2586
+2587
+2588
+2589
+2590
+2591
+2592
+2593
+2594
+2595
+2596
+2597
+2598
+2599
+2600
+2601
+2602
+2603
+2604
+2605
+2606
+2607
+2608
+2609
+2610
+2611
+2612
+2613
+2614
+2615
+2616
+2617
+2618
+2619
+2620
+2621
+2622
+2623
+2624
+2625
+2626
+2627
+2628
+2629
+2630
+2631
+2632
+2633
+2634
+2635
+2636
+2637
+2638
+2639
+2640
+2641
+2642
+2643
+2644
+2645
+2646
+2647
+2648
+2649
+2650
+2651
+2652
+2653
+2654
+2655
+2656
+2657
+2658
+2659
+2660
+2661
+2662
+2663
+2664
+2665
+2666
+2667
+2668
+2669
+2670
+2671
+2672
+2673
+2674
+2675
+2676
+2677
+2678
+2679
+2680
+2681
+2682
+2683
+2684
+2685
+2686
+2687
+2688
+2689
+2690
+2691
+2692
+2693
+2694
+2695
+2696
+2697
+2698
+2699
+2700
+2701
+2702
+2703
+2704
+2705
+2706
+2707
+2708
+2709
+2710
+2711
+2712
+2713
+2714
+2715
+2716
+2717
+2718
+2719
+2720
+2721
+2722
+2723
+2724
+2725
+2726
+2727
+2728
+2729
+2730
+2731
+2732
+2733
+2734
+2735
+2736
+2737
+2738
+2739
+2740
+2741
+2742
+2743
+2744
+2745
+2746
+2747
+2748
+2749
+2750
+2751
+2752
+2753
+2754
+2755
+2756
+2757
+2758
+2759
+2760
+2761
+2762
+2763
+2764
+2765
+2766
+2767
+2768
+2769
+2770
+2771
+2772
+2773
+2774
+2775
+2776
+2777
+2778
+2779
+2780
+2781
+2782
+2783
+2784
+2785
+2786
+2787
+2788
+2789
+2790
+2791
+2792
+2793
+2794
+2795
+2796
+2797
+2798
+2799
+2800
+2801
+2802
+2803
+2804
+2805
+2806
+2807
+2808
+2809
+2810
+2811
+2812
+2813
+2814
+2815
+2816
+2817
+2818
+2819
+2820
+2821
+2822
+2823
+2824
+2825
+2826
+2827
+2828
+2829
+2830
+2831
+2832
+2833
+2834
+2835
+2836
+2837
+2838
+2839
+2840
+2841
+2842
+2843
+2844
+2845
+2846
+2847
+2848
+2849
+2850
+2851
+2852
+2853
+2854
+2855
+2856
+2857
+2858
+2859
+2860
+2861
+2862
+2863
+2864
+2865
+2866
+2867
+2868
+2869
+2870
+2871
+2872
+2873
+2874
+2875
+2876
+2877
+2878
+2879
+2880
+2881
+2882
+2883
+2884
+2885
+2886
+2887
+2888
+2889
+2890
+2891
+2892
+2893
+2894
+2895
+2896
+2897
+2898
+2899
+2900
+2901
+2902
+2903
+2904
+2905
+2906
+2907
+2908
+2909
+2910
+2911
+2912
+2913
+2914
+2915
+2916
+2917
+2918
+2919
+2920
+2921
+2922
+2923
+2924
+2925
+2926
+2927
+2928
+2929
+2930
+2931
+2932
+2933
+2934
+2935
+2936
+2937
+2938
+2939
+2940
+2941
+2942
+2943
+2944
+2945
+2946
+2947
+2948
+2949
+2950
+2951
+2952
+2953
+2954
+2955
+2956
+2957
+2958
+2959
+2960
+2961
+2962
+2963
+2964
+2965
+2966
+2967
+2968
+2969
+2970
+2971
+2972
+2973
+2974
+2975
+2976
+2977
+2978
+2979
+2980
+2981
+2982
+2983
+2984
+2985
+2986
+2987
+2988
+2989
+2990
+2991
+2992
+2993
+2994
+2995
+2996
+...
+<1997 lines not shown>
+  await addHistoryRecord({
+    direction: 'received',
+    kind: textContent ? 'text' : 'file',
+    name: session.name || (textContent ? 'Optical Beam Text' : 'Optical Beam File'),
+    size: reconstructedBlob ? reconstructedBlob.size : new TextEncoder().encode(fullPayload).length,
+    type: session.mime,
+    checksum: computedHash,
+    text: textContent,
+    blob: reconstructedBlob,
+    url: finalUrl
+  });
+
+  if (navTabHistory) {
+    navTabHistory.click();
+  }
+}
+
+// Load initial history vault
+loadHistoryVault();
+
+// ==========================================
+// BRIDGE OBJECT MODE SWITCHER & FULL EXTENSION QR STUDIO
+// ==========================================
+const modeBtnQuickQr = document.getElementById('modeBtnQuickQr');
+const viewQuickQrMode = document.getElementById('viewQuickQrMode');
+const quickQrInput = document.getElementById('quickQrInput');
+const extQrStudioCanvas = document.getElementById('extQrStudioCanvas');
+const btnGrabCurrentTabUrl = document.getElementById('btnGrabCurrentTabUrl');
+const btnExtQrClearUrl = document.getElementById('btnExtQrClearUrl');
+const btnDownloadQuickQrPng = document.getElementById('btnDownloadQuickQrPng');
+const btnExtDownloadQrSvg = document.getElementById('btnExtDownloadQrSvg');
+const btnExtCopyQrImg = document.getElementById('btnExtCopyQrImg');
+const extCopyQrImgText = document.getElementById('extCopyQrImgText');
+const btnOpenFullQrStudio = document.getElementById('btnOpenFullQrStudio');
+const btnExtPrintBusinessCard = document.getElementById('btnExtPrintBusinessCard');
+
+// QR Studio Engine Panels & Inputs
+const extQrEngineBtns = document.querySelectorAll('.ext-qr-engine-btn');
+const extQrPanelUrl = document.getElementById('extQrPanelUrl');
+const extQrPanelText = document.getElementById('extQrPanelText');
+const extQrPanelWifi = document.getElementById('extQrPanelWifi');
+const extQrPanelVcard = document.getElementById('extQrPanelVcard');
+const extQrPanelPdf = document.getElementById('extQrPanelPdf');
+const extQrPanelApplink = document.getElementById('extQrPanelApplink');
+const extQrPanelAnalytics = document.getElementById('extQrPanelAnalytics');
+
+const extQrTextInput = document.getElementById('extQrTextInput');
+const extQrTextChars = document.getElementById('extQrTextChars');
+const btnExtQrPasteText = document.getElementById('btnExtQrPasteText');
+const btnExtQrClearText = document.getElementById('btnExtQrClearText');
+
+const extQrWifiSsid = document.getElementById('extQrWifiSsid');
+const extQrWifiEnc = document.getElementById('extQrWifiEnc');
+const extQrWifiPass = document.getElementById('extQrWifiPass');
+const extQrWifiPassWrap = document.getElementById('extQrWifiPassWrap');
+const btnExtQrToggleWifiPass = document.getElementById('btnExtQrToggleWifiPass');
+
+const btnExtVcardModeOffline = document.getElementById('btnExtVcardModeOffline');
+const btnExtVcardModeDynamic = document.getElementById('btnExtVcardModeDynamic');
+const extVcardPhotoInput = document.getElementById('extVcardPhotoInput');
+const btnExtVcardPhoto = document.getElementById('btnExtVcardPhoto');
+const btnExtVcardClearPhoto = document.getElementById('btnExtVcardClearPhoto');
+const extVcardName = document.getElementById('extVcardName');
+const extVcardTitle = document.getElementById('extVcardTitle');
+const extVcardOrg = document.getElementById('extVcardOrg');
+const extVcardPhone = document.getElementById('extVcardPhone');
+const extVcardWhatsapp = document.getElementById('extVcardWhatsapp');
+const extVcardEmail = document.getElementById('extVcardEmail');
+const extVcardWeb = document.getElementById('extVcardWeb');
+const extVcardCity = document.getElementById('extVcardCity');
+
+const extQrPdfFileInput = document.getElementById('extQrPdfFileInput');
+const extQrPdfStatus = document.getElementById('extQrPdfStatus');
+const btnExtQrUploadPdf = document.getElementById('btnExtQrUploadPdf');
+const extQrPdfTitle = document.getElementById('extQrPdfTitle');
+const extQrPdfUrl = document.getElementById('extQrPdfUrl');
+
+const extQrAppName = document.getElementById('extQrAppName');
+const extQrAppIos = document.getElementById('extQrAppIos');
+const extQrAppAndroid = document.getElementById('extQrAppAndroid');
+const btnExtQrCreateAppLink = document.getElementById('btnExtQrCreateAppLink');
+
+const btnExtQrRefreshSaved = document.getElementById('btnExtQrRefreshSaved');
+const extQrSavedList = document.getElementById('extQrSavedList');
+
+const btnExtQrMakeDynamic = document.getElementById('btnExtQrMakeDynamic');
+const extQrActiveDynamicBadge = document.getElementById('extQrActiveDynamicBadge');
+const extQrActiveDynamicText = document.getElementById('extQrActiveDynamicText');
+const btnExtQrResetDynamic = document.getElementById('btnExtQrResetDynamic');
+
+// Optional Customizer Elements
+const btnExtToggleQrCustom = document.getElementById('btnExtToggleQrCustom');
+const extQrCustomBody = document.getElementById('extQrCustomBody');
+const extQrCustomChevron = document.getElementById('extQrCustomChevron');
+const extQrPresetChips = document.querySelectorAll('.ext-qr-preset-chip');
+const extQrCustTabs = document.querySelectorAll('.ext-qr-cust-tab');
+const extCustSubArt = document.getElementById('extCustSubArt');
+const extCustSubShapes = document.getElementById('extCustSubShapes');
+const extCustSubColors = document.getElementById('extCustSubColors');
+const extCustSubFrame = document.getElementById('extCustSubFrame');
+const extCustSubLogo = document.getElementById('extCustSubLogo');
+
+const extQrArtPreset = document.getElementById('extQrArtPreset');
+const extQrArtBlend = document.getElementById('extQrArtBlend');
+const extQrArtFileInput = document.getElementById('extQrArtFileInput');
+const btnExtQrUploadArt = document.getElementById('btnExtQrUploadArt');
+const btnExtQrFx3d = document.getElementById('btnExtQrFx3d');
+const btnExtQrFxNeon = document.getElementById('btnExtQrFxNeon');
+
+const extQrBodyShape = document.getElementById('extQrBodyShape');
+const extQrOuterEye = document.getElementById('extQrOuterEye');
+const extQrInnerEye = document.getElementById('extQrInnerEye');
+const extQrGradMode = document.getElementById('extQrGradMode');
+const extQrFg1 = document.getElementById('extQrFg1');
+const extQrFg2 = document.getElementById('extQrFg2');
+const extQrBg = document.getElementById('extQrBg');
+const extQrFrameStyle = document.getElementById('extQrFrameStyle');
+const extQrFrameText = document.getElementById('extQrFrameText');
+const extQrFrameColor = document.getElementById('extQrFrameColor');
+const extQrLogoPreset = document.getElementById('extQrLogoPreset');
+const extQrLogoMask = document.getElementById('extQrLogoMask');
+const extQrLogoFileInput = document.getElementById('extQrLogoFileInput');
+const btnExtQrUploadLogo = document.getElementById('btnExtQrUploadLogo');
+
+const extQrScanSafetyBadge = document.getElementById('extQrScanSafetyBadge');
+const btnExtQrAutoFixContrast = document.getElementById('btnExtQrAutoFixContrast');
+
+let extQrCurrentEngine = 'url'; // 'url' | 'text' | 'wifi' | 'vcard' | 'pdf' | 'applink' | 'analytics'
+let extQrActiveDynamicCode = '';
+let extQrVcardMode = 'offline'; // 'offline' | 'dynamic'
+let extQrVcardPhotoDataUrl = null;
+let extQrCustomLogoDataUrl = null;
+let extQrCustomArtDataUrl = null;
+let extQrFx3dEnabled = false;
+let extQrFxNeonEnabled = false;
+let extQrUploadedPdfShareUrl = '';
+let extQrSavedDynamicItems = [];
+
+try {
+  const rawSaved = localStorage.getItem('beamdrop_dynamic_qrs');
+  if (rawSaved) extQrSavedDynamicItems = JSON.parse(rawSaved) || [];
+} catch (_) {}
+
+function saveExtDynamicItemsToStorage() {
+  try {
+    localStorage.setItem('beamdrop_dynamic_qrs', JSON.stringify(extQrSavedDynamicItems));
+  } catch (_) {}
+}
+
+const extQrQuotaPill = document.getElementById('extQrQuotaPill');
+const extQrProLockTag = document.getElementById('extQrProLockTag');
+const extQrProLockBanner = document.getElementById('extQrProLockBanner');
+const btnExtUpgradeProQr = document.getElementById('btnExtUpgradeProQr');
+
+let extCachedUser = null;
+let extCachedDailyUsage = {
+  date: new Date().toISOString().slice(0, 10),
+  sendOperations: 0,
+  receiveOperations: 0,
+  qrScansCount: 0,
+  qrGenerationsCount: 0
+};
+
+function isExtProUser() {
+  return Boolean(extCachedUser && extCachedUser.plan === 'pro');
+}
+
+function getExtQrGenerationsLeft() {
+  if (isExtProUser()) return Infinity;
+  const today = new Date().toISOString().slice(0, 10);
+  if (extCachedDailyUsage && extCachedDailyUsage.date !== today) {
+    extCachedDailyUsage.date = today;
+    extCachedDailyUsage.qrGenerationsCount = 0;
+  }
+  const used = Number((extCachedDailyUsage && extCachedDailyUsage.qrGenerationsCount) || 0);
+  return Math.max(0, 15 - used);
+}
+
+function triggerExtProUpgrade(reasonText) {
+  updateStatus('error', reasonText || 'PRO Feature — Upgrade to BeamDrop PRO for Unlimited QR & Art Themes!');
+  const cleanBase = getCleanBaseUrl();
+  const targetStudioUrl = `${cleanBase}/?tab=qrstudio&upgrade=pro`;
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+    chrome.tabs.create({ url: targetStudioUrl });
+  } else {
+    window.open(targetStudioUrl, '_blank');
+  }
+}
+
+async function enforceExtQrGenerationQuota() {
+  if (isExtProUser()) return true;
+  const left = getExtQrGenerationsLeft();
+  if (left <= 0) {
+    triggerExtProUpgrade('Limit reached (15/15 QR codes). Upgrade to PRO for Unlimited QR Generation & all Art Themes!');
+    return false;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const nextCount = Number((extCachedDailyUsage && extCachedDailyUsage.qrGenerationsCount) || 0) + 1;
+  extCachedDailyUsage = {
+    ...(extCachedDailyUsage || {}),
+    date: today,
+    qrGenerationsCount: nextCount
+  };
+  try {
+    localStorage.setItem('beamdrop_daily_usage_v1', JSON.stringify(extCachedDailyUsage));
+  } catch (_) {}
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      await chrome.storage.local.set({ beamdrop_daily_usage: extCachedDailyUsage });
+    } catch (_) {}
+  }
+  syncExtProQrUi();
+  return true;
+}
+
+function syncExtProQrUi() {
+  const pro = isExtProUser();
+  const left = getExtQrGenerationsLeft();
+
+  if (extQrQuotaPill) {
+    if (pro) {
+      extQrQuotaPill.textContent = 'PRO Unlimited';
+      extQrQuotaPill.style.background = '#f0f9ff';
+      extQrQuotaPill.style.borderColor = '#bae6fd';
+      extQrQuotaPill.style.color = '#0369a1';
+    } else {
+      extQrQuotaPill.textContent = `${left}/15 Free`;
+      extQrQuotaPill.style.background = left <= 3 ? '#fff1f2' : '#f8fafc';
+      extQrQuotaPill.style.borderColor = left <= 3 ? '#fecdd3' : '#e2e8f0';
+      extQrQuotaPill.style.color = left <= 3 ? '#be123c' : '#475569';
+    }
+  }
+
+  if (extQrProLockTag) {
+    if (pro) {
+      extQrProLockTag.textContent = 'PRO Active';
+      extQrProLockTag.style.background = '#f0f9ff';
+      extQrProLockTag.style.color = '#0369a1';
+      extQrProLockTag.style.borderColor = '#bae6fd';
+    } else {
+      extQrProLockTag.textContent = 'Optional';
+      extQrProLockTag.style.background = '#f8fafc';
+      extQrProLockTag.style.color = '#475569';
+      extQrProLockTag.style.borderColor = '#e2e8f0';
+    }
+  }
+
+  if (extQrProLockBanner) {
+    extQrProLockBanner.style.display = pro ? 'none' : 'flex';
+  }
+
+  // Update preset chips clean labels
+  extQrPresetChips.forEach((chip) => {
+    const pId = chip.getAttribute('data-preset') || '';
+    const preset = EXT_DESIGNER_PRESETS[pId];
+    if (preset && preset.proOnly) {
+      const labelMap = {
+        'anime-cyber': 'Cyber Anime',
+        'sakura-art': 'Sakura Heart',
+        'manga-panel': 'Manga Ink',
+        'obsidian-3d': '3D Gold Pop',
+        'retro-arcade': 'Arcade 8-Bit',
+        'emerald-matrix': 'Emerald'
+      };
+      const baseLabel = labelMap[pId] || pId;
+      chip.innerHTML = pro ? baseLabel : `${baseLabel} <span style="opacity:0.55;font-size:8.5px;">PRO</span>`;
+    }
+  });
+
+  // Hide customizer sub-panels if not PRO
+  if (!pro) {
+    if (extCustSubArt) extCustSubArt.style.display = 'none';
+    if (extCustSubShapes) extCustSubShapes.style.display = 'none';
+    if (extCustSubColors) extCustSubColors.style.display = 'none';
+    if (extCustSubFrame) extCustSubFrame.style.display = 'none';
+    if (extCustSubLogo) extCustSubLogo.style.display = 'none';
+  } else {
+    const activeTabBtn = document.querySelector('.ext-qr-cust-tab.active');
+    const target = (activeTabBtn && activeTabBtn.getAttribute('data-custtab')) || 'art';
+    if (extCustSubArt) extCustSubArt.style.display = target === 'art' ? 'flex' : 'none';
+    if (extCustSubShapes) extCustSubShapes.style.display = target === 'shapes' ? 'flex' : 'none';
+    if (extCustSubColors) extCustSubColors.style.display = target === 'colors' ? 'flex' : 'none';
+    if (extCustSubFrame) extCustSubFrame.style.display = target === 'frame' ? 'flex' : 'none';
+    if (extCustSubLogo) extCustSubLogo.style.display = target === 'logo' ? 'flex' : 'none';
+  }
+}
+
+if (extQrQuotaPill) {
+  extQrQuotaPill.addEventListener('click', () => {
+    if (!isExtProUser()) {
+      triggerExtProUpgrade('Free & Guest users have 15 QR code generations. Upgrade to PRO for Unlimited QR Generation & all 6 PRO Art Themes!');
+    }
+  });
+}
+
+if (btnExtUpgradeProQr) {
+  btnExtUpgradeProQr.addEventListener('click', () => {
+    triggerExtProUpgrade('Upgrade to PRO to unlock Cyber Anime, Sakura Heart, Manga Ink, 3D Gold Pop, Arcade 8-Bit, Emerald & Unlimited QR!');
+  });
+}
+
+function safeCreateExtQrCode(rawPayload) {
+  const cleanPayload = (rawPayload || '').trim() || 'https://beam-drop-mu.vercel.app';
+  const levels = ['H', 'Q', 'M', 'L'];
+  for (const level of levels) {
+    try {
+      return QRCode.create(cleanPayload, { errorCorrectionLevel: level });
+    } catch (_) {}
+  }
+  const safeLengths = [1800, 1200, 800, 400];
+  for (const maxLen of safeLengths) {
+    try {
+      return QRCode.create(cleanPayload.slice(0, maxLen), { errorCorrectionLevel: 'L' });
+    } catch (_) {}
+  }
+  return QRCode.create('https://beam-drop-mu.vercel.app', { errorCorrectionLevel: 'M' });
+}
+
+const EXT_DESIGNER_PRESETS = {
+  'classic-clean': {
+    proOnly: false,
+    fg1: '#0f172a', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
+    body: 'rounded', outerEye: 'rounded', innerEye: 'rounded',
+    frame: 'none', frameColor: '#0f172a', frameText: 'SCAN ME',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'liquid-cyan': {
+    proOnly: false,
+    fg1: '#0284c7', fg2: '#2563eb', grad: 'linear-diag', bg: '#ffffff',
+    body: 'liquid', outerEye: 'circle', innerEye: 'circle',
+    frame: 'bottom-banner', frameColor: '#0284c7', frameText: 'SCAN ME',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'anime-cyber': {
+    proOnly: true,
+    fg1: '#311042', fg2: '#0f172a', grad: 'linear-diag', bg: '#ffffff',
+    body: 'liquid', outerEye: 'leaf', innerEye: 'diamond',
+    frame: 'polaroid', frameColor: '#701a75', frameText: 'CYBER DROP',
+    art: 'cyber-anime', blend: 'halftone', fx3d: false, fxNeon: true
+  },
+  'sakura-art': {
+    proOnly: true,
+    fg1: '#881337', fg2: '#9d174d', grad: 'radial', bg: '#fff1f2',
+    body: 'heart', outerEye: 'circle', innerEye: 'circle',
+    frame: 'polaroid', frameColor: '#be123c', frameText: 'SAKURA EDITION',
+    art: 'sakura-spirit', blend: 'halftone', fx3d: false, fxNeon: false
+  },
+  'manga-panel': {
+    proOnly: true,
+    fg1: '#090d16', fg2: '#1e293b', grad: 'none', bg: '#ffffff',
+    body: 'star', outerEye: 'square', innerEye: 'diamond',
+    frame: 'manga-panel', frameColor: '#090d16', frameText: 'SCAN!! ドドド',
+    art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
+  },
+  'obsidian-3d': {
+    proOnly: true,
+    fg1: '#0f172a', fg2: '#b45309', grad: 'linear-diag', bg: '#ffffff',
+    body: 'diamond', outerEye: 'rounded', innerEye: 'diamond',
+    frame: 'vip-ticket', frameColor: '#0f172a', frameText: 'VIP ACCESS PASS',
+    art: 'none', blend: 'halftone', fx3d: true, fxNeon: false
+  },
+  'retro-arcade': {
+    proOnly: true,
+    fg1: '#1e1b4b', fg2: '#4338ca', grad: 'linear-vert', bg: '#ffffff',
+    body: 'square', outerEye: 'square', innerEye: 'square',
+    frame: 'retro-arcade', frameColor: '#312e81', frameText: 'INSERT COIN • SCAN',
+    art: 'mecha-neon', blend: 'halftone', fx3d: false, fxNeon: true
+  },
+  'emerald-matrix': {
+    proOnly: true,
+    fg1: '#065f46', fg2: '#0d9488', grad: 'radial', bg: '#ffffff',
+    body: 'bars', outerEye: 'leaf', innerEye: 'circle',
+    frame: 'bottom-banner', frameColor: '#065f46', frameText: 'VERIFIED LINK',
+    art: 'none', blend: 'halftone', fx3d: false, fxNeon: false
+  }
+};
+
+function createExtBuiltInArtCanvas(preset, size = 300) {
+  if (!preset || preset === 'none' || preset === 'custom') return null;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+
+  if (preset === 'cyber-anime') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#fbcfe8');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#bae6fd');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    const sunGrad = ctx.createLinearGradient(0, size * 0.15, 0, size * 0.75);
+    sunGrad.addColorStop(0, '#f472b6');
+    sunGrad.addColorStop(1, '#fbbf24');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(size / 2, size * 0.46, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#e0e7ff';
+    for (let y = size * 0.48; y < size * 0.78; y += 14) {
+      ctx.fillRect(size * 0.15, y, size * 0.7, 4);
+    }
+  } else if (preset === 'sakura-spirit') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#ffe4e6');
+    g.addColorStop(0.6, '#fecdd3');
+    g.addColorStop(1, '#fda4af');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
+    [[0.2, 0.25], [0.75, 0.2], [0.5, 0.5], [0.3, 0.75], [0.8, 0.7], [0.15, 0.6], [0.6, 0.35]].forEach(([px, py], idx) => {
+      ctx.save();
+      ctx.translate(px * size, py * size);
+      ctx.rotate((idx * Math.PI) / 4);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 22, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  } else if (preset === 'mecha-neon') {
+    const g = ctx.createLinearGradient(0, 0, size, size);
+    g.addColorStop(0, '#dbeafe');
+    g.addColorStop(0.5, '#ede9fe');
+    g.addColorStop(1, '#cffafe');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+    ctx.lineWidth = 4;
+    for (let i = 30; i < size; i += 50) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(size - i, size);
+      ctx.stroke();
+    }
+  } else if (preset === 'cosmic-galaxy') {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.7);
+    g.addColorStop(0, '#f3e8ff');
+    g.addColorStop(0.5, '#e0e7ff');
+    g.addColorStop(1, '#fae8ff');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.32)';
+    ctx.beginPath();
+    ctx.arc(size * 0.4, size * 0.45, size * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return c;
+}
+
+function extHexToLuminance(hex) {
+  const clean = String(hex || '#000000').replace('#', '');
+  const num = parseInt(clean.length === 3 ? clean.replace(/(.)/g, '$1$1') : clean, 16);
+  if (Number.isNaN(num)) return 0;
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+  const toLinear = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function updateExtScanSafetyIndicator() {
+  if (!extQrScanSafetyBadge) return;
+  const fg = (extQrFg1 && extQrFg1.value) || '#0f172a';
+  const bg = (extQrBg && extQrBg.value) || '#ffffff';
+  const lumFg = extHexToLuminance(fg);
+  const lumBg = extHexToLuminance(bg);
+  const ratio = (Math.max(lumFg, lumBg) + 0.05) / (Math.min(lumFg, lumBg) + 0.05);
+  const bad = lumFg > lumBg || ratio < 2.8;
+
+  if (bad) {
+    extQrScanSafetyBadge.textContent = lumFg > lumBg ? '⚠️ Inverted Colors' : '⚠️ Low Contrast';
+    extQrScanSafetyBadge.style.background = '#fffbeb';
+    extQrScanSafetyBadge.style.color = '#92400e';
+    extQrScanSafetyBadge.style.borderColor = '#fde68a';
+    if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'inline-block';
+  } else {
+    extQrScanSafetyBadge.textContent = '✓ 100% Scan Ready';
+    extQrScanSafetyBadge.style.background = '#ecfdf5';
+    extQrScanSafetyBadge.style.color = '#047857';
+    extQrScanSafetyBadge.style.borderColor = '#a7f3d0';
+    if (btnExtQrAutoFixContrast) btnExtQrAutoFixContrast.style.display = 'none';
+  }
+}
+
+if (btnExtQrAutoFixContrast) {
+  btnExtQrAutoFixContrast.addEventListener('click', () => {
+    if (extQrFg1) extQrFg1.value = '#0f172a';
+    if (extQrBg) extQrBg.value = '#ffffff';
+    renderStyledExtQrCanvas(extQrStudioCanvas, 1);
+  });
+}
+
+function computeExtQrPayload() {
+  const cleanBase = getCleanBaseUrl();
+  if (extQrActiveDynamicCode) {
+    return `${cleanBase}/q/${extQrActiveDynamicCode}`;
+  }
+  if (extQrCurrentEngine === 'url') {
+    return (quickQrInput && quickQrInput.value.trim()) || cleanBase;
+  }
