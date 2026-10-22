@@ -23,12 +23,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({
   triggerReason,
   onOpenAuthModal
 }) => {
-  const { currentUser, userTier, activateProSubscription } = useAuth();
+  const { currentUser, userTier, activateProSubscription, redeemPromoCode } = useAuth();
   const [billingCycle, setBillingCycle] = useState<'yearly' | 'monthly'>('yearly');
   const [isActivating, setIsActivating] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [isSdkLoaded, setIsSdkLoaded] = useState<boolean>(false);
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [promoCodeInput, setPromoCodeInput] = useState<string>('');
+  const [promoStatus, setPromoStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const paypalContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -369,18 +371,52 @@ export const PricingModal: React.FC<PricingModalProps> = ({
           </div>
         )}
 
-        {/* Footer Guarantee & Instant Sandbox Demo */}
+        {/* VIP Promo Code Redeemer & Footer Guarantee */}
         {userTier !== 'pro' && (
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 mt-1 flex items-center justify-between text-[10px] text-slate-400">
-            <span>SSL Encrypted • Cancel anytime</span>
-            <button
-              type="button"
-              onClick={handleInstantUnlock}
-              disabled={isActivating}
-              className="text-slate-500 hover:text-sky-600 transition-colors cursor-pointer font-medium underline underline-offset-2"
-            >
-              {isActivating ? 'Activating...' : 'Sandbox demo mode'}
-            </button>
+          <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/80 mt-2 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={promoCodeInput}
+                onChange={(e) => setPromoCodeInput(e.target.value)}
+                placeholder="VIP Promo Code (e.g. A7FLOW30)"
+                className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-[11px] font-mono focus:outline-none focus:border-sky-500"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!promoCodeInput.trim()) return;
+                  const res = await redeemPromoCode(promoCodeInput);
+                  setPromoStatus({ ok: res.success, msg: res.message });
+                  if (res.success) {
+                    setIsSuccess(true);
+                    setTimeout(() => {
+                      setIsSuccess(false);
+                      onClose();
+                    }, 1800);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              >
+                Apply Pass
+              </button>
+            </div>
+            {promoStatus && (
+              <p className={`text-[10.5px] font-medium ${promoStatus.ok ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {promoStatus.msg}
+              </p>
+            )}
+            <div className="flex items-center justify-between text-[10px] text-slate-400">
+              <span>SSL Encrypted · Cancel anytime</span>
+              <button
+                type="button"
+                onClick={handleInstantUnlock}
+                disabled={isActivating}
+                className="text-slate-500 hover:text-sky-600 transition-colors cursor-pointer font-medium underline underline-offset-2"
+              >
+                {isActivating ? 'Activating...' : 'Sandbox demo mode'}
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -46,6 +46,17 @@ export interface UserProfile {
   photoURL?: string;
   transfersCount?: number;
   bytesTransferred?: number;
+  proExpiresAt?: number;
+}
+
+export function isVipOneMonthProAccount(username?: string, email?: string): boolean {
+  const cleanUser = String(username || '').replace(/^@/, '').toLowerCase().trim();
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  return (
+    cleanUser === 'a7flowdzd' ||
+    cleanEmail.startsWith('a7flowdzd@') ||
+    cleanEmail === 'raoufdjemel9@gmail.com'
+  );
 }
 
 export interface TransferRecord {
@@ -74,6 +85,7 @@ interface AuthContextType {
   recordTransfer: (fileName: string, fileSize: number, fileType: string, direction: 'sent' | 'received') => Promise<void>;
   trackOp: (type: OperationTypeQuota, bytes?: number) => Promise<QuotaCheckResult>;
   activateProSubscription: (subscriptionId?: string, billingCycle?: 'monthly' | 'yearly') => Promise<void>;
+  redeemPromoCode: (code: string) => Promise<{ success: boolean; message: string }>;
   updateUserPassword: (newPass: string) => Promise<void>;
   syncWithExtension: () => void;
 }
@@ -109,7 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               fullName: userProfile.fullName,
               username: userProfile.username,
               email: userProfile.email,
-              plan: userProfile.plan
+              plan: userProfile.plan,
+              proExpiresAt: userProfile.proExpiresAt
             }
           : null,
         dailyUsage
@@ -160,36 +173,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
+            const resolvedUsername = data.username || (user.email ? user.email.split('@')[0] : 'user');
+            const resolvedEmail = data.email || user.email || '';
+            const vipPro = isVipOneMonthProAccount(resolvedUsername, resolvedEmail);
+            const activePromoExp = Number(data.proExpiresAt || 0);
+            const isProActive = data.plan === 'pro' || data.tier === 'pro' || vipPro || activePromoExp > Date.now();
+            const expTimestamp = vipPro && (!activePromoExp || activePromoExp < Date.now())
+              ? Date.now() + 30 * 24 * 60 * 60 * 1000
+              : activePromoExp || undefined;
+
             const profile: UserProfile = {
               uid: user.uid,
               fullName: data.fullName || user.displayName || 'BeamDrop User',
-              username: data.username || (user.email ? user.email.split('@')[0] : 'user'),
-              email: data.email || user.email || '',
-              plan: data.plan === 'pro' ? 'pro' : 'free',
+              username: resolvedUsername,
+              email: resolvedEmail,
+              plan: isProActive ? 'pro' : 'free',
               createdAt: data.createdAt || Date.now(),
               photoURL: user.photoURL || data.photoURL,
               transfersCount: data.transfersCount || 0,
-              bytesTransferred: data.bytesTransferred || 0
+              bytesTransferred: data.bytesTransferred || 0,
+              proExpiresAt: expTimestamp
             };
             setUserProfile(profile);
+            if (vipPro && data.plan !== 'pro') {
+              try {
+                await setDoc(userDocRef, { plan: 'pro', tier: 'pro', proExpiresAt: expTimestamp }, { merge: true });
+              } catch (_) {}
+            }
           } else {
             // First time Google sign-in fallback profile creation
             const baseUsername = (user.email ? user.email.split('@')[0] : 'user')
               .replace(/[^a-zA-Z0-9_]/g, '')
               .toLowerCase();
-            const fallbackUsername = (baseUsername.length >= 3 ? baseUsername : `user_${baseUsername}`) +
-              '_' + Math.floor(1000 + Math.random() * 9000);
+            const fallbackUsername = baseUsername === 'a7flowdzd'
+              ? 'a7flowdzd'
+              : (baseUsername.length >= 3 ? baseUsername : `user_${baseUsername}`) +
+                '_' + Math.floor(1000 + Math.random() * 9000);
+            const vipPro = isVipOneMonthProAccount(fallbackUsername, user.email || '');
+            const expTimestamp = vipPro ? Date.now() + 30 * 24 * 60 * 60 * 1000 : undefined;
 
             const newProfile: UserProfile = {
               uid: user.uid,
               fullName: user.displayName || 'BeamDrop User',
               username: fallbackUsername,
               email: user.email || '',
-              plan: 'free',
+              plan: vipPro ? 'pro' : 'free',
               createdAt: Date.now(),
               photoURL: user.photoURL || undefined,
               transfersCount: 0,
-              bytesTransferred: 0
+              bytesTransferred: 0,
+              ...(expTimestamp ? { proExpiresAt: expTimestamp } : {})
             };
 
             setUserProfile(newProfile);
@@ -211,16 +244,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const baseName = (user.email ? user.email.split('@')[0] : 'user')
             .replace(/[^a-zA-Z0-9_]/g, '')
             .toLowerCase();
+          const vipPro = isVipOneMonthProAccount(baseName, user.email || '');
           setUserProfile({
             uid: user.uid,
             fullName: user.displayName || (user.email ? user.email.split('@')[0] : 'BeamDrop User'),
             username: baseName || 'user',
             email: user.email || '',
-            plan: 'free',
+            plan: vipPro ? 'pro' : 'free',
             createdAt: Date.now(),
             photoURL: user.photoURL || undefined,
             transfersCount: 0,
-            bytesTransferred: 0
+            bytesTransferred: 0,
+            proExpiresAt: vipPro ? Date.now() + 30 * 24 * 60 * 60 * 1000 : undefined
           });
         }
       } else {
@@ -243,17 +278,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setUserProfile((prev) => ({
-            uid: currentUser.uid,
-            fullName: data.fullName || currentUser.displayName || prev?.fullName || 'BeamDrop User',
-            username: data.username || prev?.username || (currentUser.email ? currentUser.email.split('@')[0] : 'user'),
-            email: data.email || currentUser.email || prev?.email || '',
-            plan: data.plan === 'pro' || data.tier === 'pro' ? 'pro' : 'free',
-            createdAt: data.createdAt || prev?.createdAt || Date.now(),
-            photoURL: currentUser.photoURL || data.photoURL || prev?.photoURL,
-            transfersCount: data.transfersCount || 0,
-            bytesTransferred: data.bytesTransferred || 0
-          }));
+          setUserProfile((prev) => {
+            const resolvedUsername = data.username || prev?.username || (currentUser.email ? currentUser.email.split('@')[0] : 'user');
+            const resolvedEmail = data.email || currentUser.email || prev?.email || '';
+            const vipPro = isVipOneMonthProAccount(resolvedUsername, resolvedEmail);
+            const activePromoExp = Number(data.proExpiresAt || prev?.proExpiresAt || 0);
+            const isProActive = data.plan === 'pro' || data.tier === 'pro' || vipPro || activePromoExp > Date.now();
+            return {
+              uid: currentUser.uid,
+              fullName: data.fullName || currentUser.displayName || prev?.fullName || 'BeamDrop User',
+              username: resolvedUsername,
+              email: resolvedEmail,
+              plan: isProActive ? 'pro' : 'free',
+              createdAt: data.createdAt || prev?.createdAt || Date.now(),
+              photoURL: currentUser.photoURL || data.photoURL || prev?.photoURL,
+              transfersCount: data.transfersCount || 0,
+              bytesTransferred: data.bytesTransferred || 0,
+              proExpiresAt: activePromoExp || (vipPro ? Date.now() + 30 * 24 * 60 * 60 * 1000 : undefined)
+            };
+          });
         }
       },
       (err: any) => {
@@ -385,16 +428,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await updateProfile(user, { displayName: fullName.trim() });
 
+    const vipPro = isVipOneMonthProAccount(cleanUsername, cleanEmail);
+    const expTimestamp = vipPro ? Date.now() + 30 * 24 * 60 * 60 * 1000 : undefined;
+
     // 4. Concurrently create records in Firestore
     const newProfile: UserProfile = {
       uid: user.uid,
       fullName: fullName.trim(),
       username: cleanUsername,
       email: cleanEmail,
-      plan: 'free',
+      plan: vipPro ? 'pro' : 'free',
       createdAt: Date.now(),
       transfersCount: 0,
-      bytesTransferred: 0
+      bytesTransferred: 0,
+      ...(expTimestamp ? { proExpiresAt: expTimestamp } : {})
     };
 
     try {
@@ -589,6 +636,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Redeem 1-Month PRO VIP Promo Code (A7FLOW30 / A7FLOWDZD / BEAMPRO30)
+  const redeemPromoCode = async (code: string): Promise<{ success: boolean; message: string }> => {
+    const clean = String(code || '').trim().toUpperCase();
+    const validCodes = ['A7FLOW30', 'A7FLOWDZD', 'BEAMPRO30', 'VIP1MONTH'];
+    if (!validCodes.includes(clean)) {
+      return { success: false, message: 'Invalid promo code. Try A7FLOW30 for 1-Month PRO.' };
+    }
+    const oneMonthExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    if (currentUser) {
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await setDoc(
+          userRef,
+          {
+            plan: 'pro',
+            tier: 'pro',
+            proGrantedBy: `promo_${clean}`,
+            proExpiresAt: oneMonthExpiresAt,
+            updatedAt: Date.now()
+          },
+          { merge: true }
+        );
+      } catch (_) {}
+      setUserProfile((prev) =>
+        prev
+          ? { ...prev, plan: 'pro', proExpiresAt: oneMonthExpiresAt }
+          : {
+              uid: currentUser.uid,
+              fullName: currentUser.displayName || 'BeamDrop PRO User',
+              username: currentUser.email ? currentUser.email.split('@')[0] : 'a7flowdzd',
+              email: currentUser.email || '',
+              plan: 'pro',
+              createdAt: Date.now(),
+              proExpiresAt: oneMonthExpiresAt
+            }
+      );
+      syncWithExtension();
+    }
+    return {
+      success: true,
+      message: '🎉 1-Month PRO Plan Activated! Unlimited Transfers & All QR Art Themes unlocked for 30 days.'
+    };
+  };
+
   // Update User Password (for setting or changing password across Web, Extension & Shortcuts)
   const updateUserPassword = async (newPass: string) => {
     if (!auth.currentUser) throw new Error('You must be signed in to change password.');
@@ -623,6 +714,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recordTransfer,
         trackOp,
         activateProSubscription,
+        redeemPromoCode,
         updateUserPassword,
         syncWithExtension
       }}

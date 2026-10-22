@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 import {
   Globe,
   Type,
@@ -1950,6 +1951,8 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
   };
 
   const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(false);
+  const decodeQrInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleExplicitGenerateQr = async () => {
     setIsGeneratingQr(true);
     const allowed = await enforceQrGenerationQuota();
@@ -1959,6 +1962,55 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
     }
     notifySuccess('QR Code Generated', 'Live QR preview is updated & ready to scan or export.');
     setTimeout(() => setIsGeneratingQr(false), 1200);
+  };
+
+  const handleDecodeQrFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = String(ev.target?.result || '');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            notifyError('Decode Failed', 'Canvas context unavailable.');
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'attemptBoth'
+          });
+          if (code && code.data) {
+            const decoded = code.data.trim();
+            if (/^https?:\/\//i.test(decoded)) {
+              setEngineType('url');
+              setWebsiteUrl(decoded);
+              setActiveDynamicCode('');
+            } else {
+              setEngineType('text');
+              setPlainTextPayload(decoded);
+            }
+            notifySuccess(
+              'QR Code Decoded',
+              `Loaded into QR Studio: ${decoded.slice(0, 60)}${decoded.length > 60 ? '...' : ''}`
+            );
+          } else {
+            notifyError('No QR Found', 'Could not detect a valid QR code in the selected image.');
+          }
+        } catch (_) {
+          notifyError('Decode Error', 'Failed to process the QR code image.');
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSaveDynamicEdit = async (code: string) => {
@@ -2620,15 +2672,31 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ receiverBaseUrl }) =
           )}
 
           {/* Universal Generate QR Code Action Bar (All 7 Tabs: Link, Text, Wi-Fi, vCard, PDF, App, Saved) */}
-          <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-3">
+          <div className="bg-white/95 border border-sky-200/80 rounded-2xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
             <button
               type="button"
               onClick={handleExplicitGenerateQr}
               disabled={isGeneratingQr}
-              className="flex-1 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-xs cursor-pointer transition-all"
+              className="flex-1 min-w-[180px] py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-xs cursor-pointer transition-all"
             >
               <QrIcon className="w-4 h-4" />
               <span>{isGeneratingQr ? '✓ QR Code Generated!' : '⚡ Generate QR Code'}</span>
+            </button>
+            <input
+              ref={decodeQrInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleDecodeQrFile}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => decodeQrInputRef.current?.click()}
+              className="py-3 px-3.5 rounded-xl border border-slate-200 hover:border-sky-300 bg-slate-50 hover:bg-sky-50 text-slate-700 hover:text-sky-700 font-bold text-xs flex items-center space-x-1.5 cursor-pointer transition-colors shrink-0"
+              title="Upload any QR image to decode & edit its content"
+            >
+              <Upload className="w-3.5 h-3.5 text-sky-600" />
+              <span>🔍 Decode QR</span>
             </button>
             {engineType !== 'analytics' && !activeDynamicCode && (
               <button

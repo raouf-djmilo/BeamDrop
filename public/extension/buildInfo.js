@@ -1,8 +1,8 @@
 window.BEAMDROP_BUILD = {
   version: "1.6.3",
-  commitSha: "ded10c06596a8f84d2ec3d884f10c83781cf89e9",
-  shortSha: "ded10c0",
-  buildHash: "ded10c0",
-  buildTimestamp: 1792662471,
+  commitSha: "ddd99ad8cbd5dda31747ccff34591f9b06ad0533",
+  shortSha: "ddd99ad",
+  buildHash: "ddd99ad",
+  buildTimestamp: 1792678177,
   patchNotes: "feat(api/extension): implement order handling and refine QR UI"
 };

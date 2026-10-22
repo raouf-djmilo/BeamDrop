@@ -224,6 +224,26 @@ export default async function handler(req, res) {
       } catch (_) {}
     }
 
+    const cleanCheckUser = String(username || '').replace(/^@/, '').toLowerCase().trim();
+    const cleanCheckEmail = String(authData.email || email || '').toLowerCase().trim();
+    const isVipOneMonthUser =
+      cleanCheckUser === 'a7flowdzd' ||
+      cleanCheckEmail.startsWith('a7flowdzd@') ||
+      cleanCheckEmail === 'raoufdjemel9@gmail.com';
+
+    const oneMonthExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    if (isVipOneMonthUser) {
+      plan = 'pro';
+      if (db) {
+        try {
+          await db.collection('users').doc(uid).set(
+            { plan: 'pro', tier: 'pro', proGrantedBy: 'vip_a7flowdzd_1month', proExpiresAt: oneMonthExpiresAt },
+            { merge: true }
+          );
+        } catch (_) {}
+      }
+    }
+
     const isPro = plan === 'pro';
 
     // 4. Return clean, structured session for iOS Shortcut
